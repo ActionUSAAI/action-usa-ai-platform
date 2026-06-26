@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
         client_id: client.id,
         case_type: "talento_extraordinario",
         status: "nuevo",
+        title: `Evaluación O-1B/EB-1B — ${body.fullName}`,
         description: `Evaluación O-1B / EB-1B — ${body.profession}. Objetivo: ${body.usaObjective}`,
         priority: "normal",
       })
