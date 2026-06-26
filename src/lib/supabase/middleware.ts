@@ -46,7 +46,9 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    url.pathname = "/dashboard";
+    // Route by role stored in user_metadata (set at invite time, no DB query needed)
+    url.pathname =
+      user.user_metadata?.role === "client" ? "/client/dashboard" : "/dashboard";
     return NextResponse.redirect(url);
   }
 

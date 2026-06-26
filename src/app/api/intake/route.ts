@@ -120,8 +120,8 @@ export async function POST(request: NextRequest) {
     // 5 — Invite client to create portal account (sends email)
     await db.auth.admin
       .inviteUserByEmail((body.email || "").toLowerCase().trim(), {
-        data: { full_name: body.fullName },
-        redirectTo: "https://actionusaai.com/auth/callback?next=/dashboard",
+        data: { full_name: body.fullName, role: "client" },
+        redirectTo: "https://actionusaai.com/auth/callback?next=/client/setup",
       })
       .catch((e: Error) => console.error("Invite error:", e.message));
 
