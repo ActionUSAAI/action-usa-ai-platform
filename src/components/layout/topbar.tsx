@@ -2,6 +2,7 @@
 
 import { Bell, Search } from "lucide-react";
 import { useState } from "react";
+import Image from "next/image";
 
 interface TopbarProps {
   title: string;
@@ -17,7 +18,7 @@ export function Topbar({ title, userEmail, userName }: TopbarProps) {
 
   return (
     <header className="flex h-16 shrink-0 items-center justify-between border-b border-gray-200 bg-white px-6">
-      <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+      <Image src="/logo.png" alt="ACTION USA AI" width={160} height={40} className="h-10 w-auto" priority />
 
       <div className="flex items-center gap-4">
         {/* Búsqueda global */}

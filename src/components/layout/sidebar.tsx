@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -55,14 +56,14 @@ export function Sidebar() {
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-brand-blue-light px-4">
         {!collapsed && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded bg-brand-red text-xs font-bold text-white">
-              AU
-            </div>
-            <span className="text-sm font-bold text-white leading-tight">
-              ACTION USA AI
-            </span>
-          </div>
+          <Image
+            src="/logo.png"
+            alt="ACTION USA AI"
+            width={144}
+            height={36}
+            className="h-9 w-auto"
+            priority
+          />
         )}
         {collapsed && (
           <div className="mx-auto flex h-8 w-8 items-center justify-center rounded bg-brand-red text-xs font-bold text-white">
