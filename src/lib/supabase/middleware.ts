@@ -35,6 +35,7 @@ export async function updateSession(request: NextRequest) {
     pathname === "/" ||
     isAuthRoute ||
     pathname.startsWith("/intake") ||
+    pathname.startsWith("/auth/") ||
     pathname.startsWith("/api/");
 
   if (!user && !isPublicRoute) {
