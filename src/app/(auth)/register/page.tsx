@@ -6,6 +6,24 @@ import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+function parseSupabaseError(error: unknown): string {
+  if (!error) return "Error desconocido.";
+  if (typeof error === "string") return error;
+  if (typeof error === "object") {
+    const e = error as Record<string, unknown>;
+    if (typeof e.message === "string" && e.message.trim()) return e.message;
+    if (typeof e.msg === "string" && e.msg.trim()) return e.msg;
+    if (typeof e.error_description === "string") return e.error_description;
+    if (typeof e.code === "number" || typeof e.code === "string") {
+      const code = String(e.code);
+      if (code === "422") return "Este correo ya está registrado. Intenta iniciar sesión.";
+      if (code === "429") return "Demasiados intentos. Espera unos minutos e intenta de nuevo.";
+      if (code === "500") return "Error del servidor. Intenta de nuevo en unos segundos.";
+    }
+  }
+  return "Ocurrió un error al crear la cuenta. Intenta de nuevo.";
+}
+
 export default function RegisterPage() {
   const [formData, setFormData] = useState({
     fullName: "",
@@ -35,24 +53,45 @@ export default function RegisterPage() {
     }
 
     setLoading(true);
-    const supabase = createClient();
-    const { error } = await supabase.auth.signUp({
-      email: formData.email,
-      password: formData.password,
-      options: {
-        data: { full_name: formData.fullName },
-        emailRedirectTo: `${window.location.origin}/dashboard`,
-      },
-    });
 
-    if (error) {
-      setError(error.message);
+    try {
+      const supabase = createClient();
+      const { data, error: authError } = await supabase.auth.signUp({
+        email: formData.email.trim(),
+        password: formData.password,
+        options: {
+          data: { full_name: formData.fullName.trim() },
+          emailRedirectTo: `${window.location.origin}/dashboard`,
+        },
+      });
+
+      if (authError) {
+        setError(parseSupabaseError(authError));
+        setLoading(false);
+        return;
+      }
+
+      // Supabase devuelve user sin session cuando hay confirmación de email pendiente
+      if (data?.user && !data?.session) {
+        setSuccess(true);
+        setLoading(false);
+        return;
+      }
+
+      // Si hay session directamente (sin confirmación de email requerida)
+      if (data?.session) {
+        window.location.href = "/dashboard";
+        return;
+      }
+
+      // Caso: signUp silencioso (email ya existe no confirmado)
+      setSuccess(true);
       setLoading(false);
-      return;
-    }
 
-    setSuccess(true);
-    setLoading(false);
+    } catch (err: unknown) {
+      setError(parseSupabaseError(err));
+      setLoading(false);
+    }
   }
 
   if (success) {
@@ -63,11 +102,15 @@ export default function RegisterPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
           </svg>
         </div>
-        <h2 className="text-xl font-bold text-gray-900">Registro exitoso</h2>
+        <h2 className="text-xl font-bold text-gray-900">Revisa tu correo</h2>
         <p className="mt-2 text-sm text-gray-500">
-          Revisa tu correo electrónico para confirmar tu cuenta.
+          Enviamos un enlace de confirmación a <strong>{formData.email}</strong>.
+          Ábrelo para activar tu cuenta.
         </p>
-        <Link href="/login" className="mt-4 block text-sm text-brand-blue hover:underline">
+        <p className="mt-2 text-xs text-gray-400">
+          Si no lo ves, revisa la carpeta de spam.
+        </p>
+        <Link href="/login" className="mt-5 block text-sm text-brand-blue hover:underline">
           Ir al inicio de sesión
         </Link>
       </div>
@@ -123,7 +166,7 @@ export default function RegisterPage() {
 
         {error && (
           <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-sm text-red-700">
-            {error}
+            ⚠ {error}
           </div>
         )}
 
