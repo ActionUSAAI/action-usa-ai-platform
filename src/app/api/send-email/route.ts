@@ -6,28 +6,43 @@ const HOOK_SECRET = process.env.SUPABASE_HOOK_SECRET!; // v1,whsec_<base64>
 const FROM        = "ACTION USA AI <noreply@actionusaai.com>";
 const SITE_URL    = "https://actionusaai.com";
 
-// ── Signature verification ─────────────────────────────────────────────────────
-// bodyBuf: exact raw bytes from request.arrayBuffer() — no string re-encoding.
-// Supabase signs the body with HMAC-SHA256; header format: "v1=<hex>".
-function verifySignature(bodyBuf: Buffer, header: string | null): boolean {
-  if (!header || !HOOK_SECRET) {
-    console.error("[send-email] verifySignature: missing header or HOOK_SECRET");
+// ── Signature verification (Svix standard) ────────────────────────────────────
+// Svix signs: "{webhook-id}.{webhook-timestamp}.{raw-body}"
+// HMAC-SHA256, base64-encoded result.  Header may carry multiple sigs separated
+// by spaces: "v1,<b64sig1> v1,<b64sig2>" — any match is sufficient.
+function verifySignature(
+  bodyBuf: Buffer,
+  webhookId: string | null,
+  webhookTimestamp: string | null,
+  webhookSignature: string | null,
+): boolean {
+  if (!webhookId || !webhookTimestamp || !webhookSignature || !HOOK_SECRET) {
+    console.error("[send-email] verifySignature: missing svix headers or HOOK_SECRET",
+      { id: !!webhookId, ts: !!webhookTimestamp, sig: !!webhookSignature, secret: !!HOOK_SECRET });
     return false;
   }
   try {
     const secretB64 = HOOK_SECRET.replace(/^v1,whsec_/, "");
     const keyBytes  = Buffer.from(secretB64, "base64");
-    const expected  = header.replace(/^v1=/, "");
-    // HMAC computed on the raw bytes — no string encoding step
-    const computed  = createHmac("sha256", keyBytes).update(bodyBuf).digest("hex");
-    console.log("[send-email] sig — computed:", computed.slice(0, 16) + "…", "| expected:", expected.slice(0, 16) + "…", "| header:", header.slice(0, 40));
-    const a = Buffer.from(computed, "hex");
-    const b = Buffer.from(expected, "hex");
-    if (a.length !== b.length) {
-      console.error("[send-email] sig length mismatch:", a.length, "vs", b.length);
-      return false;
+    // Svix signed payload: "{id}.{timestamp}.{body}" — concat as bytes
+    const prefix    = Buffer.from(`${webhookId}.${webhookTimestamp}.`);
+    const toSign    = Buffer.concat([prefix, bodyBuf]);
+    const computed  = createHmac("sha256", keyBytes).update(toSign).digest("base64");
+    const computedBuf = Buffer.from(computed, "base64");
+    // Header may contain multiple space-separated signatures
+    const signatures = webhookSignature.split(" ");
+    for (const entry of signatures) {
+      const b64 = entry.replace(/^v1,/, "");
+      console.log("[send-email] sig — computed:", computed.slice(0, 16) + "…", "| candidate:", b64.slice(0, 16) + "…");
+      try {
+        const candidateBuf = Buffer.from(b64, "base64");
+        if (computedBuf.length === candidateBuf.length && timingSafeEqual(computedBuf, candidateBuf)) {
+          return true;
+        }
+      } catch { /* skip malformed entry */ }
     }
-    return timingSafeEqual(a, b);
+    console.error("[send-email] no matching signature found among", signatures.length, "candidate(s)");
+    return false;
   } catch (e) {
     console.error("[send-email] verifySignature threw:", e);
     return false;
@@ -232,7 +247,12 @@ export async function POST(request: NextRequest) {
   });
   console.log("[send-email] incoming headers:", JSON.stringify(allHeaders));
 
-  if (!verifySignature(rawBuf, request.headers.get("x-supabase-signature"))) {
+  if (!verifySignature(
+    rawBuf,
+    request.headers.get("webhook-id"),
+    request.headers.get("webhook-timestamp"),
+    request.headers.get("webhook-signature"),
+  )) {
     console.error("[send-email] invalid signature");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
