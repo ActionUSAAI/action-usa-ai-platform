@@ -227,6 +227,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { user, email_data } = payload;
+
+  if (!user?.email || !email_data?.email_action_type) {
+    console.error("[send-email] missing required fields — user.email:", user?.email, "| email_action_type:", email_data?.email_action_type);
+    return NextResponse.json({ error: "Bad request: missing user.email or email_data.email_action_type" }, { status: 400 });
+  }
+
   const { email_action_type, token_hash, token_hash_new } = email_data;
   const name = user.user_metadata?.full_name || user.email;
   const to   = user.email;
