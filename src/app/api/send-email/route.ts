@@ -206,6 +206,12 @@ interface HookPayload {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
+  // ── Env diagnostics (safe — no secret values exposed) ─────────────────────
+  const hasResendKey  = !!process.env.RESEND_API_KEY;
+  const hasHookSecret = !!process.env.SUPABASE_HOOK_SECRET;
+  console.log("[send-email] env check — RESEND_API_KEY:", hasResendKey, "| SUPABASE_HOOK_SECRET:", hasHookSecret);
+  console.log("[send-email] raw body length:", rawBody.length, "| body preview:", rawBody.slice(0, 200));
+
   // TEMP: signature check disabled for flow testing — re-enable before production
   // if (!verifySignature(rawBody, request.headers.get("x-supabase-signature"))) {
   //   console.error("send-email: invalid signature");
@@ -215,7 +221,8 @@ export async function POST(request: NextRequest) {
   let payload: HookPayload;
   try {
     payload = JSON.parse(rawBody);
-  } catch {
+  } catch (parseErr) {
+    console.error("[send-email] JSON parse error:", parseErr, "| raw:", rawBody.slice(0, 500));
     return NextResponse.json({ error: "Bad request" }, { status: 400 });
   }
 
@@ -223,6 +230,8 @@ export async function POST(request: NextRequest) {
   const { email_action_type, token_hash, token_hash_new } = email_data;
   const name = user.user_metadata?.full_name || user.email;
   const to   = user.email;
+
+  console.log("[send-email] action:", email_action_type, "| to:", to, "| token_hash present:", !!token_hash);
 
   try {
     switch (email_action_type) {
