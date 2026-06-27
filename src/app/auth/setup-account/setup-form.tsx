@@ -1,19 +1,65 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import Image from "next/image";
-import { Eye, EyeOff, CheckCircle, AlertCircle, Lock, User, Mail } from "lucide-react";
+import { Eye, EyeOff, CheckCircle, AlertCircle, Lock, User, Mail, Loader2 } from "lucide-react";
 
-export function SetupForm({ name, email }: { name: string; email: string }) {
+export function SetupForm({
+  initialName,
+  initialEmail,
+  isAuthenticated,
+}: {
+  initialName: string;
+  initialEmail: string;
+  isAuthenticated: boolean;
+}) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  const [displayName, setDisplayName] = useState(initialName);
+  const [displayEmail, setDisplayEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [ready, setReady] = useState(isAuthenticated);
+
+  const tokenHash = searchParams.get("token_hash");
+  const tokenType = searchParams.get("type") as "invite" | "recovery" | null;
+
+  useEffect(() => {
+    // Already authenticated (came through PKCE callback) — form is ready
+    if (isAuthenticated) return;
+
+    // Has invite/recovery token in URL — verify it to create a session
+    if (tokenHash && (tokenType === "invite" || tokenType === "recovery")) {
+      setVerifying(true);
+      const supabase = createClient();
+      supabase.auth
+        .verifyOtp({ token_hash: tokenHash, type: tokenType })
+        .then(({ data, error: verifyErr }) => {
+          setVerifying(false);
+          if (verifyErr || !data.user) {
+            setError(
+              "El enlace de invitación es inválido o ya fue utilizado. Contacta al equipo."
+            );
+            return;
+          }
+          setDisplayName(data.user.user_metadata?.full_name || "");
+          setDisplayEmail(data.user.email || "");
+          setReady(true);
+        });
+      return;
+    }
+
+    // No token and not authenticated — go to login
+    router.replace("/login");
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -30,19 +76,57 @@ export function SetupForm({ name, email }: { name: string; email: string }) {
 
     setLoading(true);
     const supabase = createClient();
-    const { error: updateErr } = await supabase.auth.updateUser({ password });
 
+    const { error: updateErr } = await supabase.auth.updateUser({ password });
     if (updateErr) {
       setError(updateErr.message || "Error al crear la contraseña. Intenta de nuevo.");
       setLoading(false);
       return;
     }
 
+    // Activate client profile server-side (idempotent — safe even if callback already ran)
+    await fetch("/api/client-activate", { method: "POST" });
+
     setDone(true);
-    // Already authenticated — go straight to dashboard, no login step needed
     setTimeout(() => router.push("/client/dashboard"), 1500);
   }
 
+  // ── Verifying invite token ──────────────────────────────────────────────────
+  if (verifying) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-blue-dark flex items-center justify-center p-4">
+        <div className="text-center text-white space-y-4">
+          <Loader2 size={40} className="animate-spin mx-auto" />
+          <p className="text-blue-200">Verificando invitación...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Invalid / expired token ─────────────────────────────────────────────────
+  if (error && !ready) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-blue-dark flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-2xl bg-white p-8 shadow-xl text-center space-y-4">
+          <div className="flex justify-center">
+            <div className="rounded-full bg-red-100 p-4">
+              <AlertCircle size={40} className="text-red-500" />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">Enlace inválido</h2>
+          <p className="text-sm text-gray-500">{error}</p>
+          <a
+            href="mailto:actionusaaillc@gmail.com"
+            className="block text-sm text-brand-blue hover:underline"
+          >
+            Contactar soporte →
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Password setup form ─────────────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-blue-dark flex items-center justify-center p-4">
       <div className="w-full max-w-md">
@@ -84,20 +168,19 @@ export function SetupForm({ name, email }: { name: string; email: string }) {
                   <User size={15} className="shrink-0 text-gray-400" />
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">Nombre</p>
-                    <p className="truncate text-sm font-medium text-gray-800">{name || "—"}</p>
+                    <p className="truncate text-sm font-medium text-gray-800">{displayName || "—"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2.5">
                   <Mail size={15} className="shrink-0 text-gray-400" />
                   <div className="min-w-0">
                     <p className="text-xs text-gray-400">Correo electrónico</p>
-                    <p className="truncate text-sm font-medium text-gray-800">{email}</p>
+                    <p className="truncate text-sm font-medium text-gray-800">{displayEmail}</p>
                   </div>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Password */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
                     Contraseña <span className="text-brand-red">*</span>
@@ -122,7 +205,6 @@ export function SetupForm({ name, email }: { name: string; email: string }) {
                   </div>
                 </div>
 
-                {/* Confirm password */}
                 <div className="space-y-1.5">
                   <label className="text-sm font-medium text-gray-700">
                     Confirmar contraseña <span className="text-brand-red">*</span>
