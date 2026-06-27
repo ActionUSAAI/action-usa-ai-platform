@@ -212,11 +212,10 @@ export async function POST(request: NextRequest) {
   console.log("[send-email] env check — RESEND_API_KEY:", hasResendKey, "| SUPABASE_HOOK_SECRET:", hasHookSecret);
   console.log("[send-email] raw body length:", rawBody.length, "| body preview:", rawBody.slice(0, 200));
 
-  // TEMP: signature check disabled for flow testing — re-enable before production
-  // if (!verifySignature(rawBody, request.headers.get("x-supabase-signature"))) {
-  //   console.error("send-email: invalid signature");
-  //   return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  // }
+  if (!verifySignature(rawBody, request.headers.get("x-supabase-signature"))) {
+    console.error("[send-email] invalid signature");
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   let payload: HookPayload;
   try {
