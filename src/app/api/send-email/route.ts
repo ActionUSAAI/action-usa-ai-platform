@@ -206,11 +206,18 @@ interface HookPayload {
 export async function POST(request: NextRequest) {
   const rawBody = await request.text();
 
-  // ── Env diagnostics (safe — no secret values exposed) ─────────────────────
+  // ── Diagnostics ────────────────────────────────────────────────────────────
   const hasResendKey  = !!process.env.RESEND_API_KEY;
   const hasHookSecret = !!process.env.SUPABASE_HOOK_SECRET;
-  console.log("[send-email] env check — RESEND_API_KEY:", hasResendKey, "| SUPABASE_HOOK_SECRET:", hasHookSecret);
-  console.log("[send-email] raw body length:", rawBody.length, "| body preview:", rawBody.slice(0, 200));
+  console.log("[send-email] env — RESEND_API_KEY:", hasResendKey, "| SUPABASE_HOOK_SECRET:", hasHookSecret);
+  console.log("[send-email] body length:", rawBody.length, "| preview:", rawBody.slice(0, 200));
+
+  const allHeaders: Record<string, string> = {};
+  request.headers.forEach((value, key) => {
+    // Mask any header that looks like a secret/token
+    allHeaders[key] = /secret|token|auth|bearer/i.test(key) ? "***" : value;
+  });
+  console.log("[send-email] incoming headers:", JSON.stringify(allHeaders));
 
   if (!verifySignature(rawBody, request.headers.get("x-supabase-signature"))) {
     console.error("[send-email] invalid signature");
