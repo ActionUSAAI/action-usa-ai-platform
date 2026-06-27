@@ -91,6 +91,15 @@ export function SetupForm({
     setTimeout(() => router.push("/client/dashboard"), 1500);
   }
 
+  // ── Not ready and not verifying — redirect to login is in flight ───────────
+  if (!ready && !verifying) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-blue-dark flex items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-t-2 border-white" />
+      </div>
+    );
+  }
+
   // ── Verifying invite token ──────────────────────────────────────────────────
   if (verifying) {
     return (
