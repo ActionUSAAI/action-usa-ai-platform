@@ -25,12 +25,16 @@ function verifySignature(rawBody: string, header: string | null): boolean {
 
 // ── Resend send ────────────────────────────────────────────────────────────────
 async function send(to: string, subject: string, html: string): Promise<void> {
+  if (!RESEND_KEY) throw new Error("RESEND_API_KEY env var is not set");
   const res = await fetch("https://api.resend.com/emails", {
     method:  "POST",
     headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
     body:    JSON.stringify({ from: FROM, to: [to], subject, html }),
   });
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Resend ${res.status}: ${body}`);
+  }
 }
 
 // ── URL builder ────────────────────────────────────────────────────────────────
@@ -257,7 +261,8 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("send-email:", err);
-    return NextResponse.json({ error: "Failed to send email" }, { status: 500 });
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("send-email error:", msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
