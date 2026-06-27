@@ -7,18 +7,29 @@ const FROM        = "ACTION USA AI <noreply@actionusaai.com>";
 const SITE_URL    = "https://actionusaai.com";
 
 // ── Signature verification ─────────────────────────────────────────────────────
-function verifySignature(rawBody: string, header: string | null): boolean {
-  if (!header || !HOOK_SECRET) return false;
+// bodyBuf: exact raw bytes from request.arrayBuffer() — no string re-encoding.
+// Supabase signs the body with HMAC-SHA256; header format: "v1=<hex>".
+function verifySignature(bodyBuf: Buffer, header: string | null): boolean {
+  if (!header || !HOOK_SECRET) {
+    console.error("[send-email] verifySignature: missing header or HOOK_SECRET");
+    return false;
+  }
   try {
     const secretB64 = HOOK_SECRET.replace(/^v1,whsec_/, "");
     const keyBytes  = Buffer.from(secretB64, "base64");
     const expected  = header.replace(/^v1=/, "");
-    const computed  = createHmac("sha256", keyBytes).update(rawBody).digest("hex");
+    // HMAC computed on the raw bytes — no string encoding step
+    const computed  = createHmac("sha256", keyBytes).update(bodyBuf).digest("hex");
+    console.log("[send-email] sig — computed:", computed.slice(0, 16) + "…", "| expected:", expected.slice(0, 16) + "…", "| header:", header.slice(0, 40));
     const a = Buffer.from(computed, "hex");
     const b = Buffer.from(expected, "hex");
-    if (a.length !== b.length) return false;
+    if (a.length !== b.length) {
+      console.error("[send-email] sig length mismatch:", a.length, "vs", b.length);
+      return false;
+    }
     return timingSafeEqual(a, b);
-  } catch {
+  } catch (e) {
+    console.error("[send-email] verifySignature threw:", e);
     return false;
   }
 }
@@ -204,7 +215,9 @@ interface HookPayload {
 
 // ── Handler ────────────────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
-  const rawBody = await request.text();
+  // Read the exact raw bytes off the wire FIRST — before any other operation.
+  const rawBuf  = Buffer.from(await request.arrayBuffer());
+  const rawBody = rawBuf.toString("utf8"); // string only used for JSON.parse + logging
 
   // ── Diagnostics ────────────────────────────────────────────────────────────
   const hasResendKey  = !!process.env.RESEND_API_KEY;
@@ -219,7 +232,7 @@ export async function POST(request: NextRequest) {
   });
   console.log("[send-email] incoming headers:", JSON.stringify(allHeaders));
 
-  if (!verifySignature(rawBody, request.headers.get("x-supabase-signature"))) {
+  if (!verifySignature(rawBuf, request.headers.get("x-supabase-signature"))) {
     console.error("[send-email] invalid signature");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
