@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
     await db.auth.admin
       .inviteUserByEmail((body.email || "").toLowerCase().trim(), {
         data: { full_name: body.fullName, role: "client" },
-        redirectTo: "https://actionusaai.com/auth/callback?next=/client/setup",
+        redirectTo: "https://actionusaai.com/auth/callback?next=/auth/setup-account&invite=1",
       })
       .catch((e: Error) => console.error("Invite error:", e.message));
 

@@ -5,7 +5,7 @@ export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const next = searchParams.get("next") ?? "";
-  const isClientInvite = next.startsWith("/client");
+  const isClientInvite = searchParams.get("invite") === "1";
 
   if (code) {
     const supabase = createClient();
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       const admin = createAdminClient();
 
       if (isClientInvite) {
-        // Ensure profile exists with role='client'
+        // Ensure profile has role='client'
         await admin.from("profiles").upsert(
           {
             id: userId,
@@ -28,17 +28,23 @@ export async function GET(request: NextRequest) {
           { onConflict: "id" }
         );
 
-        // Link clients record to this auth user (required for RLS)
+        // Link clients.profile_id so RLS lets the client see their cases
         await admin
           .from("clients")
           .update({ profile_id: userId })
           .eq("email", userEmail)
           .is("profile_id", null);
 
-        return NextResponse.redirect(`${origin}/client/setup`);
+        // → password setup page
+        return NextResponse.redirect(`${origin}/auth/setup-account`);
       }
 
-      // Normal login: redirect based on role
+      // Password reset or magic link — just go to setup page (user already authed)
+      if (next === "/auth/setup-account") {
+        return NextResponse.redirect(`${origin}/auth/setup-account`);
+      }
+
+      // Normal OAuth/login flow — redirect by role
       const { data: profile } = await admin
         .from("profiles")
         .select("role")
