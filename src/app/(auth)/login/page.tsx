@@ -37,12 +37,18 @@ export default function LoginPage() {
       return;
     }
 
-    // Role-based redirect: check user_metadata set at invite time
-    const role = data.user.user_metadata?.role;
-    if (role === "client") {
-      router.push("/client/dashboard");
-    } else {
+    // Role-based redirect: authoritative source is the profiles table
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", data.user.id)
+      .single();
+
+    const role = profile?.role;
+    if (role === "admin" || role === "supervisor" || role === "agent") {
       router.push("/dashboard");
+    } else {
+      router.push("/client/dashboard");
     }
     router.refresh();
   }

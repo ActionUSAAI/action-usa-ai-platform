@@ -46,9 +46,17 @@ export async function updateSession(request: NextRequest) {
 
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
-    // Route by role stored in user_metadata (set at invite time, no DB query needed)
+    // Query the authoritative role from profiles (only runs on /login and /register)
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("role")
+      .eq("id", user.id)
+      .single();
+    const role = profile?.role;
     url.pathname =
-      user.user_metadata?.role === "client" ? "/client/dashboard" : "/dashboard";
+      role === "admin" || role === "supervisor" || role === "agent"
+        ? "/dashboard"
+        : "/client/dashboard";
     return NextResponse.redirect(url);
   }
 

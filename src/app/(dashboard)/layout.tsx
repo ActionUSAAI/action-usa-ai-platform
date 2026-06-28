@@ -21,6 +21,12 @@ export default async function DashboardLayout({
     .eq("id", user.id)
     .single();
 
+  // Gate: only admin / supervisor / agent may access the staff dashboard
+  const staffRoles = ["admin", "supervisor", "agent"];
+  if (!profile || !staffRoles.includes(profile.role)) {
+    redirect("/client/dashboard");
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       <Sidebar />
