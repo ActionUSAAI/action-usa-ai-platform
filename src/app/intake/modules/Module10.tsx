@@ -309,6 +309,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.patentsDisposition} onDisposition={v => u("patentsDisposition", v)}
         emptyItem={() => ({ id:genId(), type:"", name:"", country:"", year:"", number:"", filePath:"", fileName:"" } as PatentEvidence)}
         sessionId={sessionId} sectionKey="patents"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Tienes alguna metodología, proceso o creación original que pudiera registrarse como propiedad intelectual?">
+            <Textarea value={d.patentsDisposition} onChange={v => u("patentsDisposition", v)}
+              placeholder="Ej: Desarrollé un protocolo quirúrgico propio que podría registrarse. También tengo un software de análisis de datos sin patentar..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
