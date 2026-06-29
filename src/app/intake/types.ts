@@ -150,7 +150,7 @@ export type IncomeEvidence     = {
 };
 
 export type Module10 = {
-  awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string; awardsDisposition2: string;
+  awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
   mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string;
   articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];  articlesDisposition: string;
