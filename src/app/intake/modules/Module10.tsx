@@ -125,6 +125,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.membershipsDisposition} onDisposition={v => u("membershipsDisposition", v)}
         emptyItem={() => ({ id:genId(), orgName:"", country:"", yearJoined:"", requiredEval:null, filePath:"", fileName:"" } as MembershipEvidence)}
         sessionId={sessionId} sectionKey="memberships"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿A qué asociaciones profesionales de tu industria pertenecen los líderes de tu campo?">
+            <Textarea value={d.membershipsDisposition} onChange={v => u("membershipsDisposition", v)}
+              placeholder="Ej: En mi área los referentes pertenecen a la Society of Motion Picture Engineers, IEEE..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
