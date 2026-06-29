@@ -299,6 +299,25 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         )}
       </EvidenceSection>
 
+      {/* J — Web presence */}
+      <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+        <p className="font-semibold text-gray-800">Presencia web profesional</p>
+        <Field label="¿Tienes página web o perfil profesional en línea?">
+          <YesNo value={d.hasWebsite} onChange={v => u("hasWebsite", v)} yesLabel="Sí tengo" noLabel="No tengo"/>
+        </Field>
+        {d.hasWebsite === true && (
+          <Field label="URL de tu sitio web o perfil">
+            <TextInput value={d.websiteUrl} onChange={v => u("websiteUrl", v)} placeholder="https://www.tunombre.com"/>
+          </Field>
+        )}
+        {d.hasWebsite === false && (
+          <Field label="¿Sobre qué te gustaría que fuera tu página web profesional?">
+            <Textarea value={d.websiteTopicIdea} onChange={v => u("websiteTopicIdea", v)}
+              placeholder="Ej: Una plataforma que muestre mi trabajo en cirugía robótica y mis publicaciones académicas..."/>
+          </Field>
+        )}
+      </div>
+
       {/* I — Income evidence */}
       <SectionDivider title="I — Evidencia de ingresos"/>
       <div className="rounded-xl border border-gray-200 p-4 space-y-4">
