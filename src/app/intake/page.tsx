@@ -75,7 +75,6 @@ const INITIAL: IntakeForm = {
   },
   module4: {
     hasBeenInUSA:null, usaVisits:[],
-    hasCurrentUSVisa:null, currentVisaType:"", currentVisaExpiry:"",
     hasVisaRejection:null, visaRejections:[],
     hasDeportation:null, deportationDescription:"",
   },
@@ -138,8 +137,8 @@ function getModuleStatus(n: number, f: IntakeForm): ModuleStatus {
     }
     case 3: { // Module4 — immigration
       const m = f.module4;
-      const answered = [m.hasBeenInUSA, m.hasCurrentUSVisa, m.hasVisaRejection, m.hasDeportation].filter(v => v !== null);
-      if (answered.length === 4) return "complete";
+      const answered = [m.hasBeenInUSA, m.hasVisaRejection, m.hasDeportation].filter(v => v !== null);
+      if (answered.length === 3) return "complete";
       if (answered.length > 0) return "partial";
       return "empty";
     }

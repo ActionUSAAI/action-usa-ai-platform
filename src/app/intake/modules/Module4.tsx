@@ -53,23 +53,6 @@ export function Module4({ data: d, onChange }: Props) {
         )}
       </div>
 
-      {/* Current visa */}
-      <div className="space-y-3">
-        <Field label="¿Tiene visa americana vigente actualmente?" required>
-          <YesNo value={d.hasCurrentUSVisa} onChange={v => u("hasCurrentUSVisa", v)} yesLabel="Sí" noLabel="No"/>
-        </Field>
-        {d.hasCurrentUSVisa === true && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Tipo de visa">
-              <TextInput value={d.currentVisaType} onChange={v => u("currentVisaType",v)} placeholder="B1/B2, F-1, H-1B..."/>
-            </Field>
-            <Field label="Fecha de vencimiento">
-              <TextInput type="date" value={d.currentVisaExpiry} onChange={v => u("currentVisaExpiry",v)}/>
-            </Field>
-          </div>
-        )}
-      </div>
-
       {/* Rejections */}
       <div className="space-y-3">
         <Field label="¿Ha tenido alguna visa rechazada?" required>
