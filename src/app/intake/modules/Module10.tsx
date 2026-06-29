@@ -14,7 +14,7 @@ const genId = () => Math.random().toString(36).slice(2,9);
 
 function EvidenceSection<T extends { id: string }>({
   title, status, onStatus, items, onItems, disposition, onDisposition, emptyItem,
-  sessionId, sectionKey, children,
+  sessionId, sectionKey, strategyContent, children,
 }: {
   title: string;
   status: EvidenceStatus; onStatus: (s: EvidenceStatus) => void;
@@ -23,6 +23,7 @@ function EvidenceSection<T extends { id: string }>({
   emptyItem: () => T;
   sessionId: string;
   sectionKey: string;
+  strategyContent?: React.ReactNode;
   children: (item: T, index: number, update: <K extends keyof T>(f: K, v: T[K]) => void) => React.ReactNode;
 }) {
   const addItem = () => onItems([...items, emptyItem()]);
@@ -68,6 +69,7 @@ function EvidenceSection<T extends { id: string }>({
       {status === "no_tengo" && (
         <DispositionBox value={disposition} onChange={onDisposition} label={title.toLowerCase()}/>
       )}
+      {strategyContent && status !== "tengo" && strategyContent}
     </div>
   );
 }
