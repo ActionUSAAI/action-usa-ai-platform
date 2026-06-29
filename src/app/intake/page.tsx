@@ -265,7 +265,12 @@ export default function IntakePage() {
           ...INITIAL,
           ...saved,
           module2: { ...INITIAL.module2, ...(saved.module2 ?? {}) },
-          module4: { ...INITIAL.module4, ...(saved.module4 ?? {}) },
+          module4: {
+            ...INITIAL.module4,
+            ...(({ hasBeenInUSA, usaVisits, hasVisaRejection, visaRejections, hasDeportation, deportationDescription }) =>
+              ({ hasBeenInUSA, usaVisits, hasVisaRejection, visaRejections, hasDeportation, deportationDescription })
+            )(saved.module4 ?? INITIAL.module4),
+          },
           module10: { ...INITIAL.module10, ...(saved.module10 ?? {}), incomeEvidence: { ...INITIAL.module10.incomeEvidence, ...(saved.module10?.incomeEvidence ?? {}) } },
         });
         setDraftBanner(true);
