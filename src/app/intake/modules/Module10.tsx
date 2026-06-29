@@ -191,6 +191,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.articlesDisposition} onDisposition={v => u("articlesDisposition", v)}
         emptyItem={() => ({ id:genId(), title:"", publication:"", date:"", link:"", filePath:"", fileName:"" } as ArticleEvidence)}
         sessionId={sessionId} sectionKey="articles"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Sobre qué tema de tu especialidad te gustaría escribir un artículo académico o de opinión? ¿En qué publicación te gustaría aparecer?">
+            <Textarea value={d.articlesDisposition} onChange={v => u("articlesDisposition", v)}
+              placeholder="Ej: Me gustaría escribir sobre IA aplicada a diagnóstico clínico en The Lancet o Nature Medicine..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
