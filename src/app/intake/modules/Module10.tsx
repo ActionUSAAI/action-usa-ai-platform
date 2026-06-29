@@ -36,13 +36,10 @@ function EvidenceSection<T extends { id: string }>({
       <div>
         <p className="font-semibold text-gray-800">{title}</p>
         <div className="mt-2">
-          <EvidenceSelector
-            value={status}
-            onChange={s => {
-              onStatus(s);
-              if (s === "tengo" && items.length === 0) onItems([emptyItem()]);
-            }}
-          />
+          <EvidenceSelector value={status} onChange={s => {
+            onStatus(s);
+            if (s === "tengo" && items.length === 0) onItems([emptyItem()]);
+          }}/>
         </div>
       </div>
       {status === "tengo" && (
