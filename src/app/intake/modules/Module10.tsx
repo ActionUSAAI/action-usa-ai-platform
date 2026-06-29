@@ -1,25 +1,28 @@
 import type {
-  Module10, EvidenceStatus,
+  Module10, EvidenceStatus, IncomeEvidence,
   AwardEvidence, MembershipEvidence, MediaEvidence, ArticleEvidence,
   BookEvidence, ConferenceEvidence, JudgingEvidence, PatentEvidence,
 } from "../types";
 import {
   Field, TextInput, Textarea, Select, YesNo,
-  AddBtn, Card, EvidenceSelector, DispositionBox, SectionDivider, InfoBox,
+  AddBtn, Card, EvidenceSelector, DispositionBox, SectionDivider, InfoBox, FileUpload,
 } from "../primitives";
 
-type Props = { data: Module10; onChange: (d: Module10) => void };
+type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: string };
 
 const genId = () => Math.random().toString(36).slice(2,9);
 
 function EvidenceSection<T extends { id: string }>({
-  title, status, onStatus, items, onItems, disposition, onDisposition, emptyItem, children,
+  title, status, onStatus, items, onItems, disposition, onDisposition, emptyItem,
+  sessionId, sectionKey, children,
 }: {
   title: string;
   status: EvidenceStatus; onStatus: (s: EvidenceStatus) => void;
   items: T[]; onItems: (items: T[]) => void;
   disposition: string; onDisposition: (s: string) => void;
   emptyItem: () => T;
+  sessionId: string;
+  sectionKey: string;
   children: (item: T, index: number, update: <K extends keyof T>(f: K, v: T[K]) => void) => React.ReactNode;
 }) {
   const addItem = () => onItems([...items, emptyItem()]);
@@ -40,6 +43,18 @@ function EvidenceSection<T extends { id: string }>({
             <Card key={item.id} label={title.split(" ")[0]} index={i}
               onRemove={items.length > 1 ? () => removeItem(i) : undefined}>
               {children(item, i, (f, v) => updItem(i, f, v))}
+              <div className="mt-3">
+                <FileUpload
+                  sessionId={sessionId}
+                  storagePath={`module10/${sectionKey}/${item.id}`}
+                  filePath={(item as { filePath?: string }).filePath ?? ""}
+                  fileName={(item as { fileName?: string }).fileName ?? ""}
+                  onChange={({ filePath, fileName }) => {
+                    updItem(i, "filePath" as keyof T, filePath as T[keyof T]);
+                    updItem(i, "fileName" as keyof T, fileName as T[keyof T]);
+                  }}
+                />
+              </div>
             </Card>
           ))}
           <AddBtn label={`Agregar ${title.toLowerCase()}`} onClick={addItem}/>
@@ -52,8 +67,9 @@ function EvidenceSection<T extends { id: string }>({
   );
 }
 
-export function Module10({ data: d, onChange }: Props) {
+export function Module10({ data: d, onChange, sessionId }: Props) {
   const u = <K extends keyof Module10>(f: K, v: Module10[K]) => onChange({ ...d, [f]: v });
+  const uIncome = (patch: Partial<IncomeEvidence>) => u("incomeEvidence", { ...d.incomeEvidence, ...patch });
 
   return (
     <div className="space-y-4">
@@ -68,7 +84,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.awardsStatus} onStatus={s => u("awardsStatus", s)}
         items={d.awards} onItems={v => u("awards", v)}
         disposition={d.awardsDisposition} onDisposition={v => u("awardsDisposition", v)}
-        emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"" } as AwardEvidence)}
+        emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"", filePath:"", fileName:"" } as AwardEvidence)}
+        sessionId={sessionId} sectionKey="awards"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -88,7 +105,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.membershipsStatus} onStatus={s => u("membershipsStatus", s)}
         items={d.memberships} onItems={v => u("memberships", v)}
         disposition={d.membershipsDisposition} onDisposition={v => u("membershipsDisposition", v)}
-        emptyItem={() => ({ id:genId(), orgName:"", country:"", yearJoined:"", requiredEval:null } as MembershipEvidence)}
+        emptyItem={() => ({ id:genId(), orgName:"", country:"", yearJoined:"", requiredEval:null, filePath:"", fileName:"" } as MembershipEvidence)}
+        sessionId={sessionId} sectionKey="memberships"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -108,7 +126,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.mediaStatus} onStatus={s => u("mediaStatus", s)}
         items={d.media} onItems={v => u("media", v)}
         disposition={d.mediaDisposition} onDisposition={v => u("mediaDisposition", v)}
-        emptyItem={() => ({ id:genId(), medium:"", title:"", date:"", author:"", link:"", reach:"" } as MediaEvidence)}
+        emptyItem={() => ({ id:genId(), medium:"", title:"", date:"", author:"", link:"", reach:"", filePath:"", fileName:"" } as MediaEvidence)}
+        sessionId={sessionId} sectionKey="media"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -135,7 +154,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.articlesStatus} onStatus={s => u("articlesStatus", s)}
         items={d.articles} onItems={v => u("articles", v)}
         disposition={d.articlesDisposition} onDisposition={v => u("articlesDisposition", v)}
-        emptyItem={() => ({ id:genId(), title:"", publication:"", date:"", link:"" } as ArticleEvidence)}
+        emptyItem={() => ({ id:genId(), title:"", publication:"", date:"", link:"", filePath:"", fileName:"" } as ArticleEvidence)}
+        sessionId={sessionId} sectionKey="articles"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -153,7 +173,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.booksStatus} onStatus={s => u("booksStatus", s)}
         items={d.books} onItems={v => u("books", v)}
         disposition={d.booksDisposition} onDisposition={v => u("booksDisposition", v)}
-        emptyItem={() => ({ id:genId(), title:"", publisher:"", year:"", isbn:"", link:"" } as BookEvidence)}
+        emptyItem={() => ({ id:genId(), title:"", publisher:"", year:"", isbn:"", link:"", filePath:"", fileName:"" } as BookEvidence)}
+        sessionId={sessionId} sectionKey="books"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -172,7 +193,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.conferencesStatus} onStatus={s => u("conferencesStatus", s)}
         items={d.conferences} onItems={v => u("conferences", v)}
         disposition={d.conferencesDisposition} onDisposition={v => u("conferencesDisposition", v)}
-        emptyItem={() => ({ id:genId(), event:"", org:"", country:"", date:"", topic:"", role:"" } as ConferenceEvidence)}
+        emptyItem={() => ({ id:genId(), event:"", org:"", country:"", date:"", topic:"", role:"", filePath:"", fileName:"" } as ConferenceEvidence)}
+        sessionId={sessionId} sectionKey="conferences"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -200,7 +222,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.judgingStatus} onStatus={s => u("judgingStatus", s)}
         items={d.judging} onItems={v => u("judging", v)}
         disposition={d.judgingDisposition} onDisposition={v => u("judgingDisposition", v)}
-        emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"" } as JudgingEvidence)}
+        emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"", filePath:"", fileName:"" } as JudgingEvidence)}
+        sessionId={sessionId} sectionKey="judging"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -221,7 +244,8 @@ export function Module10({ data: d, onChange }: Props) {
         status={d.patentsStatus} onStatus={s => u("patentsStatus", s)}
         items={d.patents} onItems={v => u("patents", v)}
         disposition={d.patentsDisposition} onDisposition={v => u("patentsDisposition", v)}
-        emptyItem={() => ({ id:genId(), type:"", name:"", country:"", year:"", number:"" } as PatentEvidence)}
+        emptyItem={() => ({ id:genId(), type:"", name:"", country:"", year:"", number:"", filePath:"", fileName:"" } as PatentEvidence)}
+        sessionId={sessionId} sectionKey="patents"
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -242,17 +266,53 @@ export function Module10({ data: d, onChange }: Props) {
 
       {/* I — Income evidence */}
       <SectionDivider title="I — Evidencia de ingresos"/>
-      <div className="rounded-xl border border-gray-200 p-4 space-y-3">
+      <div className="rounded-xl border border-gray-200 p-4 space-y-4">
         <p className="text-sm font-semibold text-gray-700">Evidencia de ingresos</p>
-        <Field label="¿Tiene declaraciones de renta de los últimos 2 años?">
-          <YesNo value={d.incomeEvidence.hasTaxReturns} onChange={v=>u("incomeEvidence",{...d.incomeEvidence,hasTaxReturns:v})} yesLabel="Sí" noLabel="No"/>
-        </Field>
-        <Field label="¿Tiene certificaciones de contador o empleador?">
-          <YesNo value={d.incomeEvidence.hasCertifications} onChange={v=>u("incomeEvidence",{...d.incomeEvidence,hasCertifications:v})} yesLabel="Sí" noLabel="No"/>
-        </Field>
-        <Field label="¿Tiene contratos vigentes?">
-          <YesNo value={d.incomeEvidence.hasContracts} onChange={v=>u("incomeEvidence",{...d.incomeEvidence,hasContracts:v})} yesLabel="Sí" noLabel="No"/>
-        </Field>
+
+        <div className="space-y-3">
+          <Field label="¿Tiene declaraciones de renta de los últimos 2 años?">
+            <YesNo value={d.incomeEvidence.hasTaxReturns} onChange={v => uIncome({ hasTaxReturns: v })} yesLabel="Sí" noLabel="No"/>
+          </Field>
+          {d.incomeEvidence.hasTaxReturns === true && (
+            <FileUpload
+              sessionId={sessionId}
+              storagePath="module10/income/tax-returns"
+              filePath={d.incomeEvidence.taxFilePath}
+              fileName={d.incomeEvidence.taxFileName}
+              onChange={({ filePath, fileName }) => uIncome({ taxFilePath: filePath, taxFileName: fileName })}
+            />
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <Field label="¿Tiene certificaciones de contador o empleador?">
+            <YesNo value={d.incomeEvidence.hasCertifications} onChange={v => uIncome({ hasCertifications: v })} yesLabel="Sí" noLabel="No"/>
+          </Field>
+          {d.incomeEvidence.hasCertifications === true && (
+            <FileUpload
+              sessionId={sessionId}
+              storagePath="module10/income/certifications"
+              filePath={d.incomeEvidence.certFilePath}
+              fileName={d.incomeEvidence.certFileName}
+              onChange={({ filePath, fileName }) => uIncome({ certFilePath: filePath, certFileName: fileName })}
+            />
+          )}
+        </div>
+
+        <div className="space-y-3">
+          <Field label="¿Tiene contratos vigentes?">
+            <YesNo value={d.incomeEvidence.hasContracts} onChange={v => uIncome({ hasContracts: v })} yesLabel="Sí" noLabel="No"/>
+          </Field>
+          {d.incomeEvidence.hasContracts === true && (
+            <FileUpload
+              sessionId={sessionId}
+              storagePath="module10/income/contracts"
+              filePath={d.incomeEvidence.contractFilePath}
+              fileName={d.incomeEvidence.contractFileName}
+              onChange={({ filePath, fileName }) => uIncome({ contractFilePath: filePath, contractFileName: fileName })}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

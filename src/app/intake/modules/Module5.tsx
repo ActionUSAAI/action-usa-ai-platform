@@ -1,15 +1,16 @@
 import type { Module5, DegreeEntry } from "../types";
-import { Field, TextInput, Select, AddBtn, Card } from "../primitives";
+import { Field, TextInput, Select, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module5; onChange: (d: Module5) => void };
+type Props = { data: Module5; onChange: (d: Module5) => void; sessionId: string };
 
 const emptyDegree = (): DegreeEntry => ({
   id: Math.random().toString(36).slice(2,9),
   institution:"", country:"", degreeType:"", degreeName:"",
   startYear:"", graduationYear:"", hasDiploma:"",
+  filePath:"", fileName:"",
 });
 
-export function Module5({ data: d, onChange }: Props) {
+export function Module5({ data: d, onChange, sessionId }: Props) {
   const addDegree = () => onChange({ degrees: [...d.degrees, emptyDegree()] });
   const removeDegree = (i: number) => onChange({ degrees: d.degrees.filter((_,idx) => idx !== i) });
   const updDegree = <K extends keyof DegreeEntry>(i: number, f: K, v: DegreeEntry[K]) => {
@@ -55,6 +56,15 @@ export function Module5({ data: d, onChange }: Props) {
                 <option value="en_tramite">En trámite</option>
               </Select>
             </Field>
+          </div>
+          <div className="mt-3">
+            <FileUpload
+              sessionId={sessionId}
+              storagePath={`module5/${deg.id}`}
+              filePath={deg.filePath}
+              fileName={deg.fileName}
+              onChange={({ filePath, fileName }) => { updDegree(i,"filePath",filePath); updDegree(i,"fileName",fileName); }}
+            />
           </div>
         </Card>
       ))}

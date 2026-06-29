@@ -1,4 +1,7 @@
-import { Plus, Trash2, AlertCircle, Info } from "lucide-react";
+"use client";
+
+import { useState, useRef } from "react";
+import { Plus, Trash2, AlertCircle, Info, Paperclip, X } from "lucide-react";
 import type { EvidenceStatus } from "./types";
 
 export function Field({ label, required, error, hint, children }: {
@@ -74,7 +77,7 @@ export function YesNo({ value, onChange, yesLabel = "Sí", noLabel = "No" }: {
 
 export function TriState({ value, onChange, labels }: {
   value: string; onChange: (v: string) => void;
-  labels: [string, string, string]; // [opt1, opt2, opt3]
+  labels: [string, string, string];
 }) {
   const opts = ["si", "no", "en_tramite"];
   return (
@@ -204,6 +207,88 @@ export function SectionDivider({ title }: { title: string }) {
       <div className="h-px flex-1 bg-gray-200"/>
       <span className="text-xs font-bold uppercase tracking-wider text-gray-400">{title}</span>
       <div className="h-px flex-1 bg-gray-200"/>
+    </div>
+  );
+}
+
+export function FileUpload({ sessionId, storagePath, filePath, fileName, onChange }: {
+  sessionId: string;
+  storagePath: string;
+  filePath: string;
+  fileName: string;
+  onChange: (v: { filePath: string; fileName: string }) => void;
+}) {
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 10 * 1024 * 1024) {
+      setError("El archivo no puede exceder 10MB.");
+      return;
+    }
+
+    setUploading(true);
+    setError("");
+
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("path", storagePath);
+      fd.append("sessionId", sessionId || "tmp");
+
+      const res = await fetch("/api/intake/upload", { method: "POST", body: fd });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al subir");
+      onChange({ filePath: json.filePath, fileName: json.fileName });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Error al subir el archivo");
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+  }
+
+  function handleRemove() {
+    onChange({ filePath: "", fileName: "" });
+    if (inputRef.current) inputRef.current.value = "";
+    setError("");
+  }
+
+  return (
+    <div className="space-y-1.5 pt-1">
+      <p className="text-xs font-medium text-gray-500 flex items-center gap-1">
+        <Paperclip size={11}/> Subir documento — opcional (PDF, JPG, PNG, máx 10MB)
+      </p>
+      {fileName ? (
+        <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+          <span className="flex-1 truncate text-sm text-green-800">{fileName}</span>
+          <button type="button" onClick={handleRemove}
+            className="flex items-center gap-1 rounded text-xs text-green-600 hover:text-red-500 transition-colors">
+            <X size={13}/> Quitar
+          </button>
+        </div>
+      ) : (
+        <label className={`flex cursor-pointer items-center gap-2 rounded-lg border-2 border-dashed px-3 py-2.5 transition-colors ${
+          uploading ? "border-gray-200 bg-gray-50" : "border-brand-blue/40 hover:border-brand-blue hover:bg-brand-blue/5"
+        }`}>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png"
+            onChange={handleFile}
+            disabled={uploading}
+            className="sr-only"
+          />
+          <span className={`text-sm ${uploading ? "text-gray-400" : "text-brand-blue"}`}>
+            {uploading ? "Subiendo..." : "Seleccionar archivo..."}
+          </span>
+        </label>
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
     </div>
   );
 }

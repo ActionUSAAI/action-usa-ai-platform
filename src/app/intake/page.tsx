@@ -19,7 +19,8 @@ import { Module11 } from "./modules/Module11";
 import { Module12 } from "./modules/Module12";
 import { Module13 } from "./modules/Module13";
 
-const STORAGE_KEY = "aucis_intake_draft";
+const STORAGE_KEY     = "aucis_intake_draft";
+const SESSION_ID_KEY  = "aucis_session_id";
 const TOTAL = 13;
 
 const MODULE_TITLES = [
@@ -39,7 +40,20 @@ const MODULE_TITLES = [
 ];
 
 const genId = () => Math.random().toString(36).slice(2, 9);
-const emptyDoc = () => ({ has: null as boolean | null, notes: "" });
+
+const emptyDoc = () => ({
+  has: null as boolean | null,
+  notes: "",
+  documentNumber: "",
+  expiryDate: "",
+  issuedDate: "",
+  issuedCountry: "",
+  issuedCity: "",
+  visaSubtype: "",
+  filePath: "",
+  fileName: "",
+});
+
 const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null });
 
 const INITIAL: IntakeForm = {
@@ -47,12 +61,12 @@ const INITIAL: IntakeForm = {
   module2:  { passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(), i797:emptyDoc(), ead:emptyDoc(), i20:emptyDoc(), ds2019:emptyDoc(), isMarried:null, spouseMarriageCert:emptyDoc(), spousePassport:emptyDoc(), spouseVisa:emptyDoc(), spouseI94:emptyDoc(), hasChildren:null, childrenDocs:[] },
   module3:  { maritalStatus:"", spouse:{ name:"", nationality:"", countryOfResidence:"", profession:"" }, hasChildren:null, children:[] },
   module4:  { hasBeenInUSA:null, usaVisits:[], hasCurrentUSVisa:null, currentVisaType:"", currentVisaExpiry:"", hasVisaRejection:null, visaRejections:[], hasDeportation:null, deportationDescription:"" },
-  module5:  { degrees:[{ id:genId(), institution:"", country:"", degreeType:"", degreeName:"", startYear:"", graduationYear:"", hasDiploma:"" }] },
+  module5:  { degrees:[{ id:genId(), institution:"", country:"", degreeType:"", degreeName:"", startYear:"", graduationYear:"", hasDiploma:"", filePath:"", fileName:"" }] },
   module6:  { certifications:[] },
   module7:  { employment:[{ id:genId(), company:"", country:"", city:"", title:"", startDate:"", endDate:"", isCurrent:false, mainFunctions:"", importantProjects:"", mainAchievements:"", peopleSupervised:"0", managesBudget:null, budgetAmount:"", whyImportant:"", supervisorName:"", supervisorTitle:"", supervisorEmail:"", supervisorPhone:"", companyWebsite:"", internationalRecognition:"" }] },
   module8:  { hasOwnBusinesses:null, businesses:[] },
   module9:  { references:[{ id:genId(), name:"", currentTitle:"", company:"", country:"", email:"", phone:"", howYouKnow:"", whatTheyCouldSay:"", hasBeenAsked:null }] },
-  module10: { awardsStatus:"", awards:[], awardsDisposition:"", membershipsStatus:"", memberships:[], membershipsDisposition:"", mediaStatus:"", media:[], mediaDisposition:"", articlesStatus:"", articles:[], articlesDisposition:"", booksStatus:"", books:[], booksDisposition:"", conferencesStatus:"", conferences:[], conferencesDisposition:"", judgingStatus:"", judging:[], judgingDisposition:"", patentsStatus:"", patents:[], patentsDisposition:"", incomeEvidence:{ hasTaxReturns:null, hasCertifications:null, hasContracts:null } },
+  module10: { awardsStatus:"", awards:[], awardsDisposition:"", membershipsStatus:"", memberships:[], membershipsDisposition:"", mediaStatus:"", media:[], mediaDisposition:"", articlesStatus:"", articles:[], articlesDisposition:"", booksStatus:"", books:[], booksDisposition:"", conferencesStatus:"", conferences:[], conferencesDisposition:"", judgingStatus:"", judging:[], judgingDisposition:"", patentsStatus:"", patents:[], patentsDisposition:"", incomeEvidence:{ hasTaxReturns:null, taxFilePath:"", taxFileName:"", hasCertifications:null, certFilePath:"", certFileName:"", hasContracts:null, contractFilePath:"", contractFileName:"" } },
   module11: { createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(), trainedProfessionals:emptyAnswer(), consultedForExpertise:emptyAnswer(), evaluatedOthers:emptyAnswer(), workedForRecognized:emptyAnswer(), aboveAverageIncome:emptyAnswer(), willingToConfirm:emptyAnswer(), additionalInfo:emptyAnswer() },
   module12: { interest:"" },
 };
@@ -182,6 +196,7 @@ function SuccessScreen({ caseNumber, email }: { caseNumber: string; email: strin
 export default function IntakePage() {
   const [step, setStep]     = useState(1);
   const [data, setData]     = useState<IntakeForm>(INITIAL);
+  const [sessionId, setSessionId] = useState("");
   const [loading, setLoading]   = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [success, setSuccess]   = useState<{ caseNumber: string } | null>(null);
@@ -189,9 +204,16 @@ export default function IntakePage() {
   const [draftBanner, setDraftBanner] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // ── Load draft from localStorage ───────────────────────────────────────────
+  // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
     try {
+      let sid = localStorage.getItem(SESSION_ID_KEY);
+      if (!sid) {
+        sid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
+        localStorage.setItem(SESSION_ID_KEY, sid);
+      }
+      setSessionId(sid);
+
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) { setData(JSON.parse(raw)); setDraftBanner(true); }
     } catch { /* ignore */ }
@@ -338,16 +360,16 @@ export default function IntakePage() {
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1: m }))}  errors={errors}/>}
-            {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2: m }))}/>}
+            {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1: m }))} errors={errors}/>}
+            {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2: m }))} sessionId={sessionId}/>}
             {step === 3  && <Module3  data={data.module3}  onChange={m => setData(p => ({ ...p, module3: m }))}/>}
             {step === 4  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4: m }))}/>}
-            {step === 5  && <Module5  data={data.module5}  onChange={m => setData(p => ({ ...p, module5: m }))}/>}
-            {step === 6  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6: m }))}/>}
+            {step === 5  && <Module5  data={data.module5}  onChange={m => setData(p => ({ ...p, module5: m }))} sessionId={sessionId}/>}
+            {step === 6  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6: m }))} sessionId={sessionId}/>}
             {step === 7  && <Module7  data={data.module7}  onChange={m => setData(p => ({ ...p, module7: m }))}/>}
             {step === 8  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8: m }))}/>}
             {step === 9  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9: m }))}/>}
-            {step === 10 && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))}/>}
+            {step === 10 && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))}/>}
             {step === 12 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
             {step === 13 && <Module13 statuses={statuses} loading={loading} error={submitError} onSubmit={submit}/>}

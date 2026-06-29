@@ -16,7 +16,18 @@ export type Module1 = {
 };
 
 // ─── Module 2 — Personal Documents ───────────────────────────────────────────
-export type DocField = { has: boolean | null; notes: string };
+export type DocField = {
+  has: boolean | null;
+  notes: string;
+  documentNumber: string;
+  expiryDate: string;
+  issuedDate: string;
+  issuedCountry: string;
+  issuedCity: string;
+  visaSubtype: string;
+  filePath: string;
+  fileName: string;
+};
 
 export type ChildDocSet = {
   id: string;
@@ -82,6 +93,8 @@ export type DegreeEntry = {
   degreeType: string; degreeName: string;
   startYear: string; graduationYear: string;
   hasDiploma: string; // "si"|"no"|"en_tramite"
+  filePath: string;
+  fileName: string;
 };
 export type Module5 = { degrees: DegreeEntry[] };
 
@@ -89,6 +102,8 @@ export type Module5 = { degrees: DegreeEntry[] };
 export type CertEntry = {
   id: string; name: string; institution: string; country: string;
   year: string; isActive: string; hasCertificate: boolean | null;
+  filePath: string;
+  fileName: string;
 };
 export type Module6 = { certifications: CertEntry[] };
 
@@ -123,15 +138,19 @@ export type Module9 = { references: ReferenceEntry[] };
 // ─── Module 10 — Evidence ────────────────────────────────────────────────────
 export type EvidenceStatus = "tengo" | "no_tengo" | "tal_vez" | "";
 
-export type AwardEvidence    = { id: string; name: string; org: string; year: string; country: string; description: string; link: string };
-export type MembershipEvidence = { id: string; orgName: string; country: string; yearJoined: string; requiredEval: boolean | null };
-export type MediaEvidence    = { id: string; medium: string; title: string; date: string; author: string; link: string; reach: string };
-export type ArticleEvidence  = { id: string; title: string; publication: string; date: string; link: string };
-export type BookEvidence     = { id: string; title: string; publisher: string; year: string; isbn: string; link: string };
-export type ConferenceEvidence = { id: string; event: string; org: string; country: string; date: string; topic: string; role: string };
-export type JudgingEvidence  = { id: string; eventOrProcess: string; org: string; country: string; date: string; roleDescription: string };
-export type PatentEvidence   = { id: string; type: string; name: string; country: string; year: string; number: string };
-export type IncomeEvidence   = { hasTaxReturns: boolean | null; hasCertifications: boolean | null; hasContracts: boolean | null };
+export type AwardEvidence    = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; filePath: string; fileName: string };
+export type MembershipEvidence = { id: string; orgName: string; country: string; yearJoined: string; requiredEval: boolean | null; filePath: string; fileName: string };
+export type MediaEvidence    = { id: string; medium: string; title: string; date: string; author: string; link: string; reach: string; filePath: string; fileName: string };
+export type ArticleEvidence  = { id: string; title: string; publication: string; date: string; link: string; filePath: string; fileName: string };
+export type BookEvidence     = { id: string; title: string; publisher: string; year: string; isbn: string; link: string; filePath: string; fileName: string };
+export type ConferenceEvidence = { id: string; event: string; org: string; country: string; date: string; topic: string; role: string; filePath: string; fileName: string };
+export type JudgingEvidence  = { id: string; eventOrProcess: string; org: string; country: string; date: string; roleDescription: string; filePath: string; fileName: string };
+export type PatentEvidence   = { id: string; type: string; name: string; country: string; year: string; number: string; filePath: string; fileName: string };
+export type IncomeEvidence   = {
+  hasTaxReturns: boolean | null; taxFilePath: string; taxFileName: string;
+  hasCertifications: boolean | null; certFilePath: string; certFileName: string;
+  hasContracts: boolean | null; contractFilePath: string; contractFileName: string;
+};
 
 export type Module10 = {
   awardsStatus: EvidenceStatus;     awards: AwardEvidence[];      awardsDisposition: string;

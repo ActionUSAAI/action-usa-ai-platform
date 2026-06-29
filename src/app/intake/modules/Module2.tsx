@@ -1,23 +1,116 @@
 import type { Module2, DocField, ChildDocSet } from "../types";
-import { Field, TextInput, DocSelector, YesNo, AddBtn, RemoveBtn, InfoBox, SectionDivider } from "../primitives";
+import {
+  Field, TextInput, Select, DocSelector, YesNo,
+  AddBtn, InfoBox, SectionDivider, FileUpload,
+} from "../primitives";
 
-type Props = { data: Module2; onChange: (d: Module2) => void };
+type Props = { data: Module2; onChange: (d: Module2) => void; sessionId: string };
 
-function DocRow({ label, value, onChange }: { label: string; value: DocField; onChange: (v: DocField) => void }) {
+type DocType = "passport" | "usVisa" | "generic";
+
+function DocRow({ label, docType, value, onChange, sessionId, storagePath }: {
+  label: string;
+  docType: DocType;
+  value: DocField;
+  onChange: (v: DocField) => void;
+  sessionId: string;
+  storagePath: string;
+}) {
+  const upd = (patch: Partial<DocField>) => onChange({ ...value, ...patch });
+
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-2">
+    <div className="rounded-lg border border-gray-200 bg-white p-3 space-y-3">
       <p className="text-sm font-medium text-gray-700">{label}</p>
-      <DocSelector value={value.has} onChange={has => onChange({ ...value, has })}/>
+      <DocSelector value={value.has} onChange={has => upd({ has })}/>
+
       {value.has === true && (
-        <Field label="Notas (vigencia, número, etc.)" hint="">
-          <TextInput value={value.notes} onChange={notes => onChange({ ...value, notes })} placeholder="Ej: vence 2027-05-14"/>
-        </Field>
+        <>
+          {docType === "passport" && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Field label="Número de pasaporte">
+                <TextInput value={value.documentNumber} onChange={v => upd({ documentNumber: v })} placeholder="A1234567"/>
+              </Field>
+              <Field label="País de expedición">
+                <TextInput value={value.issuedCountry} onChange={v => upd({ issuedCountry: v })} placeholder="Colombia"/>
+              </Field>
+              <Field label="Ciudad de expedición">
+                <TextInput value={value.issuedCity} onChange={v => upd({ issuedCity: v })} placeholder="Bogotá"/>
+              </Field>
+              <Field label="Fecha de expedición">
+                <TextInput type="date" value={value.issuedDate} onChange={v => upd({ issuedDate: v })}/>
+              </Field>
+              <Field label="Fecha de vencimiento">
+                <TextInput type="date" value={value.expiryDate} onChange={v => upd({ expiryDate: v })}/>
+              </Field>
+            </div>
+          )}
+
+          {docType === "usVisa" && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Field label="Número de visa">
+                <TextInput value={value.documentNumber} onChange={v => upd({ documentNumber: v })} placeholder="1234567890"/>
+              </Field>
+              <Field label="Tipo de visa">
+                <Select value={value.visaSubtype} onChange={v => upd({ visaSubtype: v })}>
+                  <option value="">Selecciona...</option>
+                  <option value="B1">B1</option>
+                  <option value="B2">B2</option>
+                  <option value="B1/B2">B1/B2</option>
+                  <option value="F1">F1</option>
+                  <option value="F2">F2</option>
+                  <option value="J1">J1</option>
+                  <option value="J2">J2</option>
+                  <option value="H1B">H1B</option>
+                  <option value="H4">H4</option>
+                  <option value="O1">O1</option>
+                  <option value="L1">L1</option>
+                  <option value="TN">TN</option>
+                  <option value="otro">Otro</option>
+                </Select>
+              </Field>
+              <Field label="Lugar de expedición">
+                <TextInput value={value.issuedCity} onChange={v => upd({ issuedCity: v })} placeholder="Bogotá"/>
+              </Field>
+              <Field label="Fecha de expedición">
+                <TextInput type="date" value={value.issuedDate} onChange={v => upd({ issuedDate: v })}/>
+              </Field>
+              <Field label="Fecha de vencimiento">
+                <TextInput type="date" value={value.expiryDate} onChange={v => upd({ expiryDate: v })}/>
+              </Field>
+            </div>
+          )}
+
+          {docType === "generic" && (
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <Field label="Número de documento">
+                <TextInput value={value.documentNumber} onChange={v => upd({ documentNumber: v })} placeholder="1234567890"/>
+              </Field>
+              <Field label="Fecha de vencimiento">
+                <TextInput type="date" value={value.expiryDate} onChange={v => upd({ expiryDate: v })}/>
+              </Field>
+            </div>
+          )}
+
+          <FileUpload
+            sessionId={sessionId}
+            storagePath={storagePath}
+            filePath={value.filePath}
+            fileName={value.fileName}
+            onChange={({ filePath, fileName }) => upd({ filePath, fileName })}
+          />
+        </>
       )}
     </div>
   );
 }
 
-const emptyDoc = (): DocField => ({ has: null, notes: "" });
+const emptyDoc = (): DocField => ({
+  has: null, notes: "",
+  documentNumber: "", expiryDate: "", issuedDate: "",
+  issuedCountry: "", issuedCity: "", visaSubtype: "",
+  filePath: "", fileName: "",
+});
+
 const emptyChildDoc = (): ChildDocSet => ({
   id: Math.random().toString(36).slice(2,9),
   childName: "",
@@ -26,7 +119,7 @@ const emptyChildDoc = (): ChildDocSet => ({
   visa: emptyDoc(),
 });
 
-export function Module2({ data: d, onChange }: Props) {
+export function Module2({ data: d, onChange, sessionId }: Props) {
   const u = <K extends keyof Module2>(f: K, v: Module2[K]) => onChange({ ...d, [f]: v });
 
   const addChild = () => u("childrenDocs", [...d.childrenDocs, emptyChildDoc()]);
@@ -40,19 +133,33 @@ export function Module2({ data: d, onChange }: Props) {
   return (
     <div className="space-y-5">
       <InfoBox>
-        Sube los documentos que tengas disponibles ahora. Puedes completar este módulo después
-        desde tu portal de cliente.
+        Completa los campos que tengas disponibles y sube una copia del documento si es posible.
+        Todo es opcional — puedes agregar más desde tu portal de cliente.
       </InfoBox>
 
       <SectionDivider title="Documentos personales"/>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <DocRow label="Pasaporte (página principal)"       value={d.passport}   onChange={v => u("passport", v)}/>
-        <DocRow label="Visa americana vigente"              value={d.usVisa}     onChange={v => u("usVisa", v)}/>
-        <DocRow label="I-94 (si estuvo o está en USA)"     value={d.i94}        onChange={v => u("i94", v)}/>
-        <DocRow label="I-797"                               value={d.i797}       onChange={v => u("i797", v)}/>
-        <DocRow label="EAD (Employment Authorization)"     value={d.ead}        onChange={v => u("ead", v)}/>
-        <DocRow label="I-20 (F-1 student)"                 value={d.i20}        onChange={v => u("i20", v)}/>
-        <DocRow label="DS-2019 (J-1 exchange visitor)"     value={d.ds2019}     onChange={v => u("ds2019", v)}/>
+        <DocRow label="Pasaporte (página principal)" docType="passport"
+          value={d.passport} onChange={v => u("passport", v)}
+          sessionId={sessionId} storagePath="module2/passport"/>
+        <DocRow label="Visa americana vigente" docType="usVisa"
+          value={d.usVisa} onChange={v => u("usVisa", v)}
+          sessionId={sessionId} storagePath="module2/us-visa"/>
+        <DocRow label="I-94 (si estuvo o está en USA)" docType="generic"
+          value={d.i94} onChange={v => u("i94", v)}
+          sessionId={sessionId} storagePath="module2/i94"/>
+        <DocRow label="I-797" docType="generic"
+          value={d.i797} onChange={v => u("i797", v)}
+          sessionId={sessionId} storagePath="module2/i797"/>
+        <DocRow label="EAD (Employment Authorization)" docType="generic"
+          value={d.ead} onChange={v => u("ead", v)}
+          sessionId={sessionId} storagePath="module2/ead"/>
+        <DocRow label="I-20 (F-1 student)" docType="generic"
+          value={d.i20} onChange={v => u("i20", v)}
+          sessionId={sessionId} storagePath="module2/i20"/>
+        <DocRow label="DS-2019 (J-1 exchange visitor)" docType="generic"
+          value={d.ds2019} onChange={v => u("ds2019", v)}
+          sessionId={sessionId} storagePath="module2/ds2019"/>
       </div>
 
       <SectionDivider title="Estado civil (para documentos del cónyuge)"/>
@@ -61,10 +168,18 @@ export function Module2({ data: d, onChange }: Props) {
       </Field>
       {d.isMarried === true && (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <DocRow label="Registro civil de matrimonio"  value={d.spouseMarriageCert} onChange={v => u("spouseMarriageCert", v)}/>
-          <DocRow label="Pasaporte del cónyuge"         value={d.spousePassport}     onChange={v => u("spousePassport", v)}/>
-          <DocRow label="Visa del cónyuge"              value={d.spouseVisa}         onChange={v => u("spouseVisa", v)}/>
-          <DocRow label="I-94 del cónyuge"              value={d.spouseI94}          onChange={v => u("spouseI94", v)}/>
+          <DocRow label="Registro civil de matrimonio" docType="generic"
+            value={d.spouseMarriageCert} onChange={v => u("spouseMarriageCert", v)}
+            sessionId={sessionId} storagePath="module2/spouse-marriage-cert"/>
+          <DocRow label="Pasaporte del cónyuge" docType="passport"
+            value={d.spousePassport} onChange={v => u("spousePassport", v)}
+            sessionId={sessionId} storagePath="module2/spouse-passport"/>
+          <DocRow label="Visa del cónyuge" docType="usVisa"
+            value={d.spouseVisa} onChange={v => u("spouseVisa", v)}
+            sessionId={sessionId} storagePath="module2/spouse-visa"/>
+          <DocRow label="I-94 del cónyuge" docType="generic"
+            value={d.spouseI94} onChange={v => u("spouseI94", v)}
+            sessionId={sessionId} storagePath="module2/spouse-i94"/>
         </div>
       )}
 
@@ -88,9 +203,15 @@ export function Module2({ data: d, onChange }: Props) {
                   <TextInput value={c.childName} onChange={v => updChild(i, "childName", v)} placeholder="María Rodríguez"/>
                 </Field>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <DocRow label="Registro de nacimiento" value={c.birthCert} onChange={v => updChild(i, "birthCert", v)}/>
-                  <DocRow label="Pasaporte"              value={c.passport}  onChange={v => updChild(i, "passport", v)}/>
-                  <DocRow label="Visa"                   value={c.visa}      onChange={v => updChild(i, "visa", v)}/>
+                  <DocRow label="Registro de nacimiento" docType="generic"
+                    value={c.birthCert} onChange={v => updChild(i, "birthCert", v)}
+                    sessionId={sessionId} storagePath={`module2/child-${c.id}-birth-cert`}/>
+                  <DocRow label="Pasaporte" docType="passport"
+                    value={c.passport} onChange={v => updChild(i, "passport", v)}
+                    sessionId={sessionId} storagePath={`module2/child-${c.id}-passport`}/>
+                  <DocRow label="Visa" docType="usVisa"
+                    value={c.visa} onChange={v => updChild(i, "visa", v)}
+                    sessionId={sessionId} storagePath={`module2/child-${c.id}-visa`}/>
                 </div>
               </div>
             </div>

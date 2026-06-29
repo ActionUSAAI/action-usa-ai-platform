@@ -1,14 +1,15 @@
 import type { Module6, CertEntry } from "../types";
-import { Field, TextInput, Select, YesNo, AddBtn, Card } from "../primitives";
+import { Field, TextInput, Select, YesNo, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module6; onChange: (d: Module6) => void };
+type Props = { data: Module6; onChange: (d: Module6) => void; sessionId: string };
 
 const emptyCert = (): CertEntry => ({
   id: Math.random().toString(36).slice(2,9),
   name:"", institution:"", country:"", year:"", isActive:"", hasCertificate: null,
+  filePath:"", fileName:"",
 });
 
-export function Module6({ data: d, onChange }: Props) {
+export function Module6({ data: d, onChange, sessionId }: Props) {
   const addCert = () => onChange({ certifications: [...d.certifications, emptyCert()] });
   const removeCert = (i: number) => onChange({ certifications: d.certifications.filter((_,idx) => idx !== i) });
   const updCert = <K extends keyof CertEntry>(i: number, f: K, v: CertEntry[K]) => {
@@ -48,6 +49,15 @@ export function Module6({ data: d, onChange }: Props) {
             <Field label="¿Tiene el certificado?">
               <YesNo value={c.hasCertificate} onChange={v => updCert(i,"hasCertificate",v)} yesLabel="Sí" noLabel="No"/>
             </Field>
+          </div>
+          <div className="mt-3">
+            <FileUpload
+              sessionId={sessionId}
+              storagePath={`module6/${c.id}`}
+              filePath={c.filePath}
+              fileName={c.fileName}
+              onChange={({ filePath, fileName }) => { updCert(i,"filePath",filePath); updCert(i,"fileName",fileName); }}
+            />
           </div>
         </Card>
       ))}
