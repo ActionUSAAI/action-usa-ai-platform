@@ -97,6 +97,15 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.awardsDisposition} onDisposition={v => u("awardsDisposition", v)}
         emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"", filePath:"", fileName:"" } as AwardEvidence)}
         sessionId={sessionId} sectionKey="awards"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio juntos</p>
+          <Field label="¿En qué área de tu industria te gustaría ser reconocido/a?">
+            <Textarea value={d.awardsDisposition} onChange={v => u("awardsDisposition", v)} placeholder="Ej: Innovación en biotecnología aplicada a diagnóstico temprano..."/>
+          </Field>
+          <Field label="¿Hay alguna competencia, premio o convocatoria en tu campo que conozcas o te interese?">
+            <Textarea value={d.awardsDisposition2} onChange={v => u("awardsDisposition2", v)} placeholder="Ej: Premio Latinoamérica Verde, IEEE Innovation Award..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

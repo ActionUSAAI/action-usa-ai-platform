@@ -95,7 +95,7 @@ const INITIAL: IntakeForm = {
   module8:  { hasOwnBusinesses:null, businesses:[] },
   module9:  { references:[{ id:genId(), name:"", currentTitle:"", company:"", country:"", email:"", phone:"", howYouKnow:"", whatTheyCouldSay:"", hasBeenAsked:null }] },
   module10: {
-    awardsStatus:"", awards:[], awardsDisposition:"",
+    awardsStatus:"", awards:[], awardsDisposition:"", awardsDisposition2:"",
     membershipsStatus:"", memberships:[], membershipsDisposition:"",
     mediaStatus:"", media:[], mediaDisposition:"",
     articlesStatus:"", articles:[], articlesDisposition:"",
