@@ -152,13 +152,16 @@ export type IncomeEvidence     = {
 export type Module10 = {
   awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
-  mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string; mediaWebPresence: boolean | null;
+  mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string;
   articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];  articlesDisposition: string;
   booksStatus: EvidenceStatus;       books: BookEvidence[];        booksDisposition: string;
   conferencesStatus: EvidenceStatus; conferences: ConferenceEvidence[]; conferencesDisposition: string;
   judgingStatus: EvidenceStatus;     judging: JudgingEvidence[];   judgingDisposition: string;
   patentsStatus: EvidenceStatus;     patents: PatentEvidence[];    patentsDisposition: string;
   incomeEvidence: IncomeEvidence;
+  hasWebsite: boolean | null;
+  websiteUrl: string;
+  websiteTopicIdea: string;
 };
 
 // ─── Module 11 — Strategic Information ───────────────────────────────────────

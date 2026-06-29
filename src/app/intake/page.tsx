@@ -97,7 +97,7 @@ const INITIAL: IntakeForm = {
   module10: {
     awardsStatus:"", awards:[], awardsDisposition:"",
     membershipsStatus:"", memberships:[], membershipsDisposition:"",
-    mediaStatus:"", media:[], mediaDisposition:"", mediaWebPresence:null,
+    mediaStatus:"", media:[], mediaDisposition:"",
     articlesStatus:"", articles:[], articlesDisposition:"",
     booksStatus:"", books:[], booksDisposition:"",
     conferencesStatus:"", conferences:[], conferencesDisposition:"",
@@ -108,6 +108,7 @@ const INITIAL: IntakeForm = {
       hasCertifications:null, certFilePath:"", certFileName:"",
       hasContracts:null, contractFilePath:"", contractFileName:"",
     },
+    hasWebsite:null, websiteUrl:"", websiteTopicIdea:"",
   },
   module11: {
     createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(),

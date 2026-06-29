@@ -160,7 +160,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
               placeholder="Ej: Mi trabajo en el proyecto X redujo costos hospitalarios en un 40%..."/>
           </Field>
           <Field label="¿Tienes página web o presencia online profesional?" hint="Opcional">
-            <YesNo value={d.mediaWebPresence} onChange={v => u("mediaWebPresence", v)} yesLabel="Sí" noLabel="No"/>
+            <YesNo value={d.hasWebsite} onChange={v => u("hasWebsite", v)} yesLabel="Sí" noLabel="No"/>
           </Field>
         </>}
       >
