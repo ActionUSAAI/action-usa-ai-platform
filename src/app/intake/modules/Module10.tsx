@@ -280,6 +280,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.judgingDisposition} onDisposition={v => u("judgingDisposition", v)}
         emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"", filePath:"", fileName:"" } as JudgingEvidence)}
         sessionId={sessionId} sectionKey="judging"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿En qué tipo de procesos de selección, jurados o comités de tu industria podrías participar como evaluador?">
+            <Textarea value={d.judgingDisposition} onChange={v => u("judgingDisposition", v)}
+              placeholder="Ej: Podría participar como jurado en competencias de startups de salud digital o en comités de becas universitarias..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
