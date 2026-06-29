@@ -1,5 +1,5 @@
 import type { Module4, UsaVisit, VisaRejection } from "../types";
-import { Field, TextInput, Textarea, Select, YesNo, AddBtn, Card } from "../primitives";
+import { Field, TextInput, Textarea, YesNo, AddBtn, Card } from "../primitives";
 
 type Props = { data: Module4; onChange: (d: Module4) => void };
 
@@ -53,34 +53,31 @@ export function Module4({ data: d, onChange }: Props) {
         )}
       </div>
 
-      {/* Rejections */}
+      {/* Rejections — always shown, user adds entries if applicable */}
       <div className="space-y-3">
-        <Field label="¿Ha tenido alguna visa rechazada?" required>
-          <YesNo value={d.hasVisaRejection} onChange={v => u("hasVisaRejection", v)} yesLabel="Sí" noLabel="No"/>
-        </Field>
-        {d.hasVisaRejection === true && (
-          <div className="space-y-3">
-            {d.visaRejections.map((r, i) => (
-              <Card key={r.id} label="Rechazo" index={i} onRemove={d.visaRejections.length > 1 ? () => removeRejection(i) : undefined}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="País">
-                    <TextInput value={r.country} onChange={v => updRejection(i,"country",v)} placeholder="USA, Canadá..."/>
-                  </Field>
-                  <Field label="Tipo de visa">
-                    <TextInput value={r.visaType} onChange={v => updRejection(i,"visaType",v)} placeholder="B2, F-1..."/>
-                  </Field>
-                  <Field label="Año aproximado">
-                    <TextInput type="number" value={r.year} onChange={v => updRejection(i,"year",v)} placeholder="2019"/>
-                  </Field>
-                  <Field label="Razón si la conoce" hint="Opcional">
-                    <TextInput value={r.reason} onChange={v => updRejection(i,"reason",v)} placeholder="Vínculos insuficientes con el país..."/>
-                  </Field>
-                </div>
-              </Card>
-            ))}
-            <AddBtn label="Agregar otro rechazo" onClick={addRejection}/>
-          </div>
-        )}
+        <div>
+          <p className="text-sm font-medium text-gray-700">Visas rechazadas</p>
+          <p className="text-xs text-gray-400 mt-0.5">Si ha tenido alguna visa rechazada, agréguela aquí. Si no, deje esta sección vacía.</p>
+        </div>
+        {d.visaRejections.map((r, i) => (
+          <Card key={r.id} label="Rechazo" index={i} onRemove={() => removeRejection(i)}>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="País">
+                <TextInput value={r.country} onChange={v => updRejection(i,"country",v)} placeholder="USA, Canadá..."/>
+              </Field>
+              <Field label="Tipo de visa">
+                <TextInput value={r.visaType} onChange={v => updRejection(i,"visaType",v)} placeholder="B2, F-1..."/>
+              </Field>
+              <Field label="Año aproximado">
+                <TextInput type="number" value={r.year} onChange={v => updRejection(i,"year",v)} placeholder="2019"/>
+              </Field>
+              <Field label="Razón si la conoce" hint="Opcional">
+                <TextInput value={r.reason} onChange={v => updRejection(i,"reason",v)} placeholder="Vínculos insuficientes con el país..."/>
+              </Field>
+            </div>
+          </Card>
+        ))}
+        <AddBtn label="Agregar rechazo de visa" onClick={addRejection}/>
       </div>
 
       {/* Deportation */}

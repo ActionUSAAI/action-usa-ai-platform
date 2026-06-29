@@ -78,7 +78,6 @@ export type VisaRejection = {
 export type Module4 = {
   hasBeenInUSA: boolean | null;
   usaVisits: UsaVisit[];
-  hasVisaRejection: boolean | null;
   visaRejections: VisaRejection[];
   hasDeportation: boolean | null;
   deportationDescription: string;

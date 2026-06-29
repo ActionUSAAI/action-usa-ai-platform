@@ -75,7 +75,7 @@ const INITIAL: IntakeForm = {
   },
   module4: {
     hasBeenInUSA:null, usaVisits:[],
-    hasVisaRejection:null, visaRejections:[],
+    visaRejections:[],
     hasDeportation:null, deportationDescription:"",
   },
   module5: {
@@ -137,8 +137,8 @@ function getModuleStatus(n: number, f: IntakeForm): ModuleStatus {
     }
     case 3: { // Module4 — immigration
       const m = f.module4;
-      const answered = [m.hasBeenInUSA, m.hasVisaRejection, m.hasDeportation].filter(v => v !== null);
-      if (answered.length === 3) return "complete";
+      const answered = [m.hasBeenInUSA, m.hasDeportation].filter(v => v !== null);
+      if (answered.length === 2) return "complete";
       if (answered.length > 0) return "partial";
       return "empty";
     }
@@ -267,8 +267,8 @@ export default function IntakePage() {
           module2: { ...INITIAL.module2, ...(saved.module2 ?? {}) },
           module4: {
             ...INITIAL.module4,
-            ...(({ hasBeenInUSA, usaVisits, hasVisaRejection, visaRejections, hasDeportation, deportationDescription }) =>
-              ({ hasBeenInUSA, usaVisits, hasVisaRejection, visaRejections, hasDeportation, deportationDescription })
+            ...(({ hasBeenInUSA, usaVisits, visaRejections, hasDeportation, deportationDescription }) =>
+              ({ hasBeenInUSA, usaVisits, visaRejections, hasDeportation, deportationDescription })
             )(saved.module4 ?? INITIAL.module4),
           },
           module10: { ...INITIAL.module10, ...(saved.module10 ?? {}), incomeEvidence: { ...INITIAL.module10.incomeEvidence, ...(saved.module10?.incomeEvidence ?? {}) } },
