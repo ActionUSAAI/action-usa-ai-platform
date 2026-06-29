@@ -150,14 +150,14 @@ export type IncomeEvidence     = {
 };
 
 export type Module10 = {
-  awardsStatus: EvidenceStatus;      awards: AwardEvidence[];       awardsDisposition: string;
-  membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
-  mediaStatus: EvidenceStatus;       media: MediaEvidence[];         mediaDisposition: string;
-  articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];    articlesDisposition: string;
-  booksStatus: EvidenceStatus;       books: BookEvidence[];          booksDisposition: string;
-  conferencesStatus: EvidenceStatus; conferences: ConferenceEvidence[]; conferencesDisposition: string;
-  judgingStatus: EvidenceStatus;     judging: JudgingEvidence[];     judgingDisposition: string;
-  patentsStatus: EvidenceStatus;     patents: PatentEvidence[];      patentsDisposition: string;
+  awardsStatus: EvidenceStatus;      awards: AwardEvidence[];
+  membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[];
+  mediaStatus: EvidenceStatus;       media: MediaEvidence[];
+  articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];
+  booksStatus: EvidenceStatus;       books: BookEvidence[];
+  conferencesStatus: EvidenceStatus; conferences: ConferenceEvidence[];
+  judgingStatus: EvidenceStatus;     judging: JudgingEvidence[];
+  patentsStatus: EvidenceStatus;     patents: PatentEvidence[];
   incomeEvidence: IncomeEvidence;
 };
 

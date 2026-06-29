@@ -5,7 +5,7 @@ import type {
 } from "../types";
 import {
   Field, TextInput, Textarea, Select, YesNo,
-  AddBtn, Card, EvidenceSelector, DispositionBox, SectionDivider, InfoBox, FileUpload,
+  AddBtn, Card, EvidenceSelector, SectionDivider, InfoBox, FileUpload,
 } from "../primitives";
 
 type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: string };
@@ -13,13 +13,12 @@ type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: strin
 const genId = () => Math.random().toString(36).slice(2,9);
 
 function EvidenceSection<T extends { id: string }>({
-  title, status, onStatus, items, onItems, disposition, onDisposition, emptyItem,
+  title, status, onStatus, items, onItems, emptyItem,
   sessionId, sectionKey, strategyContent, children,
 }: {
   title: string;
   status: EvidenceStatus; onStatus: (s: EvidenceStatus) => void;
   items: T[]; onItems: (items: T[]) => void;
-  disposition: string; onDisposition: (s: string) => void;
   emptyItem: () => T;
   sessionId: string;
   sectionKey: string;
@@ -66,9 +65,6 @@ function EvidenceSection<T extends { id: string }>({
           <AddBtn label={`Agregar ${title.toLowerCase()}`} onClick={addItem}/>
         </div>
       )}
-      {status === "no_tengo" && (
-        <DispositionBox value={disposition} onChange={onDisposition} label={title.toLowerCase()}/>
-      )}
       {strategyContent && status !== "tengo" && strategyContent}
     </div>
   );
@@ -90,7 +86,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Premios y reconocimientos"
         status={d.awardsStatus} onStatus={s => u("awardsStatus", s)}
         items={d.awards} onItems={v => u("awards", v)}
-        disposition={d.awardsDisposition} onDisposition={v => u("awardsDisposition", v)}
         emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"", filePath:"", fileName:"" } as AwardEvidence)}
         sessionId={sessionId} sectionKey="awards"
       >
@@ -111,7 +106,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Membresías en asociaciones"
         status={d.membershipsStatus} onStatus={s => u("membershipsStatus", s)}
         items={d.memberships} onItems={v => u("memberships", v)}
-        disposition={d.membershipsDisposition} onDisposition={v => u("membershipsDisposition", v)}
         emptyItem={() => ({ id:genId(), orgName:"", country:"", yearJoined:"", requiredEval:null, filePath:"", fileName:"" } as MembershipEvidence)}
         sessionId={sessionId} sectionKey="memberships"
       >
@@ -132,7 +126,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Cobertura en medios"
         status={d.mediaStatus} onStatus={s => u("mediaStatus", s)}
         items={d.media} onItems={v => u("media", v)}
-        disposition={d.mediaDisposition} onDisposition={v => u("mediaDisposition", v)}
         emptyItem={() => ({ id:genId(), medium:"", title:"", date:"", author:"", link:"", reach:"", filePath:"", fileName:"" } as MediaEvidence)}
         sessionId={sessionId} sectionKey="media"
       >
@@ -160,7 +153,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Artículos escritos"
         status={d.articlesStatus} onStatus={s => u("articlesStatus", s)}
         items={d.articles} onItems={v => u("articles", v)}
-        disposition={d.articlesDisposition} onDisposition={v => u("articlesDisposition", v)}
         emptyItem={() => ({ id:genId(), title:"", publication:"", date:"", link:"", filePath:"", fileName:"" } as ArticleEvidence)}
         sessionId={sessionId} sectionKey="articles"
       >
@@ -179,7 +171,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Libros publicados"
         status={d.booksStatus} onStatus={s => u("booksStatus", s)}
         items={d.books} onItems={v => u("books", v)}
-        disposition={d.booksDisposition} onDisposition={v => u("booksDisposition", v)}
         emptyItem={() => ({ id:genId(), title:"", publisher:"", year:"", isbn:"", link:"", filePath:"", fileName:"" } as BookEvidence)}
         sessionId={sessionId} sectionKey="books"
       >
@@ -199,7 +190,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Conferencias y ponencias"
         status={d.conferencesStatus} onStatus={s => u("conferencesStatus", s)}
         items={d.conferences} onItems={v => u("conferences", v)}
-        disposition={d.conferencesDisposition} onDisposition={v => u("conferencesDisposition", v)}
         emptyItem={() => ({ id:genId(), event:"", org:"", country:"", date:"", topic:"", role:"", filePath:"", fileName:"" } as ConferenceEvidence)}
         sessionId={sessionId} sectionKey="conferences"
       >
@@ -228,7 +218,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Juez o evaluador"
         status={d.judgingStatus} onStatus={s => u("judgingStatus", s)}
         items={d.judging} onItems={v => u("judging", v)}
-        disposition={d.judgingDisposition} onDisposition={v => u("judgingDisposition", v)}
         emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"", filePath:"", fileName:"" } as JudgingEvidence)}
         sessionId={sessionId} sectionKey="judging"
       >
@@ -250,7 +239,6 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         title="Patentes o propiedad intelectual"
         status={d.patentsStatus} onStatus={s => u("patentsStatus", s)}
         items={d.patents} onItems={v => u("patents", v)}
-        disposition={d.patentsDisposition} onDisposition={v => u("patentsDisposition", v)}
         emptyItem={() => ({ id:genId(), type:"", name:"", country:"", year:"", number:"", filePath:"", fileName:"" } as PatentEvidence)}
         sessionId={sessionId} sectionKey="patents"
       >
