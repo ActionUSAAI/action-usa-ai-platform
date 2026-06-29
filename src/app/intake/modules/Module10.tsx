@@ -35,7 +35,15 @@ function EvidenceSection<T extends { id: string }>({
     <div className="rounded-xl border border-gray-200 p-4 space-y-4">
       <div>
         <p className="font-semibold text-gray-800">{title}</p>
-        <div className="mt-2"><EvidenceSelector value={status} onChange={onStatus}/></div>
+        <div className="mt-2">
+          <EvidenceSelector
+            value={status}
+            onChange={s => {
+              onStatus(s);
+              if (s === "tengo" && items.length === 0) onItems([emptyItem()]);
+            }}
+          />
+        </div>
       </div>
       {status === "tengo" && (
         <div className="space-y-3">
