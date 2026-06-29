@@ -10,8 +10,7 @@ type Props = {
 
 const MODULE_NAMES = [
   "Identidad del Aplicante",
-  "Documentos Personales",
-  "Grupo Familiar",
+  "Documentos y Grupo Familiar",
   "Historial Migratorio",
   "Educación Formal",
   "Cursos y Certificaciones",

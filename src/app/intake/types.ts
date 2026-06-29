@@ -15,7 +15,7 @@ export type Module1 = {
   visaType: string;     // "O-1A"|"O-1B"|"EB-1A"|"EB-1B"|"no_se"|""
 };
 
-// ─── Module 2 — Personal Documents ───────────────────────────────────────────
+// ─── Module 2 — Documents + Family ───────────────────────────────────────────
 export type DocField = {
   has: boolean | null;
   notes: string;
@@ -29,15 +29,25 @@ export type DocField = {
   fileName: string;
 };
 
+export type SpouseInfo = {
+  name: string; nationality: string; countryOfResidence: string; profession: string;
+};
+
 export type ChildDocSet = {
   id: string;
+  // biographical
   childName: string;
+  dateOfBirth: string;
+  nationality: string;
+  countryOfResidence: string;
+  // documents
   birthCert: DocField;
   passport: DocField;
   visa: DocField;
 };
 
 export type Module2 = {
+  // personal immigration documents
   passport: DocField;
   usVisa: DocField;
   i94: DocField;
@@ -45,27 +55,17 @@ export type Module2 = {
   ead: DocField;
   i20: DocField;
   ds2019: DocField;
-  isMarried: boolean | null;
+  // marital status (replaces isMarried boolean)
+  maritalStatus: string; // "soltero"|"casado"|"union_libre"|"divorciado"|"viudo"|""
+  // spouse biographical + documents
+  spouse: SpouseInfo;
   spouseMarriageCert: DocField;
   spousePassport: DocField;
   spouseVisa: DocField;
   spouseI94: DocField;
+  // children — biographical + documents merged
   hasChildren: boolean | null;
   childrenDocs: ChildDocSet[];
-};
-
-// ─── Module 3 — Family Group ──────────────────────────────────────────────────
-export type SpouseInfo = {
-  name: string; nationality: string; countryOfResidence: string; profession: string;
-};
-export type ChildInfo = {
-  id: string; name: string; dateOfBirth: string; nationality: string; countryOfResidence: string;
-};
-export type Module3 = {
-  maritalStatus: string; // "soltero"|"casado"|"union_libre"|"divorciado"|"viudo"|""
-  spouse: SpouseInfo;
-  hasChildren: boolean | null;
-  children: ChildInfo[];
 };
 
 // ─── Module 4 — Immigration History ──────────────────────────────────────────
@@ -138,29 +138,29 @@ export type Module9 = { references: ReferenceEntry[] };
 // ─── Module 10 — Evidence ────────────────────────────────────────────────────
 export type EvidenceStatus = "tengo" | "no_tengo" | "tal_vez" | "";
 
-export type AwardEvidence    = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; filePath: string; fileName: string };
+export type AwardEvidence      = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; filePath: string; fileName: string };
 export type MembershipEvidence = { id: string; orgName: string; country: string; yearJoined: string; requiredEval: boolean | null; filePath: string; fileName: string };
-export type MediaEvidence    = { id: string; medium: string; title: string; date: string; author: string; link: string; reach: string; filePath: string; fileName: string };
-export type ArticleEvidence  = { id: string; title: string; publication: string; date: string; link: string; filePath: string; fileName: string };
-export type BookEvidence     = { id: string; title: string; publisher: string; year: string; isbn: string; link: string; filePath: string; fileName: string };
+export type MediaEvidence      = { id: string; medium: string; title: string; date: string; author: string; link: string; reach: string; filePath: string; fileName: string };
+export type ArticleEvidence    = { id: string; title: string; publication: string; date: string; link: string; filePath: string; fileName: string };
+export type BookEvidence       = { id: string; title: string; publisher: string; year: string; isbn: string; link: string; filePath: string; fileName: string };
 export type ConferenceEvidence = { id: string; event: string; org: string; country: string; date: string; topic: string; role: string; filePath: string; fileName: string };
-export type JudgingEvidence  = { id: string; eventOrProcess: string; org: string; country: string; date: string; roleDescription: string; filePath: string; fileName: string };
-export type PatentEvidence   = { id: string; type: string; name: string; country: string; year: string; number: string; filePath: string; fileName: string };
-export type IncomeEvidence   = {
+export type JudgingEvidence    = { id: string; eventOrProcess: string; org: string; country: string; date: string; roleDescription: string; filePath: string; fileName: string };
+export type PatentEvidence     = { id: string; type: string; name: string; country: string; year: string; number: string; filePath: string; fileName: string };
+export type IncomeEvidence     = {
   hasTaxReturns: boolean | null; taxFilePath: string; taxFileName: string;
   hasCertifications: boolean | null; certFilePath: string; certFileName: string;
   hasContracts: boolean | null; contractFilePath: string; contractFileName: string;
 };
 
 export type Module10 = {
-  awardsStatus: EvidenceStatus;     awards: AwardEvidence[];      awardsDisposition: string;
+  awardsStatus: EvidenceStatus;      awards: AwardEvidence[];       awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
-  mediaStatus: EvidenceStatus;      media: MediaEvidence[];        mediaDisposition: string;
-  articlesStatus: EvidenceStatus;   articles: ArticleEvidence[];   articlesDisposition: string;
-  booksStatus: EvidenceStatus;      books: BookEvidence[];         booksDisposition: string;
+  mediaStatus: EvidenceStatus;       media: MediaEvidence[];         mediaDisposition: string;
+  articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];    articlesDisposition: string;
+  booksStatus: EvidenceStatus;       books: BookEvidence[];          booksDisposition: string;
   conferencesStatus: EvidenceStatus; conferences: ConferenceEvidence[]; conferencesDisposition: string;
-  judgingStatus: EvidenceStatus;    judging: JudgingEvidence[];    judgingDisposition: string;
-  patentsStatus: EvidenceStatus;    patents: PatentEvidence[];     patentsDisposition: string;
+  judgingStatus: EvidenceStatus;     judging: JudgingEvidence[];     judgingDisposition: string;
+  patentsStatus: EvidenceStatus;     patents: PatentEvidence[];      patentsDisposition: string;
   incomeEvidence: IncomeEvidence;
 };
 
@@ -184,15 +184,14 @@ export type Module12 = { interest: string }; // "si"|"tal_vez"|"no"|""
 
 // ─── Full form ────────────────────────────────────────────────────────────────
 export type IntakeForm = {
-  module1: Module1;
-  module2: Module2;
-  module3: Module3;
-  module4: Module4;
-  module5: Module5;
-  module6: Module6;
-  module7: Module7;
-  module8: Module8;
-  module9: Module9;
+  module1:  Module1;
+  module2:  Module2;
+  module4:  Module4;
+  module5:  Module5;
+  module6:  Module6;
+  module7:  Module7;
+  module8:  Module8;
+  module9:  Module9;
   module10: Module10;
   module11: Module11;
   module12: Module12;

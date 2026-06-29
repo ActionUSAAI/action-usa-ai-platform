@@ -7,7 +7,6 @@ import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 import type { IntakeForm, ModuleStatus } from "./types";
 import { Module1 }  from "./modules/Module1";
 import { Module2 }  from "./modules/Module2";
-import { Module3 }  from "./modules/Module3";
 import { Module4 }  from "./modules/Module4";
 import { Module5 }  from "./modules/Module5";
 import { Module6 }  from "./modules/Module6";
@@ -19,24 +18,27 @@ import { Module11 } from "./modules/Module11";
 import { Module12 } from "./modules/Module12";
 import { Module13 } from "./modules/Module13";
 
-const STORAGE_KEY     = "aucis_intake_draft";
-const SESSION_ID_KEY  = "aucis_session_id";
-const TOTAL = 13;
+const STORAGE_KEY    = "aucis_intake_draft";
+const SESSION_ID_KEY = "aucis_session_id";
+const TOTAL = 12;
+
+// Step → module mapping (Module3 absorbed into Module2)
+// 1=Module1  2=Module2  3=Module4  4=Module5  5=Module6  6=Module7
+// 7=Module8  8=Module9  9=Module10 10=Module11 11=Module12 12=Module13
 
 const MODULE_TITLES = [
-  { title: "Identidad del Aplicante",    subtitle: "Información básica para comenzar tu evaluación." },
-  { title: "Documentos Personales",      subtitle: "Sube los documentos que tengas disponibles. Puedes completar esto después." },
-  { title: "Grupo Familiar",             subtitle: "Estado civil e información de dependientes." },
-  { title: "Historial Migratorio",       subtitle: "Visitas, visas y antecedentes migratorios en USA." },
-  { title: "Educación Formal",           subtitle: "Títulos universitarios y posgrados." },
-  { title: "Cursos y Certificaciones",   subtitle: "Cursos, licencias y certificaciones profesionales." },
-  { title: "Experiencia Profesional",    subtitle: "Tu historial laboral en detalle. Esta es la sección más importante." },
-  { title: "Empresas Propias",           subtitle: "Emprendimientos o empresas que hayas fundado." },
-  { title: "Referencias Profesionales",  subtitle: "Personas que pueden confirmar tu impacto." },
-  { title: "Evidencia Existente",        subtitle: "Premios, publicaciones, medios y otros logros documentados." },
-  { title: "Información Estratégica",    subtitle: "Preguntas abiertas para entender mejor tu trayectoria." },
-  { title: "Servicios Estratégicos",     subtitle: "Opciones para fortalecer tu caso si hay áreas pendientes." },
-  { title: "Resumen y Envío",            subtitle: "Revisa tu progreso y envía tu información a ACTION USA." },
+  { title: "Identidad del Aplicante",     subtitle: "Información básica para comenzar tu evaluación." },
+  { title: "Documentos y Grupo Familiar", subtitle: "Documentos migratorios, estado civil e información de hijos." },
+  { title: "Historial Migratorio",        subtitle: "Visitas, visas y antecedentes migratorios en USA." },
+  { title: "Educación Formal",            subtitle: "Títulos universitarios y posgrados." },
+  { title: "Cursos y Certificaciones",    subtitle: "Cursos, licencias y certificaciones profesionales." },
+  { title: "Experiencia Profesional",     subtitle: "Tu historial laboral en detalle. Esta es la sección más importante." },
+  { title: "Empresas Propias",            subtitle: "Emprendimientos o empresas que hayas fundado." },
+  { title: "Referencias Profesionales",   subtitle: "Personas que pueden confirmar tu impacto." },
+  { title: "Evidencia Existente",         subtitle: "Premios, publicaciones, medios y otros logros documentados." },
+  { title: "Información Estratégica",     subtitle: "Preguntas abiertas para entender mejor tu trayectoria." },
+  { title: "Servicios Estratégicos",      subtitle: "Opciones para fortalecer tu caso si hay áreas pendientes." },
+  { title: "Resumen y Envío",             subtitle: "Revisa tu progreso y envía tu información a ACTION USA." },
 ];
 
 const genId = () => Math.random().toString(36).slice(2, 9);
@@ -57,20 +59,67 @@ const emptyDoc = () => ({
 const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null });
 
 const INITIAL: IntakeForm = {
-  module1:  { fullName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"", countryOfResidence:"", cityOfResidence:"", email:"", whatsapp:"", profession:"", industry:"", yearsExperience:"", usaObjective:"", visaType:"" },
-  module2:  { passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(), i797:emptyDoc(), ead:emptyDoc(), i20:emptyDoc(), ds2019:emptyDoc(), isMarried:null, spouseMarriageCert:emptyDoc(), spousePassport:emptyDoc(), spouseVisa:emptyDoc(), spouseI94:emptyDoc(), hasChildren:null, childrenDocs:[] },
-  module3:  { maritalStatus:"", spouse:{ name:"", nationality:"", countryOfResidence:"", profession:"" }, hasChildren:null, children:[] },
-  module4:  { hasBeenInUSA:null, usaVisits:[], hasCurrentUSVisa:null, currentVisaType:"", currentVisaExpiry:"", hasVisaRejection:null, visaRejections:[], hasDeportation:null, deportationDescription:"" },
-  module5:  { degrees:[{ id:genId(), institution:"", country:"", degreeType:"", degreeName:"", startYear:"", graduationYear:"", hasDiploma:"", filePath:"", fileName:"" }] },
-  module6:  { certifications:[] },
-  module7:  { employment:[{ id:genId(), company:"", country:"", city:"", title:"", startDate:"", endDate:"", isCurrent:false, mainFunctions:"", importantProjects:"", mainAchievements:"", peopleSupervised:"0", managesBudget:null, budgetAmount:"", whyImportant:"", supervisorName:"", supervisorTitle:"", supervisorEmail:"", supervisorPhone:"", companyWebsite:"", internationalRecognition:"" }] },
+  module1: {
+    fullName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"",
+    countryOfResidence:"", cityOfResidence:"", email:"", whatsapp:"",
+    profession:"", industry:"", yearsExperience:"", usaObjective:"", visaType:"",
+  },
+  module2: {
+    passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(), i797:emptyDoc(),
+    ead:emptyDoc(), i20:emptyDoc(), ds2019:emptyDoc(),
+    maritalStatus:"",
+    spouse:{ name:"", nationality:"", countryOfResidence:"", profession:"" },
+    spouseMarriageCert:emptyDoc(), spousePassport:emptyDoc(),
+    spouseVisa:emptyDoc(), spouseI94:emptyDoc(),
+    hasChildren:null, childrenDocs:[],
+  },
+  module4: {
+    hasBeenInUSA:null, usaVisits:[],
+    hasCurrentUSVisa:null, currentVisaType:"", currentVisaExpiry:"",
+    hasVisaRejection:null, visaRejections:[],
+    hasDeportation:null, deportationDescription:"",
+  },
+  module5: {
+    degrees:[{ id:genId(), institution:"", country:"", degreeType:"", degreeName:"", startYear:"", graduationYear:"", hasDiploma:"", filePath:"", fileName:"" }],
+  },
+  module6: { certifications:[] },
+  module7: {
+    employment:[{
+      id:genId(), company:"", country:"", city:"", title:"",
+      startDate:"", endDate:"", isCurrent:false,
+      mainFunctions:"", importantProjects:"", mainAchievements:"",
+      peopleSupervised:"0", managesBudget:null, budgetAmount:"",
+      whyImportant:"", supervisorName:"", supervisorTitle:"",
+      supervisorEmail:"", supervisorPhone:"", companyWebsite:"", internationalRecognition:"",
+    }],
+  },
   module8:  { hasOwnBusinesses:null, businesses:[] },
   module9:  { references:[{ id:genId(), name:"", currentTitle:"", company:"", country:"", email:"", phone:"", howYouKnow:"", whatTheyCouldSay:"", hasBeenAsked:null }] },
-  module10: { awardsStatus:"", awards:[], awardsDisposition:"", membershipsStatus:"", memberships:[], membershipsDisposition:"", mediaStatus:"", media:[], mediaDisposition:"", articlesStatus:"", articles:[], articlesDisposition:"", booksStatus:"", books:[], booksDisposition:"", conferencesStatus:"", conferences:[], conferencesDisposition:"", judgingStatus:"", judging:[], judgingDisposition:"", patentsStatus:"", patents:[], patentsDisposition:"", incomeEvidence:{ hasTaxReturns:null, taxFilePath:"", taxFileName:"", hasCertifications:null, certFilePath:"", certFileName:"", hasContracts:null, contractFilePath:"", contractFileName:"" } },
-  module11: { createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(), trainedProfessionals:emptyAnswer(), consultedForExpertise:emptyAnswer(), evaluatedOthers:emptyAnswer(), workedForRecognized:emptyAnswer(), aboveAverageIncome:emptyAnswer(), willingToConfirm:emptyAnswer(), additionalInfo:emptyAnswer() },
+  module10: {
+    awardsStatus:"", awards:[], awardsDisposition:"",
+    membershipsStatus:"", memberships:[], membershipsDisposition:"",
+    mediaStatus:"", media:[], mediaDisposition:"",
+    articlesStatus:"", articles:[], articlesDisposition:"",
+    booksStatus:"", books:[], booksDisposition:"",
+    conferencesStatus:"", conferences:[], conferencesDisposition:"",
+    judgingStatus:"", judging:[], judgingDisposition:"",
+    patentsStatus:"", patents:[], patentsDisposition:"",
+    incomeEvidence:{
+      hasTaxReturns:null, taxFilePath:"", taxFileName:"",
+      hasCertifications:null, certFilePath:"", certFileName:"",
+      hasContracts:null, contractFilePath:"", contractFileName:"",
+    },
+  },
+  module11: {
+    createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(),
+    trainedProfessionals:emptyAnswer(), consultedForExpertise:emptyAnswer(), evaluatedOthers:emptyAnswer(),
+    workedForRecognized:emptyAnswer(), aboveAverageIncome:emptyAnswer(),
+    willingToConfirm:emptyAnswer(), additionalInfo:emptyAnswer(),
+  },
   module12: { interest:"" },
 };
 
+// n = step number (1-12, skipping old module3)
 function getModuleStatus(n: number, f: IntakeForm): ModuleStatus {
   switch (n) {
     case 1: {
@@ -82,73 +131,69 @@ function getModuleStatus(n: number, f: IntakeForm): ModuleStatus {
     }
     case 2: {
       const m = f.module2;
-      if (m.isMarried !== null || m.hasChildren !== null) return "partial";
-      if (m.passport.has !== null) return "partial";
+      const hasAnyDoc = [m.passport, m.usVisa, m.i94, m.i797, m.ead, m.i20, m.ds2019].some(d => d.has !== null);
+      if (m.maritalStatus && m.hasChildren !== null && hasAnyDoc) return "complete";
+      if (m.maritalStatus || m.hasChildren !== null || hasAnyDoc) return "partial";
       return "empty";
     }
-    case 3: {
-      const m = f.module3;
-      if (m.maritalStatus && m.hasChildren !== null) return "complete";
-      if (m.maritalStatus) return "partial";
-      return "empty";
-    }
-    case 4: {
+    case 3: { // Module4 — immigration
       const m = f.module4;
       const answered = [m.hasBeenInUSA, m.hasCurrentUSVisa, m.hasVisaRejection, m.hasDeportation].filter(v => v !== null);
       if (answered.length === 4) return "complete";
       if (answered.length > 0) return "partial";
       return "empty";
     }
-    case 5: {
+    case 4: { // Module5 — education
       const complete = f.module5.degrees.filter(d => d.institution && d.degreeName);
       if (complete.length > 0) return "complete";
       if (f.module5.degrees.some(d => d.institution || d.degreeName)) return "partial";
       return "empty";
     }
-    case 6:
-      if (f.module6.certifications.length > 0) return "partial";
-      return "empty";
-    case 7: {
+    case 5: // Module6 — certifications
+      return f.module6.certifications.length > 0 ? "partial" : "empty";
+    case 6: { // Module7 — work
       const good = f.module7.employment.filter(e => e.company && e.title && e.mainFunctions);
       if (good.length > 0) return "complete";
       if (f.module7.employment.some(e => e.company || e.title)) return "partial";
       return "empty";
     }
-    case 8:
+    case 7: // Module8 — businesses
       if (f.module8.hasOwnBusinesses !== null) return f.module8.hasOwnBusinesses ? "partial" : "complete";
       return "empty";
-    case 9: {
+    case 8: { // Module9 — references
       const good = f.module9.references.filter(r => r.name && r.email);
       if (good.length >= 3) return "complete";
       if (good.length > 0) return "partial";
       return "empty";
     }
-    case 10: {
-      const filled = [f.module10.awardsStatus, f.module10.membershipsStatus, f.module10.mediaStatus,
+    case 9: { // Module10 — evidence
+      const filled = [
+        f.module10.awardsStatus, f.module10.membershipsStatus, f.module10.mediaStatus,
         f.module10.articlesStatus, f.module10.booksStatus, f.module10.conferencesStatus,
-        f.module10.judgingStatus, f.module10.patentsStatus].filter(s => s !== "");
+        f.module10.judgingStatus, f.module10.patentsStatus,
+      ].filter(s => s !== "");
       if (filled.length >= 5) return "complete";
       if (filled.length > 0) return "partial";
       return "empty";
     }
-    case 11: {
+    case 10: { // Module11 — strategic
       const answered = Object.values(f.module11).filter(v => (v as { answer: string }).answer.trim()).length;
       if (answered >= 7) return "complete";
       if (answered > 0) return "partial";
       return "empty";
     }
-    case 12:
-      if (f.module12.interest) return "complete";
-      return "empty";
+    case 11: // Module12 — optional services
+      return f.module12.interest ? "complete" : "empty";
     default: return "empty";
   }
 }
 
-// Module 12 is shown when evidence score < 3
 function shouldShowModule12(f: IntakeForm): boolean {
-  const score = [f.module10.awardsStatus, f.module10.membershipsStatus, f.module10.mediaStatus,
+  const score = [
+    f.module10.awardsStatus, f.module10.membershipsStatus, f.module10.mediaStatus,
     f.module10.articlesStatus, f.module10.booksStatus, f.module10.conferencesStatus,
-    f.module10.judgingStatus, f.module10.patentsStatus].filter(s => s === "tengo").length;
+    f.module10.judgingStatus, f.module10.patentsStatus,
+  ].filter(s => s === "tengo").length;
   return score < 3;
 }
 
@@ -194,15 +239,15 @@ function SuccessScreen({ caseNumber, email }: { caseNumber: string; email: strin
 }
 
 export default function IntakePage() {
-  const [step, setStep]     = useState(1);
-  const [data, setData]     = useState<IntakeForm>(INITIAL);
+  const [step, setStep]           = useState(1);
+  const [data, setData]           = useState<IntakeForm>(INITIAL);
   const [sessionId, setSessionId] = useState("");
-  const [loading, setLoading]   = useState(false);
+  const [loading, setLoading]     = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [success, setSuccess]   = useState<{ caseNumber: string } | null>(null);
-  const [savedAt, setSavedAt]   = useState<Date | null>(null);
+  const [success, setSuccess]     = useState<{ caseNumber: string } | null>(null);
+  const [savedAt, setSavedAt]     = useState<Date | null>(null);
   const [draftBanner, setDraftBanner] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [errors, setErrors]       = useState<Record<string, string>>({});
 
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
@@ -213,7 +258,6 @@ export default function IntakePage() {
         localStorage.setItem(SESSION_ID_KEY, sid);
       }
       setSessionId(sid);
-
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) { setData(JSON.parse(raw)); setDraftBanner(true); }
     } catch { /* ignore */ }
@@ -232,18 +276,18 @@ export default function IntakePage() {
     return () => clearInterval(id);
   }, [save]);
 
-  const statuses = Array.from({ length: 12 }, (_, i) => getModuleStatus(i + 1, data));
+  // statuses[i] covers steps 1–11 (step 12 = summary, no status dot needed)
+  const statuses = Array.from({ length: 11 }, (_, i) => getModuleStatus(i + 1, data));
   const show12   = shouldShowModule12(data);
 
-  // ── Validation (only Module 1 strictly required) ───────────────────────────
   function validate(): boolean {
     if (step !== 1) return true;
     const e: Record<string, string> = {};
     const m = data.module1;
-    if (!m.fullName.trim()) e.fullName = "Requerido.";
-    if (!m.email.trim())    e.email    = "Requerido.";
+    if (!m.fullName.trim())   e.fullName   = "Requerido.";
+    if (!m.email.trim())      e.email      = "Requerido.";
     else if (!/\S+@\S+\.\S+/.test(m.email)) e.email = "Email inválido.";
-    if (!m.whatsapp.trim()) e.whatsapp = "Requerido.";
+    if (!m.whatsapp.trim())   e.whatsapp   = "Requerido.";
     if (!m.profession.trim()) e.profession = "Requerido.";
     setErrors(e);
     if (Object.keys(e).length > 0) { window.scrollTo({ top: 0, behavior: "smooth" }); return false; }
@@ -252,14 +296,14 @@ export default function IntakePage() {
 
   function next() {
     if (!validate()) return;
-    // Skip module 12 if not applicable
-    const nextStep = step === 11 && !show12 ? 13 : step + 1;
+    // Step 10 = Module11 (strategic). If show12 is false, skip step 11 (Module12) → go to 12 (summary).
+    const nextStep = step === 10 && !show12 ? 12 : step + 1;
     setStep(Math.min(nextStep, TOTAL));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function back() {
-    const prevStep = step === 13 && !show12 ? 11 : step - 1;
+    const prevStep = step === 12 && !show12 ? 10 : step - 1;
     setStep(Math.max(prevStep, 1));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -287,7 +331,7 @@ export default function IntakePage() {
 
   if (success) return <SuccessScreen caseNumber={success.caseNumber} email={data.module1.email}/>;
 
-  const meta = MODULE_TITLES[step - 1];
+  const meta     = MODULE_TITLES[step - 1];
   const progress = Math.round((step / TOTAL) * 100);
 
   return (
@@ -336,7 +380,7 @@ export default function IntakePage() {
               </div>
               <div className="mt-1 flex shrink-0 flex-wrap justify-end gap-1 max-w-[130px]">
                 {Array.from({ length: TOTAL }, (_, i) => {
-                  const s = i < 12 ? statuses[i] : null;
+                  const s = i < 11 ? statuses[i] : null;
                   return (
                     <div key={i}
                       className={`h-2 w-2 rounded-full transition-colors ${
@@ -358,21 +402,20 @@ export default function IntakePage() {
             </div>
           )}
 
-          {/* Module content */}
+          {/* Module content — step 3+ maps to Module4+ (Module3 absorbed into Module2) */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1: m }))} errors={errors}/>}
-            {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2: m }))} sessionId={sessionId}/>}
-            {step === 3  && <Module3  data={data.module3}  onChange={m => setData(p => ({ ...p, module3: m }))}/>}
-            {step === 4  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4: m }))}/>}
-            {step === 5  && <Module5  data={data.module5}  onChange={m => setData(p => ({ ...p, module5: m }))} sessionId={sessionId}/>}
-            {step === 6  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6: m }))} sessionId={sessionId}/>}
-            {step === 7  && <Module7  data={data.module7}  onChange={m => setData(p => ({ ...p, module7: m }))}/>}
-            {step === 8  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8: m }))}/>}
-            {step === 9  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9: m }))}/>}
-            {step === 10 && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
-            {step === 11 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))}/>}
-            {step === 12 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
-            {step === 13 && <Module13 statuses={statuses} loading={loading} error={submitError} onSubmit={submit}/>}
+            {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
+            {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
+            {step === 3  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
+            {step === 4  && <Module5  data={data.module5}  onChange={m => setData(p => ({ ...p, module5:  m }))} sessionId={sessionId}/>}
+            {step === 5  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6:  m }))} sessionId={sessionId}/>}
+            {step === 6  && <Module7  data={data.module7}  onChange={m => setData(p => ({ ...p, module7:  m }))}/>}
+            {step === 7  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8:  m }))}/>}
+            {step === 8  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))}/>}
+            {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
+            {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))}/>}
+            {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
+            {step === 12 && <Module13 statuses={statuses}  loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
 
           {/* Navigation */}

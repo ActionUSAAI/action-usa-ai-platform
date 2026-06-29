@@ -1,7 +1,7 @@
-import type { Module2, DocField, ChildDocSet } from "../types";
+import type { Module2, DocField, ChildDocSet, SpouseInfo } from "../types";
 import {
   Field, TextInput, Select, DocSelector, YesNo,
-  AddBtn, InfoBox, SectionDivider, FileUpload,
+  AddBtn, Card, InfoBox, SectionDivider, FileUpload,
 } from "../primitives";
 
 type Props = { data: Module2; onChange: (d: Module2) => void; sessionId: string };
@@ -113,7 +113,7 @@ const emptyDoc = (): DocField => ({
 
 const emptyChildDoc = (): ChildDocSet => ({
   id: Math.random().toString(36).slice(2,9),
-  childName: "",
+  childName: "", dateOfBirth: "", nationality: "", countryOfResidence: "",
   birthCert: emptyDoc(),
   passport: emptyDoc(),
   visa: emptyDoc(),
@@ -121,6 +121,7 @@ const emptyChildDoc = (): ChildDocSet => ({
 
 export function Module2({ data: d, onChange, sessionId }: Props) {
   const u = <K extends keyof Module2>(f: K, v: Module2[K]) => onChange({ ...d, [f]: v });
+  const uSpouse = (patch: Partial<SpouseInfo>) => u("spouse", { ...d.spouse, ...patch });
 
   const addChild = () => u("childrenDocs", [...d.childrenDocs, emptyChildDoc()]);
   const removeChild = (i: number) => u("childrenDocs", d.childrenDocs.filter((_, idx) => idx !== i));
@@ -130,6 +131,8 @@ export function Module2({ data: d, onChange, sessionId }: Props) {
     u("childrenDocs", arr);
   };
 
+  const hasSpouse = d.maritalStatus === "casado" || d.maritalStatus === "union_libre";
+
   return (
     <div className="space-y-5">
       <InfoBox>
@@ -137,6 +140,7 @@ export function Module2({ data: d, onChange, sessionId }: Props) {
         Todo es opcional — puedes agregar más desde tu portal de cliente.
       </InfoBox>
 
+      {/* ── Personal documents ── */}
       <SectionDivider title="Documentos personales"/>
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <DocRow label="Pasaporte (página principal)" docType="passport"
@@ -162,59 +166,97 @@ export function Module2({ data: d, onChange, sessionId }: Props) {
           sessionId={sessionId} storagePath="module2/ds2019"/>
       </div>
 
-      <SectionDivider title="Estado civil (para documentos del cónyuge)"/>
-      <Field label="¿Está casado/a actualmente?">
-        <YesNo value={d.isMarried} onChange={v => u("isMarried", v)} yesLabel="Sí, casado/a" noLabel="No"/>
+      {/* ── Marital status ── */}
+      <SectionDivider title="Estado civil"/>
+      <Field label="Estado civil">
+        <Select value={d.maritalStatus} onChange={v => u("maritalStatus", v)}>
+          <option value="">Selecciona...</option>
+          <option value="soltero">Soltero/a</option>
+          <option value="casado">Casado/a</option>
+          <option value="union_libre">Unión libre</option>
+          <option value="divorciado">Divorciado/a</option>
+          <option value="viudo">Viudo/a</option>
+        </Select>
       </Field>
-      {d.isMarried === true && (
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <DocRow label="Registro civil de matrimonio" docType="generic"
-            value={d.spouseMarriageCert} onChange={v => u("spouseMarriageCert", v)}
-            sessionId={sessionId} storagePath="module2/spouse-marriage-cert"/>
-          <DocRow label="Pasaporte del cónyuge" docType="passport"
-            value={d.spousePassport} onChange={v => u("spousePassport", v)}
-            sessionId={sessionId} storagePath="module2/spouse-passport"/>
-          <DocRow label="Visa del cónyuge" docType="usVisa"
-            value={d.spouseVisa} onChange={v => u("spouseVisa", v)}
-            sessionId={sessionId} storagePath="module2/spouse-visa"/>
-          <DocRow label="I-94 del cónyuge" docType="generic"
-            value={d.spouseI94} onChange={v => u("spouseI94", v)}
-            sessionId={sessionId} storagePath="module2/spouse-i94"/>
-        </div>
+
+      {/* ── Spouse biographical + documents ── */}
+      {hasSpouse && (
+        <>
+          <div className="rounded-xl border border-gray-200 bg-gray-50 p-4 space-y-4">
+            <p className="text-sm font-bold text-gray-700">Información del cónyuge / pareja</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Nombre completo">
+                <TextInput value={d.spouse.name} onChange={v => uSpouse({ name: v })} placeholder="Ana Martínez"/>
+              </Field>
+              <Field label="Nacionalidad">
+                <TextInput value={d.spouse.nationality} onChange={v => uSpouse({ nationality: v })} placeholder="Venezolana"/>
+              </Field>
+              <Field label="País de residencia">
+                <TextInput value={d.spouse.countryOfResidence} onChange={v => uSpouse({ countryOfResidence: v })} placeholder="Colombia"/>
+              </Field>
+              <Field label="Profesión">
+                <TextInput value={d.spouse.profession} onChange={v => uSpouse({ profession: v })} placeholder="Contadora"/>
+              </Field>
+            </div>
+          </div>
+
+          <SectionDivider title="Documentos del cónyuge"/>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <DocRow label="Registro civil de matrimonio" docType="generic"
+              value={d.spouseMarriageCert} onChange={v => u("spouseMarriageCert", v)}
+              sessionId={sessionId} storagePath="module2/spouse-marriage-cert"/>
+            <DocRow label="Pasaporte del cónyuge" docType="passport"
+              value={d.spousePassport} onChange={v => u("spousePassport", v)}
+              sessionId={sessionId} storagePath="module2/spouse-passport"/>
+            <DocRow label="Visa del cónyuge" docType="usVisa"
+              value={d.spouseVisa} onChange={v => u("spouseVisa", v)}
+              sessionId={sessionId} storagePath="module2/spouse-visa"/>
+            <DocRow label="I-94 del cónyuge" docType="generic"
+              value={d.spouseI94} onChange={v => u("spouseI94", v)}
+              sessionId={sessionId} storagePath="module2/spouse-i94"/>
+          </div>
+        </>
       )}
 
+      {/* ── Children ── */}
       <SectionDivider title="Hijos"/>
       <Field label="¿Tiene hijos?">
         <YesNo value={d.hasChildren} onChange={v => u("hasChildren", v)} yesLabel="Sí" noLabel="No"/>
       </Field>
+
       {d.hasChildren === true && (
         <div className="space-y-4">
           {d.childrenDocs.map((c, i) => (
-            <div key={c.id} className="relative rounded-xl border border-gray-200 bg-gray-50 p-4 pt-9">
-              <div className="absolute left-4 top-3 text-xs font-bold uppercase tracking-wider text-brand-blue">Hijo/a {i + 1}</div>
-              {d.childrenDocs.length > 1 && (
-                <button type="button" onClick={() => removeChild(i)}
-                  className="absolute right-3 top-3 rounded-md p-1 text-gray-400 hover:bg-red-50 hover:text-red-500">
-                  ✕
-                </button>
-              )}
-              <div className="space-y-3">
-                <Field label="Nombre del hijo/a">
-                  <TextInput value={c.childName} onChange={v => updChild(i, "childName", v)} placeholder="María Rodríguez"/>
+            <Card key={c.id} label="Hijo/a" index={i}
+              onRemove={d.childrenDocs.length > 1 ? () => removeChild(i) : undefined}>
+              {/* Biographical */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 mb-4">
+                <Field label="Nombre completo">
+                  <TextInput value={c.childName} onChange={v => updChild(i, "childName", v)} placeholder="Luis Rodríguez"/>
                 </Field>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <DocRow label="Registro de nacimiento" docType="generic"
-                    value={c.birthCert} onChange={v => updChild(i, "birthCert", v)}
-                    sessionId={sessionId} storagePath={`module2/child-${c.id}-birth-cert`}/>
-                  <DocRow label="Pasaporte" docType="passport"
-                    value={c.passport} onChange={v => updChild(i, "passport", v)}
-                    sessionId={sessionId} storagePath={`module2/child-${c.id}-passport`}/>
-                  <DocRow label="Visa" docType="usVisa"
-                    value={c.visa} onChange={v => updChild(i, "visa", v)}
-                    sessionId={sessionId} storagePath={`module2/child-${c.id}-visa`}/>
-                </div>
+                <Field label="Fecha de nacimiento">
+                  <TextInput type="date" value={c.dateOfBirth} onChange={v => updChild(i, "dateOfBirth", v)}/>
+                </Field>
+                <Field label="Nacionalidad">
+                  <TextInput value={c.nationality} onChange={v => updChild(i, "nationality", v)} placeholder="Colombiana"/>
+                </Field>
+                <Field label="País de residencia">
+                  <TextInput value={c.countryOfResidence} onChange={v => updChild(i, "countryOfResidence", v)} placeholder="Colombia"/>
+                </Field>
               </div>
-            </div>
+              {/* Documents */}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <DocRow label="Registro de nacimiento" docType="generic"
+                  value={c.birthCert} onChange={v => updChild(i, "birthCert", v)}
+                  sessionId={sessionId} storagePath={`module2/child-${c.id}-birth-cert`}/>
+                <DocRow label="Pasaporte" docType="passport"
+                  value={c.passport} onChange={v => updChild(i, "passport", v)}
+                  sessionId={sessionId} storagePath={`module2/child-${c.id}-passport`}/>
+                <DocRow label="Visa" docType="usVisa"
+                  value={c.visa} onChange={v => updChild(i, "visa", v)}
+                  sessionId={sessionId} storagePath={`module2/child-${c.id}-visa`}/>
+              </div>
+            </Card>
           ))}
           <AddBtn label="Agregar hijo/a" onClick={addChild}/>
         </div>
