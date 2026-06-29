@@ -217,6 +217,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.booksDisposition} onDisposition={v => u("booksDisposition", v)}
         emptyItem={() => ({ id:genId(), title:"", publisher:"", year:"", isbn:"", link:"", filePath:"", fileName:"" } as BookEvidence)}
         sessionId={sessionId} sectionKey="books"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Sobre qué tema te gustaría publicar un libro? ¿Tienes algún manuscrito o idea desarrollada?">
+            <Textarea value={d.booksDisposition} onChange={v => u("booksDisposition", v)}
+              placeholder="Ej: Tengo un manuscrito sobre liderazgo en equipos de alta tecnología. Me interesa publicar con MIT Press..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
