@@ -119,9 +119,12 @@ const emptyChildDoc = (): ChildDocSet => ({
   visa: emptyDoc(),
 });
 
+const EMPTY_SPOUSE: SpouseInfo = { name: "", nationality: "", countryOfResidence: "", profession: "" };
+
 export function Module2({ data: d, onChange, sessionId }: Props) {
   const u = <K extends keyof Module2>(f: K, v: Module2[K]) => onChange({ ...d, [f]: v });
-  const uSpouse = (patch: Partial<SpouseInfo>) => u("spouse", { ...d.spouse, ...patch });
+  const spouse = d.spouse ?? EMPTY_SPOUSE;
+  const uSpouse = (patch: Partial<SpouseInfo>) => u("spouse", { ...spouse, ...patch });
 
   const addChild = () => u("childrenDocs", [...d.childrenDocs, emptyChildDoc()]);
   const removeChild = (i: number) => u("childrenDocs", d.childrenDocs.filter((_, idx) => idx !== i));
@@ -186,16 +189,16 @@ export function Module2({ data: d, onChange, sessionId }: Props) {
             <p className="text-sm font-bold text-gray-700">Información del cónyuge / pareja</p>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Field label="Nombre completo">
-                <TextInput value={d.spouse.name} onChange={v => uSpouse({ name: v })} placeholder="Ana Martínez"/>
+                <TextInput value={spouse.name} onChange={v => uSpouse({ name: v })} placeholder="Ana Martínez"/>
               </Field>
               <Field label="Nacionalidad">
-                <TextInput value={d.spouse.nationality} onChange={v => uSpouse({ nationality: v })} placeholder="Venezolana"/>
+                <TextInput value={spouse.nationality} onChange={v => uSpouse({ nationality: v })} placeholder="Venezolana"/>
               </Field>
               <Field label="País de residencia">
-                <TextInput value={d.spouse.countryOfResidence} onChange={v => uSpouse({ countryOfResidence: v })} placeholder="Colombia"/>
+                <TextInput value={spouse.countryOfResidence} onChange={v => uSpouse({ countryOfResidence: v })} placeholder="Colombia"/>
               </Field>
               <Field label="Profesión">
-                <TextInput value={d.spouse.profession} onChange={v => uSpouse({ profession: v })} placeholder="Contadora"/>
+                <TextInput value={spouse.profession} onChange={v => uSpouse({ profession: v })} placeholder="Contadora"/>
               </Field>
             </div>
           </div>

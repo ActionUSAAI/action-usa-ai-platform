@@ -259,7 +259,18 @@ export default function IntakePage() {
       }
       setSessionId(sid);
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) { setData(JSON.parse(raw)); setDraftBanner(true); }
+      if (raw) {
+        const saved = JSON.parse(raw) as Partial<IntakeForm>;
+        // Shallow-merge each module so new fields added after the draft was saved get their defaults.
+        setData({
+          ...INITIAL,
+          ...saved,
+          module2: { ...INITIAL.module2, ...(saved.module2 ?? {}) },
+          module4: { ...INITIAL.module4, ...(saved.module4 ?? {}) },
+          module10: { ...INITIAL.module10, ...(saved.module10 ?? {}), incomeEvidence: { ...INITIAL.module10.incomeEvidence, ...(saved.module10?.incomeEvidence ?? {}) } },
+        });
+        setDraftBanner(true);
+      }
     } catch { /* ignore */ }
   }, []);
 
