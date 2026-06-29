@@ -1,300 +1,424 @@
 import { redirect } from "next/navigation";
+import Link from "next/link";
+import {
+  ClipboardList, Search, Hammer, Send, Award,
+  CheckCircle2, Clock, Circle, Mail, ChevronRight,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
-import { CheckCircle, Clock, Circle, FileText, MessageSquare, Mail } from "lucide-react";
-import { UploadBtn } from "./upload-btn";
+import { NotificationCard } from "./notification-card";
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
-const STATUS_LABEL: Record<string, string> = {
-  nuevo: "Nuevo",
-  en_progreso: "En Progreso",
-  pendiente_documentos: "Pendiente de Documentos",
-  en_revision: "En Revisión",
-  aprobado: "Aprobado",
-  denegado: "Denegado",
-  cerrado: "Cerrado",
-  archivado: "Archivado",
-};
+// ─── Constants ────────────────────────────────────────────────────────────────
 
-const STATUS_COLOR: Record<string, string> = {
-  nuevo: "bg-blue-100 text-blue-700 border-blue-200",
-  en_progreso: "bg-purple-100 text-purple-700 border-purple-200",
-  pendiente_documentos: "bg-amber-100 text-amber-800 border-amber-200",
-  en_revision: "bg-indigo-100 text-indigo-700 border-indigo-200",
-  aprobado: "bg-green-100 text-green-700 border-green-200",
-  denegado: "bg-red-100 text-red-700 border-red-200",
-  cerrado: "bg-gray-100 text-gray-600 border-gray-200",
-  archivado: "bg-gray-100 text-gray-500 border-gray-200",
-};
+const NAVY  = "#1B2B5E";
+const GOLD  = "#C9A84C";
 
-const DOC_STATUS: Record<string, { label: string; color: string }> = {
-  pendiente: { label: "Pendiente de revisión", color: "text-amber-600 bg-amber-50 border-amber-200" },
-  recibido: { label: "Recibido", color: "text-blue-600 bg-blue-50 border-blue-200" },
-  verificado: { label: "Verificado ✓", color: "text-green-600 bg-green-50 border-green-200" },
-  rechazado: { label: "Rechazado", color: "text-red-600 bg-red-50 border-red-200" },
-};
-
-const STAGES = [
-  { key: "nuevo", label: "Recibido" },
-  { key: "en_progreso", label: "En proceso" },
-  { key: "pendiente_documentos", label: "Documentos" },
-  { key: "en_revision", label: "En revisión" },
-  { key: "aprobado", label: "Aprobado" },
+const PHASES = [
+  { label: "Intake",       sub: "Intake completado",           Icon: ClipboardList },
+  { label: "Análisis",     sub: "En revisión por el equipo",   Icon: Search        },
+  { label: "Construcción", sub: "Preparando petición",         Icon: Hammer        },
+  { label: "Radicación",   sub: "Enviado a USCIS",             Icon: Send          },
+  { label: "Aprobación",   sub: "Decisión USCIS",              Icon: Award         },
 ];
 
-function stageIndex(status: string) {
-  const idx = ["nuevo", "en_progreso", "pendiente_documentos", "en_revision", "aprobado"].indexOf(status);
-  return idx >= 0 ? idx : 0;
+// Map case status → index of the ACTIVE phase (phases before it are complete)
+function activePhaseIndex(status: string | null): number {
+  switch (status) {
+    case "nuevo":
+    case "pendiente_documentos": return 1;
+    case "en_progreso":
+    case "en_revision":          return 2;
+    case "aprobado":             return 5; // all complete
+    default:                     return 1;
+  }
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("es-US", { year: "numeric", month: "long", day: "numeric" });
-}
+const CASE_TYPE_LABEL: Record<string, string> = {
+  talento_extraordinario: "O-1A / EB-1A — Talento Extraordinario",
+};
+
+const MODULE_NAMES: Record<number, string> = {
+  1:  "Identidad del Aplicante",
+  2:  "Documentos y Grupo Familiar",
+  3:  "Historial Migratorio",
+  4:  "Educación Formal",
+  5:  "Cursos y Certificaciones",
+  6:  "Experiencia Profesional",
+  7:  "Empresas Propias",
+  8:  "Referencias Profesionales",
+  9:  "Evidencia Existente",
+  10: "Información Estratégica",
+  11: "Servicios Estratégicos",
+};
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
+
 export default async function ClientDashboardPage() {
   const supabase = createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  // Profile
+  // ── Fetch profile ──────────────────────────────────────────────────────────
   const { data: profile } = await supabase
     .from("profiles")
     .select("full_name, email")
     .eq("id", user.id)
     .single();
 
-  // Client record (linked by profile_id after callback)
+  // ── Fetch client + case ────────────────────────────────────────────────────
   const { data: client } = await supabase
     .from("clients")
     .select("id, first_name, last_name")
     .eq("profile_id", user.id)
     .single();
 
-  // Cases (RLS grants access via clients.profile_id = auth.uid())
   const { data: cases } = await supabase
     .from("cases")
-    .select("id, case_number, case_type, status, title, description, created_at, updated_at")
-    .order("created_at", { ascending: false });
+    .select("id, case_number, case_type, status, created_at")
+    .order("created_at", { ascending: false })
+    .limit(1);
 
   const mainCase = cases?.[0] ?? null;
-  const currentStage = mainCase ? stageIndex(mainCase.status) : 0;
 
-  // Notes visible to client
-  let notes: { id: string; content: string; created_at: string }[] = [];
+  // ── Fetch notifications ────────────────────────────────────────────────────
+  const { data: notifications } = await supabase
+    .from("agent_notifications")
+    .select("id, subject, body_text, sent_at, read_at")
+    .eq("recipient_id", user.id)
+    .order("sent_at", { ascending: false, nullsFirst: false })
+    .limit(5);
+
+  // ── Fetch intake_submission for tasks ─────────────────────────────────────
+  let moduleProgress: Record<string, string> = {};
   if (mainCase) {
-    const { data } = await supabase
-      .from("case_notes")
-      .select("id, content, created_at")
+    const { data: intake } = await supabase
+      .from("intake_submissions")
+      .select("module_progress")
       .eq("case_id", mainCase.id)
-      .eq("is_visible_to_client", true)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    notes = data || [];
+      .single();
+    moduleProgress = (intake?.module_progress as Record<string, string>) ?? {};
   }
 
-  // Documents
-  let docs: { id: string; name: string; status: string; description: string | null; created_at: string }[] = [];
-  if (client) {
-    const { data } = await supabase
-      .from("documents")
-      .select("id, name, status, description, created_at")
-      .eq("client_id", client.id)
-      .order("created_at", { ascending: false });
-    docs = data || [];
-  }
+  // ── Derived values ─────────────────────────────────────────────────────────
+  const fullName   = client
+    ? `${client.first_name} ${client.last_name}`.trim()
+    : profile?.full_name || "Cliente";
+  const firstName  = fullName.split(" ")[0];
+  const caseLabel  = mainCase
+    ? (CASE_TYPE_LABEL[mainCase.case_type] ?? mainCase.case_type)
+    : null;
 
-  const firstName = client?.first_name || profile?.full_name?.split(" ")[0] || "Cliente";
-  const showTerminal = mainCase && ["denegado", "cerrado", "archivado"].includes(mainCase.status);
+  const activePhase = activePhaseIndex(mainCase?.status ?? null);
+
+  // Incomplete steps (1-11, skip 12 = submit)
+  const incompleteTasks = Object.entries(MODULE_NAMES)
+    .map(([k, name]) => ({ step: Number(k), name, status: moduleProgress[k] ?? "empty" }))
+    .filter(t => t.status !== "complete");
+
+  const totalModules  = Object.keys(MODULE_NAMES).length; // 11
+  const doneModules   = totalModules - incompleteTasks.length;
+  const completionPct = Math.round((doneModules / totalModules) * 100);
+
+  const unreadCount = (notifications ?? []).filter(n => n.read_at === null).length;
 
   return (
     <div className="space-y-6">
 
-      {/* ─── Hero ─── */}
-      <div className="rounded-2xl bg-gradient-to-br from-brand-blue to-brand-blue-dark p-6 text-white shadow-lg">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+      {/* ─── Header ──────────────────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl p-6 text-white shadow-lg"
+        style={{ background: `linear-gradient(135deg, ${NAVY} 0%, #2a3f7e 100%)` }}
+      >
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <p className="text-blue-200 text-sm">Bienvenido(a),</p>
-            <h1 className="mt-0.5 text-2xl font-bold">{firstName} 👋</h1>
-            {mainCase ? (
-              <p className="mt-1 text-sm text-blue-200">
-                Caso{" "}
-                <span className="font-mono font-bold text-white">{mainCase.case_number}</span>
-                {" · "}Evaluación O-1B / EB-1B
+            <p className="text-sm" style={{ color: GOLD }}>Bienvenido/a de vuelta</p>
+            <h1 className="mt-1 text-2xl font-bold tracking-tight">{fullName}</h1>
+            {caseLabel && (
+              <p className="mt-1.5 text-sm text-blue-200">{caseLabel}</p>
+            )}
+            {mainCase?.case_number && (
+              <p className="mt-0.5 font-mono text-xs text-blue-300">
+                Caso #{mainCase.case_number}
               </p>
-            ) : (
-              <p className="mt-1 text-sm text-blue-200">Tu evaluación está siendo procesada.</p>
             )}
           </div>
-          {mainCase && (
-            <span className={`shrink-0 inline-flex items-center rounded-full border px-3 py-1.5 text-sm font-semibold ${STATUS_COLOR[mainCase.status] || "bg-gray-100 text-gray-700 border-gray-200"}`}>
-              {STATUS_LABEL[mainCase.status] || mainCase.status}
-            </span>
-          )}
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            {unreadCount > 0 && (
+              <span
+                className="rounded-full px-3 py-1 text-xs font-bold text-white"
+                style={{ background: GOLD }}
+              >
+                {unreadCount} notificación{unreadCount > 1 ? "es" : ""} nueva{unreadCount > 1 ? "s" : ""}
+              </span>
+            )}
+            {mainCase?.status && (
+              <span className="rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-white backdrop-blur-sm">
+                Estado: {mainCase.status.replace(/_/g, " ")}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* ─── Progress timeline ─── */}
-      {mainCase && !showTerminal && (
-        <div className="rounded-2xl bg-white shadow-sm border border-gray-100 p-6">
-          <p className="mb-5 text-xs font-semibold uppercase tracking-wider text-gray-400">
-            Progreso de tu caso
-          </p>
-          <div className="flex items-center">
-            {STAGES.map((stage, i) => {
-              const done = i < currentStage;
-              const active = i === currentStage;
-              return (
-                <div key={stage.key} className="flex flex-1 flex-col items-center">
-                  <div className="flex w-full items-center">
-                    {i > 0 && (
-                      <div className={`h-0.5 flex-1 ${i <= currentStage ? "bg-brand-red" : "bg-gray-200"}`} />
-                    )}
-                    <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full border-2 ${done ? "border-brand-red bg-brand-red text-white" : active ? "border-brand-blue bg-brand-blue text-white" : "border-gray-200 bg-white text-gray-300"}`}>
-                      {done ? <CheckCircle size={15} /> : active ? <Clock size={14} /> : <Circle size={13} />}
-                    </div>
-                    {i < STAGES.length - 1 && (
-                      <div className={`h-0.5 flex-1 ${i < currentStage ? "bg-brand-red" : "bg-gray-200"}`} />
-                    )}
-                  </div>
-                  <span className={`mt-2 text-center text-xs font-medium leading-tight ${done ? "text-brand-red" : active ? "text-brand-blue" : "text-gray-400"}`}>
-                    {stage.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-          {mainCase.updated_at && (
-            <p className="mt-4 text-center text-xs text-gray-400">
-              Última actualización: {fmtDate(mainCase.updated_at)}
-            </p>
-          )}
-        </div>
-      )}
+      {/* ─── 1. CASE TIMELINE ────────────────────────────────────────────── */}
+      <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+        <h2 className="mb-6 text-xs font-bold uppercase tracking-widest text-gray-400">
+          Progreso de tu caso
+        </h2>
 
+        {/* Mobile: vertical list */}
+        <ol className="flex flex-col gap-4 sm:hidden">
+          {PHASES.map(({ label, sub, Icon }, i) => {
+            const done   = i < activePhase;
+            const active = i === activePhase;
+            return (
+              <li key={label} className="flex items-center gap-3">
+                <div
+                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border-2 transition-all"
+                  style={{
+                    borderColor: done || active ? NAVY : "#e5e7eb",
+                    background:  done ? NAVY : active ? GOLD : "#f9fafb",
+                    boxShadow:   active ? `0 0 0 4px ${GOLD}33` : undefined,
+                  }}
+                >
+                  {done
+                    ? <CheckCircle2 size={16} color="#fff" />
+                    : active
+                    ? <Icon size={15} color={NAVY} />
+                    : <Icon size={15} color="#d1d5db" />
+                  }
+                </div>
+                <div>
+                  <p className={`text-sm font-semibold ${done || active ? "text-gray-800" : "text-gray-400"}`}>
+                    {label}
+                  </p>
+                  <p className={`text-xs ${active ? "font-medium" : "text-gray-400"}`}
+                     style={{ color: active ? GOLD : undefined }}>
+                    {active ? sub : done ? "Completado" : "Pendiente"}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        {/* Desktop: horizontal */}
+        <ol className="hidden sm:flex items-start">
+          {PHASES.map(({ label, sub, Icon }, i) => {
+            const done   = i < activePhase;
+            const active = i === activePhase;
+            const last   = i === PHASES.length - 1;
+            return (
+              <li key={label} className="flex flex-1 flex-col items-center">
+                <div className="flex w-full items-center">
+                  {i > 0 && (
+                    <div
+                      className="h-0.5 flex-1"
+                      style={{ background: i <= activePhase ? NAVY : "#e5e7eb" }}
+                    />
+                  )}
+                  <div
+                    className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border-2 transition-all"
+                    style={{
+                      borderColor: done || active ? NAVY : "#e5e7eb",
+                      background:  done ? NAVY : active ? GOLD : "#f9fafb",
+                      boxShadow:   active ? `0 0 0 5px ${GOLD}33` : undefined,
+                    }}
+                  >
+                    {done
+                      ? <CheckCircle2 size={17} color="#fff" />
+                      : active
+                      ? <Icon size={16} color={NAVY} />
+                      : <Icon size={16} color="#d1d5db" />
+                    }
+                  </div>
+                  {!last && (
+                    <div
+                      className="h-0.5 flex-1"
+                      style={{ background: i < activePhase ? NAVY : "#e5e7eb" }}
+                    />
+                  )}
+                </div>
+                <div className="mt-3 text-center px-1">
+                  <p className={`text-xs font-bold ${done || active ? "text-gray-800" : "text-gray-400"}`}>
+                    {label}
+                  </p>
+                  <p
+                    className="mt-0.5 text-xs leading-tight"
+                    style={{ color: active ? GOLD : done ? "#9ca3af" : "#d1d5db" }}
+                  >
+                    {active ? sub : done ? "Completado" : "Pendiente"}
+                  </p>
+                </div>
+              </li>
+            );
+          })}
+        </ol>
+
+        {!mainCase && (
+          <p className="mt-4 text-center text-xs text-gray-400">
+            Tu caso será creado una vez que completes el formulario de intake.
+          </p>
+        )}
+      </section>
+
+      {/* ─── 2 + 3: Notifications & Tasks side-by-side on lg ────────────── */}
       <div className="grid gap-6 lg:grid-cols-2">
 
-        {/* ─── Documents ─── */}
-        <div className="rounded-2xl bg-white shadow-sm border border-gray-100 p-6">
+        {/* ─── 2. NOTIFICATIONS CENTER ─────────────────────────────────── */}
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <FileText size={18} className="text-brand-blue" />
-              <h2 className="font-semibold text-gray-800">Documentos</h2>
-              {docs.length > 0 && (
-                <span className="rounded-full bg-gray-100 px-2 py-0.5 text-xs text-gray-600">
-                  {docs.length}
-                </span>
-              )}
-            </div>
-          </div>
-
-          {docs.length > 0 ? (
-            <div className="mb-4 space-y-2.5">
-              {docs.map((doc) => {
-                const ds = DOC_STATUS[doc.status] || { label: doc.status, color: "text-gray-600 bg-gray-50 border-gray-200" };
-                return (
-                  <div key={doc.id} className="flex items-start justify-between gap-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2.5">
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-800">{doc.name}</p>
-                      <p className="mt-0.5 text-xs text-gray-400">{fmtDate(doc.created_at)}</p>
-                    </div>
-                    <span className={`shrink-0 rounded-full border px-2 py-0.5 text-xs font-medium ${ds.color}`}>
-                      {ds.label}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div className="mb-4 rounded-xl border border-dashed border-gray-200 py-6 text-center">
-              <FileText size={24} className="mx-auto mb-1.5 text-gray-300" />
-              <p className="text-sm text-gray-500">Sin documentos todavía.</p>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Sube tus documentos aquí cuando estés listo.
-              </p>
-            </div>
-          )}
-
-          {mainCase && client && (
-            <UploadBtn caseId={mainCase.id} clientId={client.id} />
-          )}
-        </div>
-
-        {/* ─── Messages ─── */}
-        <div className="rounded-2xl bg-white shadow-sm border border-gray-100 p-6">
-          <div className="mb-4 flex items-center gap-2">
-            <MessageSquare size={18} className="text-brand-blue" />
-            <h2 className="font-semibold text-gray-800">Mensajes de tu equipo</h2>
-            {notes.length > 0 && (
-              <span className="rounded-full bg-blue-100 px-2 py-0.5 text-xs text-blue-700">
-                {notes.length}
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Notificaciones
+            </h2>
+            {unreadCount > 0 && (
+              <span
+                className="rounded-full px-2.5 py-0.5 text-xs font-bold text-white"
+                style={{ background: GOLD }}
+              >
+                {unreadCount} nueva{unreadCount > 1 ? "s" : ""}
               </span>
             )}
           </div>
 
-          {notes.length > 0 ? (
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {notes.map((note) => (
-                <div key={note.id} className="rounded-xl border border-blue-100 bg-blue-50 p-3">
-                  <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-wrap">{note.content}</p>
-                  <p className="mt-1.5 text-xs text-gray-400">{fmtDate(note.created_at)}</p>
-                </div>
+          {notifications && notifications.length > 0 ? (
+            <div className="space-y-2">
+              {notifications.map(n => (
+                <NotificationCard key={n.id} notification={n} />
               ))}
             </div>
           ) : (
-            <div className="rounded-xl border border-dashed border-gray-200 py-8 text-center">
-              <MessageSquare size={24} className="mx-auto mb-1.5 text-gray-300" />
-              <p className="text-sm text-gray-500">Sin mensajes todavía.</p>
-              <p className="mt-0.5 text-xs text-gray-400">
-                Aquí verás las actualizaciones de tu caso.
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <div
+                className="mb-3 flex h-12 w-12 items-center justify-center rounded-full"
+                style={{ background: `${NAVY}10` }}
+              >
+                <Mail size={20} style={{ color: NAVY }} />
+              </div>
+              <p className="text-sm font-medium text-gray-600">Sin notificaciones</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Aquí recibirás actualizaciones de tu caso.
               </p>
             </div>
           )}
-        </div>
-      </div>
+        </section>
 
-      {/* ─── Case detail ─── */}
-      {mainCase && (
-        <div className="rounded-2xl bg-white shadow-sm border border-gray-100 p-6">
-          <h2 className="mb-4 font-semibold text-gray-800">Detalle del caso</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Número de caso</p>
-              <p className="mt-1 font-mono text-lg font-bold text-brand-blue">{mainCase.case_number}</p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Estado</p>
-              <span className={`mt-1 inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium ${STATUS_COLOR[mainCase.status] || ""}`}>
-                {STATUS_LABEL[mainCase.status] || mainCase.status}
+        {/* ─── 3. PENDING TASKS ────────────────────────────────────────── */}
+        <section className="rounded-2xl border border-gray-100 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              Tareas pendientes
+            </h2>
+            <span className="text-xs font-semibold text-gray-500">
+              {doneModules}/{totalModules} completados
+            </span>
+          </div>
+
+          {/* Progress bar */}
+          <div className="mb-5">
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs text-gray-500">Progreso del intake</span>
+              <span
+                className="text-xs font-bold"
+                style={{ color: completionPct === 100 ? "#16a34a" : NAVY }}
+              >
+                {completionPct}%
               </span>
             </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Tipo</p>
-              <p className="mt-1 text-sm text-gray-700">
-                {mainCase.case_type === "talento_extraordinario" ? "O-1B / EB-1B" : (mainCase.case_type || "—").replace(/_/g, " ")}
-              </p>
-            </div>
-            <div>
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400">Apertura</p>
-              <p className="mt-1 text-sm text-gray-700">{fmtDate(mainCase.created_at)}</p>
+            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-100">
+              <div
+                className="h-2 rounded-full transition-all duration-500"
+                style={{
+                  width: `${completionPct}%`,
+                  background: completionPct === 100
+                    ? "#16a34a"
+                    : `linear-gradient(90deg, ${NAVY}, ${GOLD})`,
+                }}
+              />
             </div>
           </div>
-        </div>
-      )}
 
-      {/* ─── Contact ─── */}
-      <div className="rounded-2xl border border-brand-blue/20 bg-brand-blue/5 p-6">
+          {incompleteTasks.length > 0 ? (
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-0.5">
+              {incompleteTasks.map(({ step, name, status }) => (
+                <Link
+                  key={step}
+                  href={`/intake?step=${step}`}
+                  className="flex items-center justify-between gap-3 rounded-xl border p-3 transition-all hover:shadow-sm"
+                  style={{
+                    borderColor: status === "partial" ? `${GOLD}60` : "#e5e7eb",
+                    background:  status === "partial" ? `${GOLD}08` : "#f9fafb",
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold"
+                      style={{
+                        background: status === "partial" ? GOLD : "#e5e7eb",
+                        color:      status === "partial" ? "#fff" : "#9ca3af",
+                      }}
+                    >
+                      {step}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-800">{name}</p>
+                      <p
+                        className="text-xs"
+                        style={{ color: status === "partial" ? GOLD : "#9ca3af" }}
+                      >
+                        {status === "partial" ? "Incompleto" : "Sin comenzar"}
+                      </p>
+                    </div>
+                  </div>
+                  <ChevronRight size={15} className="shrink-0 text-gray-400" />
+                </Link>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-50">
+                <CheckCircle2 size={22} className="text-green-600" />
+              </div>
+              <p className="text-sm font-semibold text-green-700">¡Todo completado!</p>
+              <p className="mt-1 text-xs text-gray-400">
+                Has completado todos los módulos del intake.
+              </p>
+            </div>
+          )}
+
+          {incompleteTasks.length > 0 && (
+            <Link
+              href="/intake"
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl py-2.5 text-sm font-bold text-white transition-all hover:opacity-90"
+              style={{ background: NAVY }}
+            >
+              Continuar intake
+              <ChevronRight size={15} />
+            </Link>
+          )}
+        </section>
+      </div>
+
+      {/* ─── Contact footer ──────────────────────────────────────────────── */}
+      <div
+        className="rounded-2xl border p-5"
+        style={{ borderColor: `${GOLD}40`, background: `${GOLD}08` }}
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <h2 className="font-semibold text-brand-blue">¿Tienes preguntas?</h2>
-            <p className="mt-1 text-sm text-gray-600">
-              Contáctanos directamente y responderemos lo antes posible.
+            <p className="font-semibold" style={{ color: NAVY }}>
+              ¿Tienes preguntas sobre tu caso?
+            </p>
+            <p className="mt-0.5 text-sm text-gray-600">
+              Nuestro equipo responde en menos de 24 horas.
             </p>
           </div>
           <a
             href="mailto:actionusaaillc@gmail.com"
-            className="flex shrink-0 items-center gap-2 rounded-lg bg-brand-blue px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-blue-dark transition-colors shadow-sm"
+            className="flex shrink-0 items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold text-white shadow-sm transition-all hover:opacity-90"
+            style={{ background: NAVY }}
           >
-            <Mail size={15} /> Escribir al equipo
+            <Mail size={15} />
+            Escribir al equipo
           </a>
         </div>
       </div>
