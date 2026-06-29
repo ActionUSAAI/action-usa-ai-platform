@@ -244,6 +244,13 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.conferencesDisposition} onDisposition={v => u("conferencesDisposition", v)}
         emptyItem={() => ({ id:genId(), event:"", org:"", country:"", date:"", topic:"", role:"", filePath:"", fileName:"" } as ConferenceEvidence)}
         sessionId={sessionId} sectionKey="conferences"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿En qué eventos o conferencias de tu industria te gustaría participar como ponente? ¿Sobre qué tema hablarías?">
+            <Textarea value={d.conferencesDisposition} onChange={v => u("conferencesDisposition", v)}
+              placeholder="Ej: Me interesa hablar en TEDx o en el congreso anual de la IEEE sobre automatización industrial..."/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
