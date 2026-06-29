@@ -153,6 +153,16 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         disposition={d.mediaDisposition} onDisposition={v => u("mediaDisposition", v)}
         emptyItem={() => ({ id:genId(), medium:"", title:"", date:"", author:"", link:"", reach:"", filePath:"", fileName:"" } as MediaEvidence)}
         sessionId={sessionId} sectionKey="media"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Sobre qué logro o proyecto tuyo te gustaría que escribiera un medio especializado?">
+            <Textarea value={d.mediaDisposition} onChange={v => u("mediaDisposition", v)}
+              placeholder="Ej: Mi trabajo en el proyecto X redujo costos hospitalarios en un 40%..."/>
+          </Field>
+          <Field label="¿Tienes página web o presencia online profesional?" hint="Opcional">
+            <YesNo value={d.mediaWebPresence} onChange={v => u("mediaWebPresence", v)} yesLabel="Sí" noLabel="No"/>
+          </Field>
+        </>}
       >
         {(item, _, upd) => (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

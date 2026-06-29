@@ -152,7 +152,7 @@ export type IncomeEvidence     = {
 export type Module10 = {
   awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
-  mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string;
+  mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string; mediaWebPresence: boolean | null;
   articlesStatus: EvidenceStatus;    articles: ArticleEvidence[];  articlesDisposition: string;
   booksStatus: EvidenceStatus;       books: BookEvidence[];        booksDisposition: string;
   conferencesStatus: EvidenceStatus; conferences: ConferenceEvidence[]; conferencesDisposition: string;

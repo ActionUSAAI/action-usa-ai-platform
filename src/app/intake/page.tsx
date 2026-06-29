@@ -97,7 +97,7 @@ const INITIAL: IntakeForm = {
   module10: {
     awardsStatus:"", awards:[], awardsDisposition:"",
     membershipsStatus:"", memberships:[], membershipsDisposition:"",
-    mediaStatus:"", media:[], mediaDisposition:"",
+    mediaStatus:"", media:[], mediaDisposition:"", mediaWebPresence:null,
     articlesStatus:"", articles:[], articlesDisposition:"",
     booksStatus:"", books:[], booksDisposition:"",
     conferencesStatus:"", conferences:[], conferencesDisposition:"",
