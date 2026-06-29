@@ -1,7 +1,7 @@
 import type { Module11, StrategicAnswer } from "../types";
-import { Textarea, YesNo, InfoBox } from "../primitives";
+import { Textarea, YesNo, InfoBox, FileUpload } from "../primitives";
 
-type Props = { data: Module11; onChange: (d: Module11) => void };
+type Props = { data: Module11; onChange: (d: Module11) => void; sessionId: string };
 
 const QUESTIONS: { key: keyof Module11; question: string; hint: string }[] = [
   { key: "createdMethod",        question: "¿Ha creado algún método, proceso, herramienta, sistema o forma de trabajo que otras personas o empresas hayan utilizado?",       hint: "Metodologías propias, frameworks, sistemas que otros adoptaron..." },
@@ -16,7 +16,7 @@ const QUESTIONS: { key: keyof Module11; question: string; hint: string }[] = [
   { key: "additionalInfo",       question: "¿Hay algo más relevante sobre su trayectoria que no hayamos preguntado?",                                                       hint: "Cualquier logro, situación o contexto que consideres importante..." },
 ];
 
-export function Module11({ data: d, onChange }: Props) {
+export function Module11({ data: d, onChange, sessionId }: Props) {
   const upd = (key: keyof Module11, patch: Partial<StrategicAnswer>) =>
     onChange({ ...d, [key]: { ...d[key], ...patch } });
 
@@ -47,6 +47,15 @@ export function Module11({ data: d, onChange }: Props) {
               yesLabel="Sí" noLabel="No"
             />
           </div>
+          {d[key].hasEvidence === true && (
+            <FileUpload
+              sessionId={sessionId}
+              storagePath={`module11/${key}`}
+              filePath={d[key].filePath}
+              fileName={d[key].fileName}
+              onChange={({ filePath, fileName }) => upd(key, { filePath, fileName })}
+            />
+          )}
         </div>
       ))}
     </div>

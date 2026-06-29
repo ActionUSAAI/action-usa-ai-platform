@@ -56,7 +56,7 @@ const emptyDoc = () => ({
   fileName: "",
 });
 
-const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null });
+const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null, filePath: "", fileName: "" });
 
 const INITIAL: IntakeForm = {
   module1: {
@@ -429,7 +429,7 @@ export default function IntakePage() {
             {step === 7  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8:  m }))}/>}
             {step === 8  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))}/>}
             {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
-            {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))}/>}
+            {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
             {step === 12 && <Module13 statuses={statuses}  loading={loading} error={submitError} onSubmit={submit}/>}
           </div>

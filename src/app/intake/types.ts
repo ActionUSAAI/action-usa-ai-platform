@@ -165,7 +165,7 @@ export type Module10 = {
 };
 
 // ─── Module 11 — Strategic Information ───────────────────────────────────────
-export type StrategicAnswer = { answer: string; hasEvidence: boolean | null };
+export type StrategicAnswer = { answer: string; hasEvidence: boolean | null; filePath: string; fileName: string };
 export type Module11 = {
   createdMethod: StrategicAnswer;
   ledImpactProjects: StrategicAnswer;
