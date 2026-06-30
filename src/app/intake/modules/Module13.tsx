@@ -1,8 +1,9 @@
-import { CheckCircle, AlertCircle, XCircle, Loader2 } from "lucide-react";
+import { CheckCircle, AlertCircle, XCircle, MinusCircle, Loader2 } from "lucide-react";
 import type { ModuleStatus } from "../types";
 
 type Props = {
   statuses: ModuleStatus[];
+  show12: boolean;
   loading: boolean;
   error: string | null;
   onSubmit: () => void;
@@ -23,15 +24,24 @@ const MODULE_NAMES = [
 ];
 
 const STATUS_CONFIG = {
-  complete: { Icon: CheckCircle,  color: "text-green-600",  bg: "bg-green-50 border-green-200",  label: "Completo" },
-  partial:  { Icon: AlertCircle,  color: "text-amber-600",  bg: "bg-amber-50 border-amber-200",  label: "Parcial" },
-  empty:    { Icon: XCircle,      color: "text-gray-400",   bg: "bg-gray-50 border-gray-200",    label: "Vacío" },
+  complete:   { Icon: CheckCircle,  color: "text-green-600",  bg: "bg-green-50 border-green-200",  label: "Completo"  },
+  partial:    { Icon: AlertCircle,  color: "text-amber-600",  bg: "bg-amber-50 border-amber-200",  label: "Parcial"   },
+  empty:      { Icon: XCircle,      color: "text-gray-400",   bg: "bg-gray-50 border-gray-200",    label: "Vacío"     },
+  not_applicable: { Icon: MinusCircle, color: "text-gray-400", bg: "bg-gray-50 border-gray-100",   label: "No aplica" },
 };
 
-export function Module13({ statuses, loading, error, onSubmit }: Props) {
-  const complete = statuses.filter(s => s === "complete").length;
-  const partial  = statuses.filter(s => s === "partial").length;
-  const empty    = statuses.filter(s => s === "empty").length;
+// Index of the "Servicios Opcionales" row in MODULE_NAMES (0-based)
+const OPTIONAL_SERVICES_IDX = 10;
+
+export function Module13({ statuses, show12, loading, error, onSubmit }: Props) {
+  // Module 12 (Servicios Opcionales) was skipped — treat as not applicable, not empty
+  const effectiveStatuses = statuses.map((s, i) =>
+    i === OPTIONAL_SERVICES_IDX && !show12 ? "not_applicable" : s
+  ) as (ModuleStatus | "not_applicable")[];
+
+  const complete = effectiveStatuses.filter(s => s === "complete").length;
+  const partial  = effectiveStatuses.filter(s => s === "partial").length;
+  const empty    = effectiveStatuses.filter(s => s === "empty").length;
 
   return (
     <div className="space-y-6">
@@ -54,7 +64,7 @@ export function Module13({ statuses, loading, error, onSubmit }: Props) {
       {/* Module list */}
       <div className="space-y-2">
         {MODULE_NAMES.map((name, i) => {
-          const status = statuses[i] ?? "empty";
+          const status = effectiveStatuses[i] ?? "empty";
           const { Icon, color, bg, label } = STATUS_CONFIG[status];
           return (
             <div key={i} className={`flex items-center gap-3 rounded-lg border px-3 py-2.5 ${bg}`}>

@@ -431,7 +431,7 @@ export default function IntakePage() {
             {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
             {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
-            {step === 12 && <Module13 statuses={statuses}  loading={loading} error={submitError} onSubmit={submit}/>}
+            {step === 12 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
 
           {/* Navigation */}
