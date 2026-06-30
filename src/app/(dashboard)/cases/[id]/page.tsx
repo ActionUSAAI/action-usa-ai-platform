@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowLeft, FileText, Calendar, DollarSign, Clock } from "lucide-react";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, Priority } from "@/types/database";
+import { InvitationPanel } from "./invitation-panel";
 
 interface CasePageProps {
   params: { id: string };
@@ -27,7 +28,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const caso = casoRaw as any;
 
-  const [{ data: notes }, { data: documents }, { data: statusHistory }] = await Promise.all([
+  const [{ data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }] = await Promise.all([
     supabase
       .from("case_notes")
       .select(`*, profiles(full_name)`)
@@ -44,6 +45,11 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .eq("case_id", params.id)
       .order("created_at", { ascending: false })
       .limit(10),
+    supabase
+      .from("intake_invitations")
+      .select("id, email, status, expires_at, created_at, opened_at, submitted_at")
+      .eq("case_id", params.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   return (
@@ -221,6 +227,14 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
               <p className="text-sm text-gray-600">A# {caso.clients.alien_number}</p>
             )}
           </div>
+
+          {/* Invitación AUCIS */}
+          <InvitationPanel
+            caseId={params.id}
+            clientId={caso.clients?.id ?? ""}
+            clientEmail={caso.clients?.email ?? ""}
+            invitations={(invitations ?? []) as any}
+          />
 
           {/* Agente asignado */}
           <div className="rounded-xl bg-white p-5 shadow-sm border border-gray-100">
