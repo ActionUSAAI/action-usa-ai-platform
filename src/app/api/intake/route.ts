@@ -78,7 +78,6 @@ export async function POST(request: NextRequest) {
         status:    "submitted",
         module1:   body.module1  ?? {},
         module2:   body.module2  ?? {},
-        module3:   {},
         module4:   body.module4  ?? {},
         module5:   body.module5  ?? {},
         module6:   body.module6  ?? {},
