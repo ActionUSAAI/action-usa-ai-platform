@@ -18,8 +18,6 @@ import { Module11 } from "./modules/Module11";
 import { Module12 } from "./modules/Module12";
 import { Module13 } from "./modules/Module13";
 
-const STORAGE_KEY    = "aucis_intake_draft";
-const SESSION_ID_KEY = "aucis_session_id";
 const TOTAL = 12;
 
 const MODULE_TITLES = [
@@ -240,6 +238,9 @@ interface IntakeFormProps {
 }
 
 export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
+  const storageKey    = `aucis_intake_draft_${token}`;
+  const sessionIdKey  = `aucis_session_${token}`;
+
   const [step, setStep]               = useState(1);
   const [data, setData]               = useState<IntakeFormData>(INITIAL);
   const [sessionId, setSessionId]     = useState("");
@@ -253,13 +254,13 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
     try {
-      let sid = localStorage.getItem(SESSION_ID_KEY);
+      let sid = localStorage.getItem(sessionIdKey);
       if (!sid) {
         sid = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 9)}`;
-        localStorage.setItem(SESSION_ID_KEY, sid);
+        localStorage.setItem(sessionIdKey, sid);
       }
       setSessionId(sid);
-      const raw = localStorage.getItem(STORAGE_KEY);
+      const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<IntakeFormData>;
         setData({
@@ -282,7 +283,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   // ── Autosave every 30 seconds ──────────────────────────────────────────────
   const save = useCallback(() => {
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      localStorage.setItem(storageKey, JSON.stringify(data));
       setSavedAt(new Date());
     } catch { /* ignore */ }
   }, [data]);
@@ -341,7 +342,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error al enviar");
-      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(storageKey);
       setSuccess({ caseNumber: json.caseNumber });
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Error desconocido. Intenta de nuevo.");
@@ -374,7 +375,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
                 className="rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium hover:bg-white/30 transition-colors">
                 Retomar
               </button>
-              <button onClick={() => { setData(INITIAL); setDraftBanner(false); localStorage.removeItem(STORAGE_KEY); }}
+              <button onClick={() => { setData(INITIAL); setDraftBanner(false); localStorage.removeItem(storageKey); }}
                 className="rounded-lg bg-brand-red/80 px-3 py-1.5 text-xs font-medium hover:bg-brand-red transition-colors">
                 Comenzar de nuevo
               </button>
