@@ -32,7 +32,7 @@ function invitationEmail(token: string, email: string): string {
           <td style="background:#1B2B5E;padding:32px 40px;text-align:center">
             <p style="margin:0;color:#C9A84C;font-size:13px;font-weight:600;letter-spacing:2px;text-transform:uppercase">ACTION USA AI</p>
             <h1 style="margin:12px 0 0;color:#ffffff;font-size:24px;font-weight:700;line-height:1.3">
-              Tu evaluación de elegibilidad<br>te está esperando
+              Su expediente está listo<br>para comenzar
             </h1>
           </td>
         </tr>
@@ -44,10 +44,13 @@ function invitationEmail(token: string, email: string): string {
               Hola,
             </p>
             <p style="margin:0 0 20px;color:#374151;font-size:16px;line-height:1.7">
-              Has sido invitado/a a completar tu <strong>evaluación de talento extraordinario</strong> con ACTION USA AI. Este formulario nos permite analizar en detalle tu perfil profesional para determinar tu elegibilidad para visas como la <strong>O-1A, O-1B o EB-1</strong>.
+              Su caso ha sido aceptado y el equipo de ACTION USA AI ya se encuentra asignado para iniciar la preparación de su expediente.
+            </p>
+            <p style="margin:0 0 20px;color:#374151;font-size:16px;line-height:1.7">
+              Como primer paso, le solicitamos completar el formulario inicial de información y cargar la documentación correspondiente. Esta información nos permitirá organizar sus datos personales, trayectoria profesional, documentos, logros y antecedentes relevantes para comenzar la construcción estratégica de su caso.
             </p>
             <p style="margin:0 0 32px;color:#374151;font-size:16px;line-height:1.7">
-              El proceso toma entre <strong>20 y 40 minutos</strong>. Puedes pausar y continuar cuando quieras — tu progreso se guarda automáticamente.
+              El formulario toma aproximadamente entre <strong>20 y 40 minutos</strong>. Le recomendamos completarlo a la brevedad posible, ya que el equipo legal no podrá iniciar la preparación de su expediente hasta recibir esta información. Si necesita pausarlo, su progreso se guardará automáticamente.
             </p>
 
             <!-- CTA Button -->
@@ -56,7 +59,7 @@ function invitationEmail(token: string, email: string): string {
                 <td align="center" style="padding:0 0 32px">
                   <a href="${link}"
                      style="display:inline-block;background:#1B2B5E;color:#C9A84C;text-decoration:none;font-size:16px;font-weight:700;padding:16px 40px;border-radius:8px;letter-spacing:0.5px">
-                    Completar mi evaluación →
+                    Completar mi información →
                   </a>
                 </td>
               </tr>
@@ -68,12 +71,18 @@ function invitationEmail(token: string, email: string): string {
                 <td style="background:#FEF9EC;border:1px solid #C9A84C;border-radius:8px;padding:16px 20px">
                   <p style="margin:0 0 6px;color:#92640A;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px">Importante</p>
                   <p style="margin:0;color:#78510A;font-size:14px;line-height:1.6">
-                    Este enlace es <strong>personal e intransferible</strong> y expira en <strong>14 días</strong>.
-                    No lo compartas con nadie. Si el enlace vence, contacta a tu asesor para solicitar uno nuevo.
+                    Este enlace es <strong>personal e intransferible</strong>, y tendrá una vigencia de <strong>14 días</strong>.
+                    Por favor, no lo comparta con terceros. Si el enlace expira, comuníquese con su asesor para solicitar uno nuevo.
                   </p>
                 </td>
               </tr>
             </table>
+
+            <!-- Sign-off -->
+            <p style="margin:32px 0 0;color:#374151;font-size:15px;line-height:1.7">
+              Atentamente,<br>
+              <strong>ACTION USA AI</strong>
+            </p>
           </td>
         </tr>
 
@@ -88,14 +97,14 @@ function invitationEmail(token: string, email: string): string {
         <tr>
           <td style="padding:24px 40px 32px">
             <p style="margin:0 0 8px;color:#9CA3AF;font-size:13px;line-height:1.6">
-              Si el botón no funciona, copia y pega este enlace en tu navegador:
+              Si el botón no funciona, copie y pegue este enlace en su navegador:
             </p>
             <p style="margin:0 0 20px;word-break:break-all">
               <a href="${link}" style="color:#1B2B5E;font-size:13px;text-decoration:underline">${link}</a>
             </p>
             <p style="margin:0;color:#9CA3AF;font-size:12px;line-height:1.6">
-              Este mensaje fue enviado a ${email}. Si no esperabas esta invitación,
-              puedes ignorar este correo de forma segura.
+              Este mensaje fue enviado a ${email}. Si usted no solicitó esta comunicación,
+              puede ignorar este correo de forma segura.
             </p>
           </td>
         </tr>
@@ -197,7 +206,7 @@ export async function POST(request: NextRequest) {
       body: JSON.stringify({
         from: FROM,
         to:   [email],
-        subject: "Tu invitación para completar tu evaluación — ACTION USA AI",
+        subject: "Inicio formal de su expediente — ACTION USA AI",
         html: invitationEmail(token, email),
       }),
     });
