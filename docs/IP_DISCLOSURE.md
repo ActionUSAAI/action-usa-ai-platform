@@ -69,6 +69,26 @@ The structured two-phase petition construction workflow (Phase 1: initial petiti
 
 The Client Concierge agent's design as a bilingual (Spanish/English), tone-adaptive, message-type-parameterized communication system that generates USCIS-aware client updates without disclosing legal strategy or making outcome representations.
 
+### 3.10 Dual-model invitation architecture
+
+The design of two distinct invitation pathways — Model A (from an existing case detail page, requiring pre-existing client and case records) and Model B (standalone, creating client, case, and invitation atomically from a single admin interaction) — operating through a shared `intake_invitations` table and shared email template library, with best-effort rollback on partial failure in Model B.
+
+### 3.11 Cryptographic token-gated intake access control
+
+The implementation of cryptographically secure, time-limited, single-use intake form access via 256-bit random tokens (`randomBytes(32).toString("base64url")`), validated server-side in a Next.js server component before any client code is rendered, with automatic redirect to a branded no-access page on any validation failure (absent token, unknown token, expired token, or revoked/submitted status).
+
+### 3.12 Pre-creation pattern for client and case records at invitation time
+
+The architectural decision to create the client record, case record, and invitation record at the moment the admin sends the invitation — prior to any client interaction — rather than at form submission time. This two-phase pattern enables real-time case tracking, staff visibility into client engagement status, and clean data integrity independent of whether the client completes the form.
+
+### 3.13 Per-token localStorage namespace isolation
+
+The technique of deriving the client-side localStorage draft key and session ID key from the invitation token itself (`aucis_intake_draft_{token}`, `aucis_session_{token}`), preventing draft data contamination between different invitation sessions opened in the same browser context.
+
+### 3.14 Server-side invitation validation with automatic status progression
+
+The server-side logic that validates the invitation token and simultaneously advances the invitation status from `pending` to `opened` (recording `opened_at`) on first valid access, providing real-time admin visibility into whether the client has begun the intake process without requiring any client-side action or explicit notification.
+
 ---
 
 ## 4. Technology Stack Disclosure
@@ -114,5 +134,6 @@ This disclosure is made for the purpose of establishing priority of creation and
 | Version | Date | Author | Change |
 |---|---|---|---|
 | 1.0 | 2026-06-29 | Alexander Clavijo | Initial disclosure |
+| 1.1 | 2026-06-30 | Alexander Clavijo | Added IP items 3.10–3.14: invitation system architecture |
 
 *This document should be updated whenever material new IP is added to the AUCIS system.*

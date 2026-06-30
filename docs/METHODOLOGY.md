@@ -206,3 +206,53 @@ If USCIS issues an RFE, the workflow branches:
 **Bilingual operation:** All client-facing communications, intake prompts, and concierge messages support Spanish and English. The core legal documents (petition, letters) are generated in English. This bilingual approach serves the primary market of Latin American extraordinary ability professionals.
 
 **Institutional tier scoring:** By explicitly classifying and scoring the institutional weight of each piece of evidence, AUCIS produces petitions that front-load the strongest evidence and frame weaker evidence as corroborating rather than primary. This mirrors how experienced immigration attorneys approach USCIS adjudicators.
+
+---
+
+## 8. Control de Acceso al Intake
+
+### Decisión de diseño: acceso solo por invitación
+
+La versión inicial del intake form era públicamente accesible sin restricción. Esta arquitectura fue reemplazada por un sistema de invitación con token criptográfico por las siguientes razones:
+
+- **Integridad de datos:** Impide que cualquier persona sin relación con ACTION USA AI inicie un expediente, evitando registros de clientes y casos huérfanos en la base de datos.
+- **Trazabilidad:** Cada sesión de intake queda vinculada a un caso y cliente pre-creados, lo que permite al equipo conocer el estado exacto de cada cliente antes de que termine de completar el formulario.
+- **Seguridad:** El token de 256 bits generado criptográficamente mediante `randomBytes(32)` no puede ser adivinado o forzado por fuerza bruta.
+
+### Patrón de creación en dos fases
+
+El sistema separa la creación del expediente de su llenado:
+
+**Fase 1 — Creación del expediente (al enviar la invitación)**
+
+El administrador genera la invitación desde el dashboard. En ese momento se crean:
+- El registro de `clients` (con nombre, email y teléfono, sin `profile_id` aún)
+- El registro de `cases` (con número de caso asignado por el trigger de la base de datos, estado `nuevo`)
+- El registro de `intake_invitations` (con token, `case_id`, `client_id`, `expires_at = now + 14 días`, `status = pending`)
+
+El `profile_id` del cliente se vincula posteriormente, cuando el cliente crea su cuenta durante o después de completar el intake (mediante el flujo de invitación de Supabase Auth).
+
+**Fase 2 — Llenado del formulario (cuando el cliente accede con su token)**
+
+El cliente sigue el enlace personal. El servidor valida el token y renderiza el formulario. El `case_id` y `client_id` se pasan como props al componente de formulario y se incluyen en el payload de envío, permitiendo reconciliar la sumisión con el expediente pre-creado.
+
+### Transición de estado "opened"
+
+Cuando el servidor valida un token por primera vez (estado `pending`), actualiza inmediatamente el registro a `status = 'opened', opened_at = now()` antes de renderizar el formulario. Esto permite al equipo de administración distinguir, en tiempo real, entre:
+
+- **pending:** La invitación fue enviada pero el cliente aún no ha abierto el enlace.
+- **opened:** El cliente ha accedido al formulario al menos una vez.
+- **submitted:** El cliente completó y envió el formulario.
+
+Esta visibilidad operativa permite al equipo hacer seguimiento proactivo sin necesidad de preguntar al cliente si "ya abrió el enlace".
+
+### Patrón de email no fatal
+
+Si el servicio de email (Resend) falla al momento de enviar la invitación, el sistema **no revierte** la creación del caso ni de la invitación. En cambio:
+
+- La invitación queda en estado `pending` en la base de datos
+- La API devuelve `email_warning` en la respuesta con el detalle del error
+- El panel de invitaciones en la ficha del caso muestra el aviso al administrador
+- El administrador puede reintentar el envío desde el panel (el botón "Reenviar invitación" genera y envía una nueva invitación referenciando el mismo caso)
+
+Este patrón prioriza la integridad del registro sobre la entrega del email, evitando que un fallo transitorio de Resend obligue al administrador a recrear manualmente el expediente.
