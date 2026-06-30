@@ -27,6 +27,14 @@ function invitationEmail(token: string, email: string): string {
     <tr><td align="center">
       <table width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,0.08)">
 
+        <!-- Logo -->
+        <tr>
+          <td align="center" style="background:#ffffff;padding:28px 40px 20px">
+            <img src="https://actionusaai.com/logo.png" alt="ACTION USA AI" width="150" height="38"
+                 style="display:block;max-width:150px;height:auto;border:0">
+          </td>
+        </tr>
+
         <!-- Header -->
         <tr>
           <td style="background:#1B2B5E;padding:32px 40px;text-align:center">
