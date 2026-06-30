@@ -4,6 +4,7 @@ import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, CaseType, Priority } from "@/types/database";
+import { NuevaInvitacionButton } from "./nueva-invitacion";
 
 const caseTypeLabels: Record<CaseType, string> = {
   asilo: "Asilo",
@@ -56,12 +57,15 @@ export default async function CasesPage({ searchParams }: CasesPageProps) {
           <h2 className="text-2xl font-bold text-gray-900">Casos</h2>
           <p className="text-sm text-gray-500 mt-1">{cases?.length ?? 0} casos encontrados</p>
         </div>
-        <Link href="/cases/nueva">
-          <Button>
-            <Plus size={16} />
-            Nuevo Caso
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <NuevaInvitacionButton />
+          <Link href="/cases/nueva">
+            <Button variant="outline">
+              <Plus size={16} />
+              Nuevo Caso
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Filtros */}
