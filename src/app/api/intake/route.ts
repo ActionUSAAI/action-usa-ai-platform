@@ -151,8 +151,11 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, caseNumber, clientId: client.id, caseId: newCase.id });
 
   } catch (error) {
-    const msg = error instanceof Error ? error.message : "Error desconocido";
+    const msg   = error instanceof Error ? error.message : String(error);
+    const stack = error instanceof Error ? error.stack   : undefined;
     console.error("[intake] error:", msg);
+    console.error("[intake] stack:", stack ?? "(no stack)");
+    console.error("[intake] raw:", JSON.stringify(error, Object.getOwnPropertyNames(error instanceof Error ? error : {})));
     return NextResponse.json(
       { error: "Error al procesar la solicitud. Por favor intenta de nuevo." },
       { status: 500 }
