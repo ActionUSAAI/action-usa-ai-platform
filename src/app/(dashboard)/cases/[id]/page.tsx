@@ -5,6 +5,8 @@ import { ArrowLeft, FileText, Calendar, DollarSign, Clock } from "lucide-react";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
+import { A1Panel } from "./a1-panel";
+import type { IntakeAnalysis } from "./a1-panel";
 
 interface CasePageProps {
   params: { id: string };
@@ -28,7 +30,9 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const caso = casoRaw as any;
 
-  const [{ data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }] = await Promise.all([
+  const { data: { user } } = await supabase.auth.getUser();
+  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }] = await Promise.all([
+    supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
       .select(`*, profiles(full_name)`)
@@ -50,7 +54,23 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .select("id, email, status, expires_at, created_at, opened_at, submitted_at")
       .eq("case_id", params.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("intake_submissions")
+      .select("id, submitted_at")
+      .eq("case_id", params.id)
+      .maybeSingle(),
+    supabase
+      .from("agent_intake_analysis")
+      .select("*")
+      .eq("case_id", params.id)
+      .eq("status", "completed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  const userRole = userProfile?.role ?? "";
+  const submissionId = submission?.id ?? null;
 
   return (
     <div className="space-y-6">
@@ -132,6 +152,14 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
               </div>
             </dl>
           </div>
+
+          {/* A1 Intake Analyzer */}
+          <A1Panel
+            caseId={params.id}
+            submissionId={submissionId}
+            initialAnalysis={(latestAnalysis ?? null) as IntakeAnalysis | null}
+            userRole={userRole}
+          />
 
           {/* Notas */}
           <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
