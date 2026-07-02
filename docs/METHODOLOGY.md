@@ -256,3 +256,153 @@ Si el servicio de email (Resend) falla al momento de enviar la invitación, el s
 - El administrador puede reintentar el envío desde el panel (el botón "Reenviar invitación" genera y envía una nueva invitación referenciando el mismo caso)
 
 Este patrón prioriza la integridad del registro sobre la entrega del email, evitando que un fallo transitorio de Resend obligue al administrador a recrear manualmente el expediente.
+
+---
+
+## 9. Metodología de Traducción Certificada (Agente A2)
+
+AUCIS implements a proprietary certified translation pipeline that processes all non-English documents submitted through the intake form. The system produces Word documents (.docx) that meet USCIS-accepted certification standards without requiring a separate human translator per document.
+
+### Tres categorías de documento y estrategia de traducción
+
+**Categoría: structured** (documentos estructurados)
+
+Aplica a: actas de nacimiento, diplomas, transcripciones académicas, contratos, licencias, certificados de premios, documentos gubernamentales.
+
+Estrategia: extracción campo a campo con secciones etiquetadas. El documento generado sigue esta estructura:
+
+1. Encabezado de marca ACTION USA AI (centrado, azul navy)
+2. Título "SUMMARY TRANSLATION" (centrado, azul navy, 18pt)
+3. Bloque de identificación: DOCUMENT / ISSUED BY / ISSUED TO / DATE
+4. **Declaración del traductor #1** (después del bloque de identificación)
+5. Secciones de contenido con encabezados en azul navy bold
+6. **Declaración del traductor #2** insertada en el punto medio de las secciones de contenido
+7. Continuación de secciones
+8. **Declaración del traductor #3 + línea de firma** (Alexander Clavijo) al final
+
+La triple declaración para documentos estructurados es una convención establecida en la práctica de traducción certificada para USCIS: identifica la responsabilidad del traductor en múltiples puntos del documento, acreditando cada sección individualmente.
+
+**Categoría: article** (artículos y publicaciones)
+
+Aplica a: artículos de prensa, comunicados de prensa, publicaciones académicas, blogs.
+
+Estructura del .docx:
+1. Encabezado de marca ACTION USA AI
+2. Título "CERTIFIED TRANSLATION"
+3. Bloque: TITLE / PUBLISHED BY / DATE / AUTHOR
+4. Cuerpo traducido (párrafos preservados con salto de línea doble)
+5. **Declaración del traductor + firma** (una sola vez al final)
+
+**Categoría: letter** (cartas y opiniones)
+
+Aplica a: cartas de recomendación, cartas de opinión consultiva, cartas de empleo, cartas de referencia.
+
+Estructura del .docx:
+1. Encabezado de marca ACTION USA AI
+2. Título "CERTIFIED TRANSLATION"
+3. Bloque: FROM / TO / DATE (con "Letter — [tipo]" como identificador)
+4. Traducción literal completa: saludo, cuerpo completo, cierre y bloque de firma del remitente
+5. **Declaración del traductor + firma** (una sola vez al final)
+
+### Política de exclusión
+
+Pasaportes y visas **nunca se traducen**. USCIS acepta estos documentos en su idioma original. La exclusión se aplica en la capa `extract-files.ts`, que clasifica los siguientes tipos como `isExcluded: true` antes de pasarlos al panel A2: pasaporte del beneficiario, visa americana, I-94, I-797, EAD, I-20, DS-2019, pasaporte del cónyuge, visa del cónyuge, I-94 del cónyuge, pasaportes de hijos, visa de hijos, identificación con foto del peticionario, pasaportes de acompañantes O-2.
+
+### Texto de declaración del traductor (verbatim para todos los documentos)
+
+> "I, Alexander Clavijo, hereby declare that I am competent to translate the [LANGUAGE] language into English and that the foregoing is a summary translation of the attached document."
+
+El marcador `[LANGUAGE]` es reemplazado con el idioma detectado por Claude (`detected_language` del campo METADATA de la respuesta).
+
+### Pipeline AI: clasificación y traducción en una sola llamada
+
+El documento se envía directamente a `claude-sonnet-4-6` como contenido multimodal:
+- PDFs: block `type: "document"` con `source.type: "base64"` (beta header `pdfs-2024-09-25`)
+- Imágenes: block `type: "image"` con `source.type: "base64"`
+
+Un único prompt de sistema instruye al modelo a:
+1. **Clasificar primero** — detectar idioma, categoría (structured/article/letter), y metadatos (documento_title, issued_by, issued_to, document_date, needs_translation)
+2. **Traducir segundo** — producir el contenido en el formato apropiado para la categoría detectada
+
+Esta arquitectura de llamada única elimina inconsistencias entre clasificación y traducción al mantener ambas tareas en el mismo contexto de modelo, y reduce la latencia a la mitad respecto a un diseño de dos llamadas secuenciales.
+
+---
+
+## 10. Modelo de Peticionario en el Intake
+
+### Decisión de diseño
+
+AUCIS captura la información del peticionario directamente en el formulario de admisión del cliente (Módulo 14) en lugar de requerir una ronda adicional de recopilación por parte del equipo preparador. Esto:
+
+- Elimina una iteración de comunicación entre el equipo y el cliente
+- Permite al Agente A2 traducir documentos del peticionario junto con los del beneficiario en el mismo flujo
+- Produce un I-129 más preciso al usar los datos tal como los conoce el cliente, con validación posterior del equipo
+
+### Tres modelos de peticionario y sus requerimientos documentales
+
+**Empresa estadounidense (`empresa`)**
+
+El modelo más frecuente. Requisitos documentales capturados en el Módulo 14:
+- **Artículos de incorporación** — establece que la entidad existe legalmente en EE.UU.
+- **Carta EIN del IRS** — establece la identidad tributaria federal
+
+USCIS verifica que la empresa tiene capacidad operativa para emplear al beneficiario. La carta EIN es el documento más directo para acreditar esta capacidad sin pasar por una auditoría financiera.
+
+**Persona natural (`persona_natural`)**
+
+Permite que un individuo patrocine directamente a un beneficiario (p. ej., propietario de rancho, empleador individual, cliente artístico). Requisitos documentales:
+- **Identificación con foto vigente** — pasaporte o documento de identidad gubernamental (excluida de traducción)
+- **Acta de nacimiento** — para establecer identidad del peticionario (traducible)
+
+Precedente validado: caso Rodriguez Castro O-1A, peticionario Jay McLaughlin como persona natural. USCIS emitió RFE solicitando identificación con foto y acta de nacimiento del peticionario. Al suministrar ambos documentos, la petición fue aprobada. Este precedente motivó la captura explícita de estos documentos en Módulo 14.
+
+**Agente autorizado (`agente`)**
+
+Aplica cuando un agente o agencia actúa en nombre de múltiples empleadores — frecuente en entretenimiento, deportes y artes escénicas. Requiere:
+- Tipo de acuerdo con el empleador (poder notarial, contrato de representación exclusiva)
+
+En estos casos, el **itinerario de eventos es obligatorio** per 8 CFR (o)(2)(ii)(C): el agente debe demostrar su capacidad de supervisar las condiciones de empleo mediante la presentación de fechas, nombres de empleadores por evento, venues y ubicaciones geográficas. El array `itineraryItems` del Módulo 14 captura esta información directamente exportable al I-129 y al cover letter.
+
+### Tres escenarios de opinión consultiva (Módulo 15)
+
+**Escenario 1 — Existe asociación de pares reconocida por USCIS:**
+
+La asociación emite una carta de opinión favorable (`opinion_favorable`) o de no objeción (`no_objecion`). La carta favorable apoya activamente la petición; la de no objeción declara que la asociación no objeta sin necesariamente respaldarla. La elección entre ambas depende de la estrategia del caso y la disposición de la asociación.
+
+**Escenario 2 — No existe asociación formal pero hay experto disponible:**
+
+USCIS acepta la carta de un experto reconocido del campo cuando no existe una asociación de pares formal o aplicable. El experto debe tener credenciales documentadas en el área de especialización del beneficiario. Los campos `alternativeContactName`, `alternativeContactOrg` y `alternativeContactRelation` capturan esta información para que el equipo coordine la solicitud de la carta.
+
+**Escenario 3 — No existe asociación ni experto disponible:**
+
+El peticionario debe presentar una justificación escrita explicando la ausencia de asociación de pares aplicable a la especialidad del beneficiario. El campo `noAssociationJustification` del Módulo 15 captura esta narrativa, que el equipo puede usar directamente en la petición sin reformulación.
+
+---
+
+## 11. Acompañantes O-2
+
+### Base legal
+
+8 CFR (o)(4) establece que los acompañantes O-2 deben ser personas que sean **parte integral** de la actuación o evento del beneficiario O-1 y que posean **habilidades críticas y experiencia** con el beneficiario que no sean de naturaleza general y que no puedan ser realizadas por trabajadores locales. Este es un estándar más estricto que el de los dependientes (O-3): no se trata de familia sino de colaboradores operativamente indispensables.
+
+### Campo whyEssential como herramienta de argumentación
+
+El campo `whyEssential` del Módulo 15 instruye al cliente a explicar en sus propias palabras:
+- Por qué la persona es indispensable para la actividad específica planeada en EE.UU.
+- Por qué no puede ser reemplazada por un trabajador estadounidense disponible localmente
+- La naturaleza específica de las habilidades que la hacen única en el contexto de la actuación del O-1
+
+Este texto, revisado y enriquecido por el equipo preparador, alimenta directamente la narrativa de la petición O-2 sin necesidad de una entrevista adicional con el cliente.
+
+### Precedente validado
+
+Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompañamiento). La petición conjunta fue aprobada. La evidencia determinante fue la acreditación de la **relación laboral preexistente de larga data** (contratos de conciertos previos, cartas de empleador documentando años de trabajo conjunto). El campo `relationshipDuration` del Módulo 15 captura este dato explícitamente porque USCIS lo pondera para evaluar si el acompañante es verdaderamente integral a la actuación del O-1.
+
+### Documentación requerida por acompañante
+
+| Documento | Campo | Excluido de traducción |
+|---|---|---|
+| Pasaporte del acompañante | `passportPath` / `passportName` | Sí — USCIS acepta originales |
+| Evidencia de relación laboral | `employmentEvidencePath` / `employmentEvidenceName` | No — traducible si no está en inglés |
+
+La evidencia de relación laboral incluye contratos previos de conciertos o producciones, cartas de empleador que acreditan la relación, nóminas, o cualquier documento que establezca la duración y naturaleza de la colaboración.

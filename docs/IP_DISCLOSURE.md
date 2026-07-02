@@ -89,6 +89,34 @@ The technique of deriving the client-side localStorage draft key and session ID 
 
 The server-side logic that validates the invitation token and simultaneously advances the invitation status from `pending` to `opened` (recording `opened_at`) on first valid access, providing real-time admin visibility into whether the client has begun the intake process without requiring any client-side action or explicit notification.
 
+### 3.15 Automated certified translation system with three-format institutional template
+
+The proprietary Word document (.docx) generation engine that produces USCIS-grade certified translations in three distinct formats — structured (field-by-field with labeled sections), article (header block plus translated body), and letter (header block plus full literal translation) — each with the ACTION USA AI institutional branding, navy/gold color scheme, and translator certification declarations positioned according to the document category. The selection of format is automated via AI document classification, requiring no manual categorization by staff.
+
+### 3.16 AI-powered document classification and translation pipeline (single multimodal API call)
+
+The design of a translation pipeline that combines language detection, document classification (category and type), metadata extraction (title, issuer, recipient, date), and full translation into a single call to a multimodal language model, using a structured two-section response format (`---METADATA---` / `---TRANSLATION---`) that enables deterministic parsing without a second API round-trip. This architecture eliminates inter-call inconsistencies and reduces per-document processing latency by approximately 50% compared to a sequential two-call design.
+
+### 3.17 Triple translator declaration pattern for structured documents
+
+The proprietary placement of the translator certification declaration at three specific points within structured-category translated documents: (1) immediately after the identification block, (2) at the mathematical midpoint of the content sections, and (3) at the end of the document with a physical signature line. This triple-declaration pattern replicates the USCIS-accepted format for certified translations of multi-section documents and is automatically implemented by the DOCX builder based on document category classification.
+
+### 3.18 Conditional petitioner capture module with three legal models and corresponding evidentiary document requirements
+
+The design of Module 14 as a conditionally rendered form that presents one of three distinct field sets based on the petitioner type selected (empresa / persona_natural / agente), each with its specific evidentiary document upload requirements pre-mapped to the USCIS I-129 evidentiary standards for that petitioner type — including the derivation of those requirements from real-case precedent (Rodriguez Castro O-1A, petitioner Jay McLaughlin as individual, approved upon submission of photo ID and birth certificate following RFE).
+
+### 3.19 Consultative opinion management module covering all three USCIS scenarios
+
+The design of Module 15 Section A as a three-path decision tree that captures the correct consultative opinion information for every possible scenario USCIS may encounter: (1) an applicable peer group exists on the USCIS list, with selection between opinion favorable and no-objection letter types; (2) no applicable peer group exists but an alternative expert or related association is available, with fields for expert credentials and relationship to the field; (3) no peer group or expert exists, requiring a written justification of absence that USCIS accepts in lieu of an opinion letter. All three paths produce information directly usable in the petition narrative without additional client communication.
+
+### 3.20 O-2 companion capture with non-replaceability documentation field
+
+The design of Module 15 Section B as an O-2 companion intake sub-system that captures the specific information required by 8 CFR (o)(4) — particularly the `whyEssential` field that documents the non-replaceability argument in the client's own words — along with the `relationshipDuration` field that directly addresses the USCIS scrutiny point of whether the collaboration is genuinely pre-existing and integral to the O-1 beneficiary's performance, as established by precedent case Garibay/Higuera (O-1/O-2, approved).
+
+### 3.21 Signed URL gateway for secure authenticated document download
+
+The implementation of a server-side signed URL generation endpoint (`GET /api/storage/signed-url`) that gates document download access behind an active user session verification before issuing a time-limited (1-hour) pre-signed Storage URL, ensuring that translation documents — which contain sensitive personal information — are never accessible to unauthenticated parties while remaining directly downloadable in the browser without additional authentication steps from the staff dashboard.
+
 ---
 
 ## 4. Technology Stack Disclosure
@@ -135,5 +163,6 @@ This disclosure is made for the purpose of establishing priority of creation and
 |---|---|---|---|
 | 1.0 | 2026-06-29 | Alexander Clavijo | Initial disclosure |
 | 1.1 | 2026-06-30 | Alexander Clavijo | Added IP items 3.10–3.14: invitation system architecture |
+| 1.2 | 2026-07-01 | Alexander Clavijo | Added IP items 3.15–3.21: A2 translation pipeline, Modules 14–15, petitioner models, O-2 companions, signed URL gateway |
 
 *This document should be updated whenever material new IP is added to the AUCIS system.*

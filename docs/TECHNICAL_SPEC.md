@@ -343,3 +343,317 @@ The client-side localStorage draft key is scoped per token to prevent cross-sess
 const storageKey   = `aucis_intake_draft_${token}`;
 const sessionIdKey = `aucis_session_${token}`;
 ```
+
+---
+
+## 9. Intake Form — Módulo 14: Información del Peticionario
+
+Módulo 14 captura la información del peticionario responsable de presentar la petición I-129 ante USCIS. Su diseño refleja los tres modelos legales de peticionario reconocidos por USCIS para visas de no-inmigrante.
+
+### Tipos de peticionario
+
+| Tipo | Descripción |
+|---|---|
+| `empresa` | LLC, Corp. u otra entidad legal registrada en EE.UU. |
+| `persona_natural` | Individuo que actúa como empleador o patrocinador directo |
+| `agente` | Agente o agencia que actúa en nombre del empleador |
+
+### Campos condicionales por tipo
+
+**empresa:**
+- `companyName` — Nombre legal de la empresa
+- `ein` — Número EIN (formato XX-XXXXXXX)
+- `stateOfIncorporation` — Estado de incorporación
+- `companyAddress` — Dirección completa
+- `representativeName` — Nombre del representante autorizado
+- `representativeTitle` — Cargo del representante
+- `companyArticlesPath` / `companyArticlesName` — Artículos de incorporación (upload)
+- `einDocPath` / `einDocName` — Carta EIN del IRS (upload)
+
+**persona_natural:**
+- `petitionerFullName` — Nombre completo
+- `petitionerDateOfBirth` — Fecha de nacimiento
+- `petitionerAddress` — Dirección completa
+- `petitionerRelationship` — Relación con el beneficiario
+- `petitionerIdPath` / `petitionerIdName` — Identificación con foto (upload; excluida de traducción)
+- `petitionerBirthCertPath` / `petitionerBirthCertName` — Acta de nacimiento (upload; traducible)
+
+**agente:**
+- `agentName` — Nombre del agente o agencia
+- `agentEmployerName` — Nombre del empleador representado
+- `agentAgreementType` — Tipo de acuerdo con el empleador
+
+### Campos comunes (visibles tras seleccionar tipo)
+
+- `businessNature` — Naturaleza del negocio o actividad
+- `offeredPosition` — Cargo o posición ofrecida al beneficiario
+- `serviceStartDate` / `serviceEndDate` — Fechas de inicio y fin del servicio
+- `hasWrittenContract` — Boolean (YesNo)
+- `contractPath` / `contractName` — Contrato escrito (upload, condicional)
+- `contractVerbalTerms` — Descripción de acuerdo verbal (condicional)
+
+### Itinerario de eventos
+
+Requerido por 8 CFR para visas O-1 cuando el peticionario es agente. Se captura como array `itineraryItems`:
+
+| Campo | Descripción |
+|---|---|
+| `id` | UUID local generado en cliente |
+| `eventDate` | Fecha de inicio del evento |
+| `eventEndDate` | Fecha de fin del evento |
+| `eventName` | Nombre del evento o actividad |
+| `venue` | Lugar o venue |
+| `city` | Ciudad |
+| `state` | Estado (USA) |
+| `employerName` | Empleador en este evento (si difiere del peticionario principal) |
+
+### TypeScript types
+
+Defined in `src/app/intake/types.ts`:
+
+```typescript
+type ItineraryItem = {
+  id: string; eventDate: string; eventEndDate: string; eventName: string;
+  venue: string; city: string; state: string; employerName: string;
+};
+
+type Module14 = {
+  petitionerType: "empresa" | "persona_natural" | "agente" | "";
+  // empresa
+  companyName: string; ein: string; stateOfIncorporation: string;
+  companyAddress: string; representativeName: string; representativeTitle: string;
+  companyArticlesPath: string; companyArticlesName: string;
+  einDocPath: string; einDocName: string;
+  // persona_natural
+  petitionerFullName: string; petitionerDateOfBirth: string;
+  petitionerAddress: string; petitionerRelationship: string;
+  petitionerIdPath: string; petitionerIdName: string;
+  petitionerBirthCertPath: string; petitionerBirthCertName: string;
+  // agente
+  agentName: string; agentEmployerName: string; agentAgreementType: string;
+  // common
+  businessNature: string; offeredPosition: string;
+  serviceStartDate: string; serviceEndDate: string;
+  hasWrittenContract: boolean | null;
+  contractPath: string; contractName: string; contractVerbalTerms: string;
+  // itinerary
+  hasItinerary: boolean | null; itineraryItems: ItineraryItem[];
+};
+```
+
+Stored as `module14` JSONB column in `intake_submissions`.
+
+---
+
+## 10. Intake Form — Módulo 15: Opinión Consultiva y Acompañantes O-2
+
+Módulo 15 captura los dos requerimientos de USCIS que son exclusivos de las visas O: la opinión consultiva y los acompañantes O-2.
+
+### Sección A — Opinión Consultiva
+
+USCIS requiere una carta de opinión de una asociación o experto del campo del beneficiario antes de aprobar cualquier petición O-1.
+
+| Campo | Tipo | Descripción |
+|---|---|---|
+| `hasPeerGroup` | `"si" \| "no" \| "no_se" \| ""` | Existencia de asociación de pares |
+| `peerGroupName` | string | Nombre de la asociación (si `hasPeerGroup === "si"`) |
+| `peerGroupLetterType` | `"opinion_favorable" \| "no_objecion" \| ""` | Tipo de carta esperada |
+| `peerGroupLetterPath` / `peerGroupLetterName` | string | Upload de carta (si ya disponible) |
+| `alternativeContactName` | string | Experto alternativo (si no hay asociación formal) |
+| `alternativeContactOrg` | string | Organización del experto alternativo |
+| `alternativeContactRelation` | string | Relación con el campo del beneficiario |
+| `noAssociationJustification` | string | Justificación escrita de ausencia de asociación |
+| `consultativeNotes` | string | Notas adicionales para el equipo |
+
+### Sección B — Acompañantes O-2
+
+Captura de acompañantes esenciales bajo 8 CFR (o)(4).
+
+| Campo | Descripción |
+|---|---|
+| `hasO2Companions` | Boolean |
+| `companions` | Array de `O2Companion` |
+
+**O2Companion fields:**
+- `id`, `fullName`, `nationality`, `role`, `whyEssential`, `relationshipDuration`
+- `passportPath` / `passportName` — Pasaporte del acompañante (upload; excluido de traducción)
+- `employmentEvidencePath` / `employmentEvidenceName` — Evidencia de relación laboral (upload; traducible)
+
+### TypeScript types
+
+Defined in `src/app/intake/types.ts`:
+
+```typescript
+type O2Companion = {
+  id: string; fullName: string; nationality: string; role: string;
+  whyEssential: string; relationshipDuration: string;
+  passportPath: string; passportName: string;
+  employmentEvidencePath: string; employmentEvidenceName: string;
+};
+
+type Module15 = {
+  hasPeerGroup: "si" | "no" | "no_se" | "";
+  peerGroupName: string;
+  peerGroupLetterType: "opinion_favorable" | "no_objecion" | "";
+  peerGroupLetterPath: string; peerGroupLetterName: string;
+  alternativeContactName: string; alternativeContactOrg: string;
+  alternativeContactRelation: string; noAssociationJustification: string;
+  consultativeNotes: string;
+  hasO2Companions: boolean | null; companions: O2Companion[];
+};
+```
+
+Stored as `module15` JSONB column in `intake_submissions`.
+
+### Updated step map (TOTAL = 14)
+
+| Step | Module | Content |
+|---|---|---|
+| 1–11 | Modules 1–11 | (unchanged — see Section 3) |
+| 11 | Module 12 | Optional strategic services (conditional) |
+| 12 | Module 14 | Información del Peticionario |
+| 13 | Module 15 | Opinión Consultiva y Acompañantes O-2 |
+| 14 | Module 13 | Revisión y Envío |
+
+`TOTAL = 14`; the submit step is at step 14. The `getModuleStatus` handler uses cases 12 and 13 for the two new content modules. Module 3 remains absorbed into Module 2; the `module3` JSONB column receives `{}` for backward compatibility.
+
+---
+
+## 11. Agente A2 — Document Processor (Translation Pipeline)
+
+The implemented A2 agent is a certified translation pipeline that processes uploaded documents from Supabase Storage, translates them using `claude-sonnet-4-6` multimodal capabilities, and produces a formatted Word document (.docx) suitable for USCIS submission.
+
+> **Note:** This section describes the implemented translation pipeline. The placeholder A2 description in Section 5 (OCR classification to `agent_processed_documents`) describes the original design intent and is preserved for continuity.
+
+### Endpoint
+
+`POST /api/agents/a2-document-processor`
+
+### Input
+
+```json
+{
+  "case_id":       "uuid",
+  "file_path":     "abc123/module5/degree/timestamp.pdf",
+  "file_name":     "titulo_universitario.pdf",
+  "document_type": "diploma"
+}
+```
+
+`document_type` is optional and serves as a hint to Claude for classification.
+
+### Pipeline
+
+1. **Idempotency check** — Returns the existing completed translation if one exists for this `case_id` + `file_path` combination.
+2. **Insert processing record** — Creates a row in `document_translations` with `status = 'processing'`.
+3. **Download from Storage** — Uses service role client to download the file from bucket `intake-documents`. Converts the resulting Blob to a base64 string.
+4. **MIME type detection** — Inferred from file extension: `pdf → application/pdf`, `jpg/jpeg → image/jpeg`, `png → image/png`.
+5. **Claude multimodal call** — Sends the file as a `document` block (PDF, with `anthropic-beta: pdfs-2024-09-25` header) or `image` block (JPG/PNG) plus a text instruction. A single API call to `claude-sonnet-4-6` performs language detection, document classification, and translation. Structured response format:
+   ```
+   ---METADATA---
+   {"detected_language":"...","document_category":"structured|article|letter",
+    "document_type":"...","document_title":"...","issued_by":"...","issued_to":"...",
+    "document_date":"...","needs_translation":true}
+   ---TRANSLATION---
+   [translated content, or ENGLISH if already in English]
+   ```
+6. **Build .docx** — If `needs_translation === true` and content is not `ENGLISH`, generates a Word document using the `docx` npm library (v9) with the branded template described below.
+7. **Upload .docx** — Stores generated file at `{case_id}/translations/{original_filename}_EN.docx` in bucket `intake-documents` with `upsert: true`.
+8. **Update record** — Sets `status = 'completed'`, stores all Claude-detected metadata fields and the .docx path.
+
+On any error: sets `status = 'failed'` and stores `error_message`.
+
+### .docx template by category
+
+| Category | Documents | Structure |
+|---|---|---|
+| `structured` | Diplomas, birth certificates, contracts, licenses, awards, government records | Identification block → Declaration #1 → SECTION headers (navy bold) with field: value lines → Declaration #2 at section midpoint → body continuation → Declaration #3 + signature line |
+| `article` | Press articles, academic publications, press releases | TITLE / PUBLISHED BY / DATE / AUTHOR block → translated body paragraphs → Declaration + signature |
+| `letter` | Recommendation letters, opinion letters, employment letters | FROM / TO / DATE block → full literal translation → Declaration + signature |
+
+All templates include ACTION USA AI branded header (navy wordmark, "Certified Translation Services" subtitle, centered).
+
+### Exclusion policy
+
+Passports and visas are **never passed to the translation route**. Exclusion is enforced at the `extract-files.ts` layer before the panel renders, not in the route itself. Excluded document types: passport, usVisa, i94, i797, ead, i20, ds2019, spousePassport, spouseVisa, spouseI94, child passports/visas, petitionerIdPath, companion passports.
+
+### Translator (hardcoded)
+
+All generated documents are signed by **Alexander Clavijo**. Declaration text (verbatim):
+
+> "I, Alexander Clavijo, hereby declare that I am competent to translate the [LANGUAGE] language into English and that the foregoing is a summary translation of the attached document."
+
+### UI component
+
+`src/app/(dashboard)/cases/[id]/a2-panel.tsx` — client component rendered below `A1Panel` in the case detail page (`cases/[id]/page.tsx`). Features:
+- Per-file "Traducir" button with loading spinner
+- "Traducir todos (N)" batch button for all pending/failed files
+- Green "✓ Traducido" badge + ".docx" download button on completion
+- "Reintentar" button on failure
+- Collapsed section for excluded documents (passports/visas)
+- Re-translate button (refresh icon) on completed translations
+
+---
+
+## 12. Tabla: document_translations
+
+Stores one row per document translation attempt for Agent A2.
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | UUID PK | `gen_random_uuid()` |
+| `case_id` | UUID NOT NULL | FK → `cases(id)` ON DELETE CASCADE |
+| `agent` | TEXT | Default `'A2_DOCUMENT_PROCESSOR'` |
+| `status` | TEXT NOT NULL | `processing` / `completed` / `failed` |
+| `original_file_path` | TEXT NOT NULL | Path in `intake-documents` bucket |
+| `original_file_name` | TEXT NOT NULL | Original filename |
+| `document_type` | TEXT | Provided as hint or detected by Claude |
+| `document_category` | TEXT | `structured` / `article` / `letter` — Claude-detected |
+| `document_title` | TEXT | Document title from Claude |
+| `detected_language` | TEXT | Source language detected by Claude |
+| `issued_by` | TEXT | Issuing authority or sender |
+| `issued_to` | TEXT | Recipient or subject |
+| `document_date` | TEXT | Date extracted from the document |
+| `translated_content` | TEXT | Full translated text |
+| `translation_docx_path` | TEXT | Storage path of generated .docx |
+| `translation_docx_name` | TEXT | Filename of generated .docx |
+| `error_message` | TEXT | Error detail when `status = 'failed'` |
+| `created_at` | TIMESTAMPTZ NOT NULL | Default `NOW()` |
+| `updated_at` | TIMESTAMPTZ NOT NULL | Auto-updated by `set_updated_at()` trigger |
+
+**Indexes:** `idx_doc_translations_case (case_id)`, `idx_doc_translations_case_status (case_id, status)`
+
+**RLS:** Service role has full access. Authenticated staff roles (admin, supervisor, agent) have SELECT access. Document downloads use signed URLs generated server-side via the service role.
+
+**Migration:** `supabase/migrations/005_document_translations.sql`
+
+---
+
+## 13. Infraestructura de soporte
+
+### GET /api/storage/signed-url
+
+Auth-gated endpoint for generating pre-signed download URLs for files in the `intake-documents` bucket.
+
+- Verifies the user session via SSR cookie (`createClient()` from `@/lib/supabase/server`) before generating any URL
+- Uses service role client to call `storage.from("intake-documents").createSignedUrl(path, 3600)`
+- Returns `{ url: string }` — valid for 1 hour
+- Used by `a2-panel.tsx` when the user clicks "Descargar .docx"
+- Returns 401 if unauthenticated, 400 if `path` query param is missing, 500 on Storage error
+
+### extract-files.ts
+
+Server-side utility at `src/app/(dashboard)/cases/[id]/extract-files.ts`. Traverses the full submission JSONB across all 14 intake modules and returns a flat array of `DocumentFile` objects.
+
+```typescript
+interface DocumentFile {
+  filePath: string;
+  fileName: string;
+  label: string;       // human-readable Spanish label for the A2 panel
+  isExcluded: boolean; // true for passports, visas, and government-issued photo IDs
+}
+```
+
+Modules covered: 2 (personal docs + family), 5 (diplomas), 6 (certifications), 10 (awards, memberships, media, articles, books, conferences, judging, patents, income evidence), 11 (strategic evidence × 10 question types), 14 (petitioner documents), 15 (consultative letter + companion employment evidence).
+
+Called from `cases/[id]/page.tsx` (server component) after fetching the full submission with `select("*")`, and passed as `documentFiles` prop to `A2Panel`.
