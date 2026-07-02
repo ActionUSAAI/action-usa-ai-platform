@@ -7,6 +7,9 @@ import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
 import { A1Panel } from "./a1-panel";
 import type { IntakeAnalysis } from "./a1-panel";
+import { A2Panel } from "./a2-panel";
+import type { DocTranslation } from "./a2-panel";
+import { extractTranslatableFiles } from "./extract-files";
 
 interface CasePageProps {
   params: { id: string };
@@ -31,7 +34,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const caso = casoRaw as any;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }] = await Promise.all([
+  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
@@ -56,7 +59,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .order("created_at", { ascending: false }),
     supabase
       .from("intake_submissions")
-      .select("id, submitted_at")
+      .select("*")
       .eq("case_id", params.id)
       .maybeSingle(),
     supabase
@@ -67,10 +70,17 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("document_translations")
+      .select("*")
+      .eq("case_id", params.id)
+      .order("created_at", { ascending: false }),
   ]);
 
-  const userRole = userProfile?.role ?? "";
+  const userRole    = userProfile?.role ?? "";
   const submissionId = submission?.id ?? null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const documentFiles = submission ? extractTranslatableFiles(submission as Record<string, any>) : [];
 
   return (
     <div className="space-y-6">
@@ -158,6 +168,14 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             caseId={params.id}
             submissionId={submissionId}
             initialAnalysis={(latestAnalysis ?? null) as IntakeAnalysis | null}
+            userRole={userRole}
+          />
+
+          {/* A2 Document Processor */}
+          <A2Panel
+            caseId={params.id}
+            documentFiles={documentFiles}
+            initialTranslations={(existingTranslations ?? []) as DocTranslation[]}
             userRole={userRole}
           />
 
