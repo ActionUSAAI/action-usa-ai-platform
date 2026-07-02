@@ -17,8 +17,10 @@ import { Module10 } from "./modules/Module10";
 import { Module11 } from "./modules/Module11";
 import { Module12 } from "./modules/Module12";
 import { Module13 } from "./modules/Module13";
+import { Module14 } from "./modules/Module14";
+import { Module15 } from "./modules/Module15";
 
-const TOTAL = 12;
+const TOTAL = 14;
 
 const MODULE_TITLES = [
   { title: "Identidad del Aplicante",     subtitle: "Información básica para comenzar tu evaluación." },
@@ -31,8 +33,10 @@ const MODULE_TITLES = [
   { title: "Referencias Profesionales",   subtitle: "Personas que pueden confirmar tu impacto." },
   { title: "Evidencia Existente",         subtitle: "Premios, publicaciones, medios y otros logros documentados." },
   { title: "Información Estratégica",     subtitle: "Preguntas abiertas para entender mejor tu trayectoria." },
-  { title: "Servicios Estratégicos",      subtitle: "Opciones para fortalecer tu caso si hay áreas pendientes." },
-  { title: "Resumen y Envío",             subtitle: "Revisa tu progreso y envía tu información a ACTION USA." },
+  { title: "Servicios Estratégicos",           subtitle: "Opciones para fortalecer tu caso si hay áreas pendientes." },
+  { title: "Información del Peticionario",      subtitle: "Datos de la empresa o persona que presenta la petición ante USCIS." },
+  { title: "Opinión Consultiva y Acompañantes", subtitle: "Asociación profesional de referencia y personal de apoyo O-2 si aplica." },
+  { title: "Resumen y Envío",                   subtitle: "Revisa tu progreso y envía tu información a ACTION USA." },
 ];
 
 const genId = () => Math.random().toString(36).slice(2, 9);
@@ -111,6 +115,25 @@ const INITIAL: IntakeFormData = {
     willingToConfirm:emptyAnswer(), additionalInfo:emptyAnswer(),
   },
   module12: { interest:"" },
+  module14: {
+    petitionerType: "",
+    companyName: "", ein: "", stateOfIncorporation: "", companyAddress: "",
+    representativeName: "", representativeTitle: "",
+    companyArticlesPath: "", companyArticlesName: "", einDocPath: "", einDocName: "",
+    petitionerFullName: "", petitionerDateOfBirth: "", petitionerAddress: "", petitionerRelationship: "",
+    petitionerIdPath: "", petitionerIdName: "", petitionerBirthCertPath: "", petitionerBirthCertName: "",
+    agentName: "", agentEmployerName: "", agentAgreementType: "",
+    businessNature: "", offeredPosition: "", serviceStartDate: "", serviceEndDate: "",
+    hasWrittenContract: null, contractPath: "", contractName: "", contractVerbalTerms: "",
+    hasItinerary: null, itineraryItems: [],
+  },
+  module15: {
+    hasPeerGroup: "",
+    peerGroupName: "", peerGroupLetterType: "", peerGroupLetterPath: "", peerGroupLetterName: "",
+    alternativeContactName: "", alternativeContactOrg: "", alternativeContactRelation: "",
+    noAssociationJustification: "", consultativeNotes: "",
+    hasO2Companions: null, companions: [],
+  },
 };
 
 function getModuleStatus(n: number, f: IntakeFormData): ModuleStatus {
@@ -177,6 +200,16 @@ function getModuleStatus(n: number, f: IntakeFormData): ModuleStatus {
     }
     case 11:
       return f.module12.interest ? "complete" : "empty";
+    case 12: {
+      const m = f.module14;
+      if (m.petitionerType && m.offeredPosition && m.serviceStartDate) return "complete";
+      if (m.petitionerType) return "partial";
+      return "empty";
+    }
+    case 13: {
+      if (f.module15.hasPeerGroup !== "") return "partial";
+      return "empty";
+    }
     default: return "empty";
   }
 }
@@ -266,7 +299,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
         setData({
           ...INITIAL,
           ...saved,
-          module2: { ...INITIAL.module2, ...(saved.module2 ?? {}) },
+          module2:  { ...INITIAL.module2, ...(saved.module2 ?? {}) },
           module4: {
             ...INITIAL.module4,
             ...(({ hasBeenInUSA, usaVisits, hasVisaRejection, visaRejections, hasDeportation, deportationDescription }) =>
@@ -274,6 +307,8 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
             )(saved.module4 ?? INITIAL.module4),
           },
           module10: { ...INITIAL.module10, ...(saved.module10 ?? {}), incomeEvidence: { ...INITIAL.module10.incomeEvidence, ...(saved.module10?.incomeEvidence ?? {}) } },
+          module14: { ...INITIAL.module14, ...(saved.module14 ?? {}) },
+          module15: { ...INITIAL.module15, ...(saved.module15 ?? {}) },
         });
         setDraftBanner(true);
       }
@@ -293,7 +328,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
     return () => clearInterval(id);
   }, [save]);
 
-  const statuses = Array.from({ length: 11 }, (_, i) => getModuleStatus(i + 1, data));
+  const statuses = Array.from({ length: 13 }, (_, i) => getModuleStatus(i + 1, data));
   const show12   = shouldShowModule12(data);
 
   function validate(): boolean {
@@ -402,7 +437,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
               </div>
               <div className="mt-1 flex shrink-0 flex-wrap justify-end gap-1 max-w-[130px]">
                 {Array.from({ length: TOTAL }, (_, i) => {
-                  const s = i < 11 ? statuses[i] : null;
+                  const s = i < 13 ? statuses[i] : null;
                   return (
                     <div key={i}
                       className={`h-2 w-2 rounded-full transition-colors ${
@@ -437,7 +472,9 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
             {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
             {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
-            {step === 12 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
+            {step === 12 && <Module14 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId}/>}
+            {step === 13 && <Module15 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId}/>}
+            {step === 14 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
 
           {/* Navigation */}

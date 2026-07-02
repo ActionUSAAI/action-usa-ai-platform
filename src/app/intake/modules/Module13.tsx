@@ -21,6 +21,8 @@ const MODULE_NAMES = [
   "Evidencia Existente",
   "Información Estratégica",
   "Servicios Opcionales",
+  "Información del Peticionario",
+  "Opinión Consultiva y Acompañantes",
 ];
 
 const STATUS_CONFIG = {

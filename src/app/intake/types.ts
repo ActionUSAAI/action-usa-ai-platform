@@ -182,6 +182,89 @@ export type Module11 = {
 // ─── Module 12 — Optional Strategic Services ─────────────────────────────────
 export type Module12 = { interest: string }; // "si"|"tal_vez"|"no"|""
 
+// ─── Module 14 — Petitioner Information ──────────────────────────────────────
+export type ItineraryItem = {
+  id: string;
+  eventDate: string;
+  eventEndDate: string;
+  eventName: string;
+  venue: string;
+  city: string;
+  state: string;
+  employerName: string;
+};
+
+export type Module14 = {
+  petitionerType: "empresa" | "persona_natural" | "agente" | "";
+  // empresa
+  companyName: string;
+  ein: string;
+  stateOfIncorporation: string;
+  companyAddress: string;
+  representativeName: string;
+  representativeTitle: string;
+  companyArticlesPath: string;
+  companyArticlesName: string;
+  einDocPath: string;
+  einDocName: string;
+  // persona_natural
+  petitionerFullName: string;
+  petitionerDateOfBirth: string;
+  petitionerAddress: string;
+  petitionerRelationship: string;
+  petitionerIdPath: string;
+  petitionerIdName: string;
+  petitionerBirthCertPath: string;
+  petitionerBirthCertName: string;
+  // agente
+  agentName: string;
+  agentEmployerName: string;
+  agentAgreementType: string;
+  // common
+  businessNature: string;
+  offeredPosition: string;
+  serviceStartDate: string;
+  serviceEndDate: string;
+  hasWrittenContract: boolean | null;
+  contractPath: string;
+  contractName: string;
+  contractVerbalTerms: string;
+  // itinerary
+  hasItinerary: boolean | null;
+  itineraryItems: ItineraryItem[];
+};
+
+// ─── Module 15 — Consultative Opinion & O-2 Companions ───────────────────────
+export type O2Companion = {
+  id: string;
+  fullName: string;
+  nationality: string;
+  role: string;
+  whyEssential: string;
+  relationshipDuration: string;
+  passportPath: string;
+  passportName: string;
+  employmentEvidencePath: string;
+  employmentEvidenceName: string;
+};
+
+export type Module15 = {
+  // Section A — Consultative opinion
+  hasPeerGroup: "si" | "no" | "no_se" | "";
+  peerGroupName: string;
+  peerGroupLetterType: "opinion_favorable" | "no_objecion" | "";
+  peerGroupLetterPath: string;
+  peerGroupLetterName: string;
+  alternativeContactName: string;
+  alternativeContactOrg: string;
+  alternativeContactRelation: string;
+  noAssociationJustification: string;
+  consultativeNotes: string;
+  // Section B — O-2 companions
+  hasO2Companions: boolean | null;
+  companions: O2Companion[];
+};
+
 // ─── Full form ────────────────────────────────────────────────────────────────
 export type IntakeForm = {
   module1:  Module1;
@@ -195,6 +278,8 @@ export type IntakeForm = {
   module10: Module10;
   module11: Module11;
   module12: Module12;
+  module14: Module14;
+  module15: Module15;
 };
 
 export type ModuleStatus = "complete" | "partial" | "empty";
