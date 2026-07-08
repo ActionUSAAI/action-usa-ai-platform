@@ -148,11 +148,11 @@ The salary analysis produces a 2–3 paragraph narrative suitable for direct inc
 
 ### Stage 1 — Intake (client-facing)
 
-The client completes a 12-module structured intake form covering identity, documents, immigration history, education, certifications, employment, businesses, references, evidence by criterion, strategic self-assessment, and optional services. The form uses auto-save (localStorage, 30-second interval) and allows file uploads per evidence item.
+The client completes a 14-step structured intake form covering identity, documents, immigration history, education, certifications, employment, businesses, references, evidence by criterion, strategic self-assessment, and optional services. The form uses auto-save (localStorage, 30-second interval) and allows file uploads per evidence item.
 
 ### Stage 2 — Intake Analysis (A1)
 
-Upon form submission, the Intake Analyzer reads all 12 modules and produces:
+Upon form submission, the Intake Analyzer reads all 14 intake steps and produces:
 - Criterion viability scores
 - Recommended visa type with confidence
 - Evidence gap report
@@ -332,7 +332,7 @@ Esta arquitectura de llamada única elimina inconsistencias entre clasificación
 
 ### Decisión de diseño
 
-AUCIS captura la información del peticionario directamente en el formulario de admisión del cliente (Módulo 14) en lugar de requerir una ronda adicional de recopilación por parte del equipo preparador. Esto:
+AUCIS captura la información del peticionario directamente en el formulario de admisión del cliente (Módulo 12) en lugar de requerir una ronda adicional de recopilación por parte del equipo preparador. Esto:
 
 - Elimina una iteración de comunicación entre el equipo y el cliente
 - Permite al Agente A2 traducir documentos del peticionario junto con los del beneficiario en el mismo flujo
@@ -342,7 +342,7 @@ AUCIS captura la información del peticionario directamente en el formulario de 
 
 **Empresa estadounidense (`empresa`)**
 
-El modelo más frecuente. Requisitos documentales capturados en el Módulo 14:
+El modelo más frecuente. Requisitos documentales capturados en el Módulo 12:
 - **Artículos de incorporación** — establece que la entidad existe legalmente en EE.UU.
 - **Carta EIN del IRS** — establece la identidad tributaria federal
 
@@ -354,16 +354,16 @@ Permite que un individuo patrocine directamente a un beneficiario (p. ej., propi
 - **Identificación con foto vigente** — pasaporte o documento de identidad gubernamental (excluida de traducción)
 - **Acta de nacimiento** — para establecer identidad del peticionario (traducible)
 
-Precedente validado: caso Rodriguez Castro O-1A, peticionario Jay McLaughlin como persona natural. USCIS emitió RFE solicitando identificación con foto y acta de nacimiento del peticionario. Al suministrar ambos documentos, la petición fue aprobada. Este precedente motivó la captura explícita de estos documentos en Módulo 14.
+Precedente validado: caso Rodriguez Castro O-1A, peticionario Jay McLaughlin como persona natural. USCIS emitió RFE solicitando identificación con foto y acta de nacimiento del peticionario. Al suministrar ambos documentos, la petición fue aprobada. Este precedente motivó la captura explícita de estos documentos en Módulo 12.
 
 **Agente autorizado (`agente`)**
 
 Aplica cuando un agente o agencia actúa en nombre de múltiples empleadores — frecuente en entretenimiento, deportes y artes escénicas. Requiere:
 - Tipo de acuerdo con el empleador (poder notarial, contrato de representación exclusiva)
 
-En estos casos, el **itinerario de eventos es obligatorio** per 8 CFR (o)(2)(ii)(C): el agente debe demostrar su capacidad de supervisar las condiciones de empleo mediante la presentación de fechas, nombres de empleadores por evento, venues y ubicaciones geográficas. El array `itineraryItems` del Módulo 14 captura esta información directamente exportable al I-129 y al cover letter.
+En estos casos, el **itinerario de eventos es obligatorio** per 8 CFR (o)(2)(ii)(C): el agente debe demostrar su capacidad de supervisar las condiciones de empleo mediante la presentación de fechas, nombres de empleadores por evento, venues y ubicaciones geográficas. El array `itineraryItems` del Módulo 12 captura esta información directamente exportable al I-129 y al cover letter.
 
-### Tres escenarios de opinión consultiva (Módulo 15)
+### Tres escenarios de opinión consultiva (Módulo 13)
 
 **Escenario 1 — Existe asociación de pares reconocida por USCIS:**
 
@@ -375,7 +375,7 @@ USCIS acepta la carta de un experto reconocido del campo cuando no existe una as
 
 **Escenario 3 — No existe asociación ni experto disponible:**
 
-El peticionario debe presentar una justificación escrita explicando la ausencia de asociación de pares aplicable a la especialidad del beneficiario. El campo `noAssociationJustification` del Módulo 15 captura esta narrativa, que el equipo puede usar directamente en la petición sin reformulación.
+El peticionario debe presentar una justificación escrita explicando la ausencia de asociación de pares aplicable a la especialidad del beneficiario. El campo `noAssociationJustification` del Módulo 13 captura esta narrativa, que el equipo puede usar directamente en la petición sin reformulación.
 
 ---
 
@@ -387,7 +387,7 @@ El peticionario debe presentar una justificación escrita explicando la ausencia
 
 ### Campo whyEssential como herramienta de argumentación
 
-El campo `whyEssential` del Módulo 15 instruye al cliente a explicar en sus propias palabras:
+El campo `whyEssential` del Módulo 13 instruye al cliente a explicar en sus propias palabras:
 - Por qué la persona es indispensable para la actividad específica planeada en EE.UU.
 - Por qué no puede ser reemplazada por un trabajador estadounidense disponible localmente
 - La naturaleza específica de las habilidades que la hacen única en el contexto de la actuación del O-1
@@ -396,7 +396,7 @@ Este texto, revisado y enriquecido por el equipo preparador, alimenta directamen
 
 ### Precedente validado
 
-Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompañamiento). La petición conjunta fue aprobada. La evidencia determinante fue la acreditación de la **relación laboral preexistente de larga data** (contratos de conciertos previos, cartas de empleador documentando años de trabajo conjunto). El campo `relationshipDuration` del Módulo 15 captura este dato explícitamente porque USCIS lo pondera para evaluar si el acompañante es verdaderamente integral a la actuación del O-1.
+Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompañamiento). La petición conjunta fue aprobada. La evidencia determinante fue la acreditación de la **relación laboral preexistente de larga data** (contratos de conciertos previos, cartas de empleador documentando años de trabajo conjunto). El campo `relationshipDuration` del Módulo 13 captura este dato explícitamente porque USCIS lo pondera para evaluar si el acompañante es verdaderamente integral a la actuación del O-1.
 
 ### Documentación requerida por acompañante
 

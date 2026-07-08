@@ -17,7 +17,7 @@ Client Browser
       │
       ▼
 Next.js 14 App (Vercel Edge)
-  ├── /intake          — Public multi-step intake form (12 modules)
+  ├── /intake          — Public multi-step intake form (14 steps)
   ├── /portal          — Authenticated client dashboard
   ├── /(dashboard)     — Staff dashboard (cases, clients, documents)
   └── /api/agents/*    — Internal agent trigger endpoints
@@ -39,7 +39,7 @@ Next.js 14 App (Vercel Edge)
 ### Key design principles
 
 - **Service-role pattern:** All agent routes use the Supabase service role key. No agent runs in an authenticated user context.
-- **JSONB modules:** Each intake module is stored as a JSONB column (`module1`–`module12`) in `intake_submissions`, allowing schema evolution without migrations for form changes.
+- **JSONB modules:** Each intake module is stored as a JSONB column in `intake_submissions` (`module1`–`module12`, `module14`, `module15`), allowing schema evolution without migrations for form changes.
 - **Agent run audit trail:** Every agent invocation creates an `agent_runs` record tracking status, input snapshot, output summary, and error detail.
 - **Idempotent inserts:** New analysis versions are inserted (not updated) and linked via `superseded_by` to maintain full history.
 
@@ -62,24 +62,26 @@ Next.js 14 App (Vercel Edge)
 
 ---
 
-## 3. Intake Form — 12 Modules
+## 3. Intake Form — 14 Steps
 
-The intake form collects structured data across 12 steps. Module 3 (family group) was merged into Module 2 in v1.0 to reduce friction. The `module3` column is retained in the database for schema compatibility and receives `{}`.
+The intake form collects structured data across 14 steps. Module 3 (family group) was merged into Module 2 in v1.0 to reduce friction; the `module3` column is retained for schema compatibility and receives `{}`. Step numbers shown in the UI ("Módulo X de 14") correspond to step position, not to database column names — the column mapping is shown in the table below.
 
-| Step | Module | Key data collected |
+| Step | DB column | Key data collected |
 |---|---|---|
-| 1 | Module 1 | Identity, profession, visa objective |
-| 2 | Module 2 | Personal immigration documents + spouse + children |
-| 3 | Module 4 | US entry history, visa rejections, deportation |
-| 4 | Module 5 | Formal education + degree files |
-| 5 | Module 6 | Professional certifications + files |
-| 6 | Module 7 | Employment history (detailed) |
-| 7 | Module 8 | Own businesses |
-| 8 | Module 9 | Professional references |
-| 9 | Module 10 | Evidence by criterion (8 criteria + income + web presence) |
-| 10 | Module 11 | Strategic self-assessment (10 questions + evidence files) |
-| 11 | Module 12 | Optional strategic services interest |
-| 12 | Module 13 | Review and submit |
+| 1 | `module1` | Identity, profession, visa objective |
+| 2 | `module2` | Personal immigration documents + spouse + children |
+| 3 | `module4` | US entry history, visa rejections, deportation |
+| 4 | `module5` | Formal education + degree files |
+| 5 | `module6` | Professional certifications + files |
+| 6 | `module7` | Employment history (detailed) |
+| 7 | `module8` | Own businesses |
+| 8 | `module9` | Professional references |
+| 9 | `module10` | Evidence by criterion (8 criteria + income + web presence) |
+| 10 | `module11` | Strategic self-assessment (10 questions + evidence files) |
+| 11 | `module12` | Optional strategic services interest (UI: "Módulo 11 de 14") |
+| 12 | `module14` | Petitioner information (UI: "Módulo 12 de 14") |
+| 13 | `module15` | Consultative opinion + O-2 companions (UI: "Módulo 13 de 14") |
+| 14 | *(UI only)* | Review and submit — no DB column (`module13` does not exist) |
 
 ### File upload pattern
 
@@ -208,7 +210,7 @@ Generates and delivers personalized client communications:
 
 ### Phase 1 — Initial Petition
 
-1. Client completes 12-module intake form
+1. Client completes 14-step intake form
 2. A1 (Intake Analyzer) scores criteria and recommends visa type
 3. A2 (Document Processor) classifies and validates uploaded evidence
 4. A6 (Salary Research) runs BLS comparison if high-salary criterion is viable
@@ -346,9 +348,11 @@ const sessionIdKey = `aucis_session_${token}`;
 
 ---
 
-## 9. Intake Form — Módulo 14: Información del Peticionario
+## 9. Intake Form — Módulo 12: Información del Peticionario
 
-Módulo 14 captura la información del peticionario responsable de presentar la petición I-129 ante USCIS. Su diseño refleja los tres modelos legales de peticionario reconocidos por USCIS para visas de no-inmigrante.
+> **Nota de nomenclatura:** Por razones históricas de diseño, este módulo y el siguiente se presentan como Módulo 12 y Módulo 13 en la interfaz de usuario, pero persisten en las columnas `module14` y `module15` de `intake_submissions`. La numeración 14/15 coincidió originalmente con la tabla `case_expedition_docs` etiquetada como "Module 14 — admin only" en el comentario de `001_aucis_intake.sql`, lo que generó una colisión de nombres nunca resuelta a nivel de esquema. La columna `module13` no existe — el paso de revisión final (step 14) es puramente de UI y no persiste datos propios.
+
+Módulo 12 captura la información del peticionario responsable de presentar la petición I-129 ante USCIS. Su diseño refleja los tres modelos legales de peticionario reconocidos por USCIS para visas de no-inmigrante.
 
 ### Tipos de peticionario
 
@@ -445,9 +449,11 @@ Stored as `module14` JSONB column in `intake_submissions`.
 
 ---
 
-## 10. Intake Form — Módulo 15: Opinión Consultiva y Acompañantes O-2
+## 10. Intake Form — Módulo 13: Opinión Consultiva y Acompañantes O-2
 
-Módulo 15 captura los dos requerimientos de USCIS que son exclusivos de las visas O: la opinión consultiva y los acompañantes O-2.
+> **Nota de nomenclatura:** Este módulo se presenta como "Módulo 13 de 14" en la UI; persiste en la columna `module15` de `intake_submissions` por las razones históricas descritas en la sección anterior.
+
+Módulo 13 captura los dos requerimientos de USCIS que son exclusivos de las visas O: la opinión consultiva y los acompañantes O-2.
 
 ### Sección A — Opinión Consultiva
 
@@ -505,17 +511,17 @@ type Module15 = {
 
 Stored as `module15` JSONB column in `intake_submissions`.
 
-### Updated step map (TOTAL = 14)
+### Step map (TOTAL = 14)
 
-| Step | Module | Content |
+| Step | DB column | Content |
 |---|---|---|
-| 1–11 | Modules 1–11 | (unchanged — see Section 3) |
-| 11 | Module 12 | Optional strategic services (conditional) |
-| 12 | Module 14 | Información del Peticionario |
-| 13 | Module 15 | Opinión Consultiva y Acompañantes O-2 |
-| 14 | Module 13 | Revisión y Envío |
+| 1–10 | `module1`–`module11` | (unchanged — see Section 3) |
+| 11 | `module12` | Servicios Estratégicos (conditional) (UI: "Módulo 11") |
+| 12 | `module14` | Información del Peticionario (UI: "Módulo 12") |
+| 13 | `module15` | Opinión Consultiva y Acompañantes O-2 (UI: "Módulo 13") |
+| 14 | *(UI only)* | Revisión y Envío — no DB column |
 
-`TOTAL = 14`; the submit step is at step 14. The `getModuleStatus` handler uses cases 12 and 13 for the two new content modules. Module 3 remains absorbed into Module 2; the `module3` JSONB column receives `{}` for backward compatibility.
+`TOTAL = 14`; the submit step is at step 14 (UI-only, no data column). The `getModuleStatus` handler uses cases 12 and 13 for the petitioner and consultative modules. Module 3 remains absorbed into Module 2; the `module3` JSONB column receives `{}` for backward compatibility.
 
 ---
 
