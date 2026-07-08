@@ -87,6 +87,8 @@ export async function POST(request: NextRequest) {
         module10:  body.module10 ?? {},
         module11:  body.module11 ?? {},
         module12:  body.module12 ?? {},
+        module14:  body.module14 ?? {},
+        module15:  body.module15 ?? {},
         module_progress: body.moduleStatuses
           ? Object.fromEntries((body.moduleStatuses as string[]).map((s, i) => [i + 1, s]))
           : {},
