@@ -117,6 +117,18 @@ The design of Module 15 Section B as an O-2 companion intake sub-system that cap
 
 The implementation of a server-side signed URL generation endpoint (`GET /api/storage/signed-url`) that gates document download access behind an active user session verification before issuing a time-limited (1-hour) pre-signed Storage URL, ensuring that translation documents — which contain sensitive personal information — are never accessible to unauthenticated parties while remaining directly downloadable in the browser without additional authentication steps from the staff dashboard.
 
+### 3.22 Type C0 employment agreement workflow with generation-vs-cross-verification bifurcation
+
+The architecture of the Type C0 employment agreement workflow as a two-path system driven by the `hasWrittenContract` field captured in the petitioner intake module: when no written contract exists, A4 generates a minimum-viable employment agreement from a defined core data set (parties, position, compensation with periodicity selector, additional benefits, mutual-notice termination clause, governing law) using structured intake data already collected in Module 12; when a written contract exists, A4 cross-verifies the uploaded contract against I-129 evidentiary requirements and produces a compliance report flagging gaps. Optional contract modules (non-compete, IP assignment, exclusivity, revenue-sharing) are excluded from the automated generation core and flagged for attorney review due to their higher legal exposure.
+
+### 3.23 Three-level Row-Level Security pattern standardized across the AUCIS data layer
+
+The specific implementation of a three-level RLS architecture applied uniformly across all 12 agent tables, intake, and translation tables: (1) admin and supervisor roles granted full read access via a SECURITY DEFINER PostgreSQL function (`is_admin_or_supervisor()`); (2) agent role scoped to cases where `assigned_agent_id = auth.uid()`; (3) client role scoped to own data. The `document_translations` table additionally excludes any write policy for authenticated sessions — including admin — restricting write access exclusively to `service_role`, ensuring AI-generated certified translations are immutable from the dashboard. Client-side policies on case events and deadlines are preserved as additive PERMISSIVE policies alongside staff policies.
+
+### 3.24 Generation-vs-cross-verification bifurcation as a general document workflow pattern
+
+The general architectural pattern — implemented initially for Type C0 — of branching AI document workflow execution based on the existence of a prior client document: when a document exists, the system performs cross-verification against regulatory requirements; when it does not, the system generates a minimum-viable document from structured intake data. The bifurcation point is captured in structured intake data at form submission time, drives agent prompt selection, and produces distinct output types (compliance report vs. generated draft) stored in a unified output table. This pattern decouples the intake data model from the document generation model and enables the system to handle both new and incumbent client relationships without separate workflows.
+
 ---
 
 ## 4. Technology Stack Disclosure
@@ -164,5 +176,6 @@ This disclosure is made for the purpose of establishing priority of creation and
 | 1.0 | 2026-06-29 | Alexander Clavijo | Initial disclosure |
 | 1.1 | 2026-06-30 | Alexander Clavijo | Added IP items 3.10–3.14: invitation system architecture |
 | 1.2 | 2026-07-01 | Alexander Clavijo | Added IP items 3.15–3.21: A2 translation pipeline, Modules 14–15, petitioner models, O-2 companions, signed URL gateway |
+| 1.3 | 2026-07-08 | Alexander Clavijo | Added IP items 3.22–3.24: Type C0 workflow architecture, three-level RLS pattern, generation-vs-cross-verification bifurcation pattern |
 
 *This document should be updated whenever material new IP is added to the AUCIS system.*

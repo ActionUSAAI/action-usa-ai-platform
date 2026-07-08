@@ -75,12 +75,12 @@ The intake form collects structured data across 14 steps. Module 3 (family group
 | 5 | `module6` | Professional certifications + files |
 | 6 | `module7` | Employment history (detailed) |
 | 7 | `module8` | Own businesses |
-| 8 | `module9` | Professional references |
-| 9 | `module10` | Evidence by criterion (8 criteria + income + web presence) |
+| 8 | `module9` | Professional references + professional trajectory and own achievements |
+| 9 | `module10` | Evidence by criterion (8 criteria + income + web presence) + artistic exhibitions and shows |
 | 10 | `module11` | Strategic self-assessment (10 questions + evidence files) |
 | 11 | `module12` | Optional strategic services interest (UI: "Módulo 11 de 14") |
 | 12 | `module14` | Petitioner information (UI: "Módulo 12 de 14") |
-| 13 | `module15` | Consultative opinion + O-2 companions (UI: "Módulo 13 de 14") |
+| 13 | `module15` | Consultative opinion (peer group org contact fields when applicable) + O-2 companions (UI: "Módulo 13 de 14") |
 | 14 | *(UI only)* | Review and submit — no DB column (`module13` does not exist) |
 
 ### File upload pattern
@@ -162,6 +162,19 @@ Assembles the complete petition document:
 - Supports two build phases: `initial` and `rfe` (RFE response)
 - Output stored in `agent_petition_drafts`
 
+#### Form coverage
+
+| Form | Parts generated |
+|---|---|
+| I-129 | Parts 1, 2, 3, 5, 6, 7 + O and P Classifications Supplement to Form I-129 |
+| I-140 | Parts 1, 2, 3, 5, 6 |
+
+Beneficiary and petitioner signature fields are left blank in the generated draft. The petition lifecycle for signature is:
+
+`draft_generated` → `sent_for_signature` → `signed_uploaded`
+
+Preparer Certification (Part 8 in I-129; Part 10 in I-140) is pre-filled with constant ACTION USA AI LLC preparer data and does not require client input.
+
 ### A5 — RFE Analyzer
 
 Processes USCIS Requests for Evidence:
@@ -191,6 +204,13 @@ Tracks case lifecycle events and deadlines:
 - Emits `agent_case_events` records for status changes, RFE receipt, approvals, denials
 - Manages `agent_case_deadlines` with configurable alert schedules (default: 30, 14, 7, 1 days before deadline)
 - Flags events that require staff action
+
+#### Form validity monitoring
+
+A7 includes a subfunction that monitors the currency of USCIS form versions referenced in active petitions. The architecture is two-layer to minimize bandwidth:
+
+1. **Lightweight edition check** — Fetches the USCIS index page for the form and extracts the published edition date string (e.g., "Edition 01/17/25"). Compares against the stored expected edition date. No form download occurs if dates match.
+2. **Full download on discrepancy** — If the extracted edition date differs from the stored value, downloads the full form PDF and computes a content hash. On confirmed change, updates the stored edition date and hash, and emits an `agent_case_event` flagging petitions in `draft_generated` status that reference the outdated form edition.
 
 ### A8 — Client Concierge
 
@@ -238,6 +258,24 @@ Generates and delivers personalized client communications:
 - File uploads validated by MIME type and size before reaching Storage
 - Supabase Auth webhook (`/api/send-email`) verified via Svix HMAC-SHA256 signature
 - No user-supplied data is interpolated into SQL strings; all queries use Supabase client parameterization
+
+### Row-Level Security — Three-level access pattern
+
+Applied uniformly across all `agent_*` tables (migrations 005–006), `document_translations` (migration 005), and `intake_submissions` (migration 001):
+
+| Level | Role | Condition |
+|---|---|---|
+| 1 — Full read | `admin`, `supervisor` | `is_admin_or_supervisor()` SECURITY DEFINER function |
+| 2 — Own cases | `agent` | `case_id IN (SELECT id FROM cases WHERE assigned_agent_id = auth.uid())` |
+| 3 — Own data | `client` | `client_id = auth.uid()` or via case join (preserved per table) |
+
+`service_role` bypasses RLS entirely and has unrestricted FOR ALL access on all tables.
+
+`agent_logs` has no direct `case_id` and uses a double join: `run_id IN (SELECT id FROM agent_runs WHERE case_id IN (SELECT id FROM cases WHERE assigned_agent_id = auth.uid()))`.
+
+`document_translations` has no `admin_full` policy by design: write access is restricted to `service_role` only. No authenticated session — including `admin` — can INSERT, UPDATE, or DELETE rows. This ensures AI-generated certified translations are immutable from the dashboard.
+
+Client policies (`client_view_own_case_events`, `client_view_own_deadlines`) on `agent_case_events` and `agent_case_deadlines` are preserved alongside the staff policies — both are PERMISSIVE and stack with OR semantics.
 
 ---
 
@@ -663,3 +701,43 @@ interface DocumentFile {
 Modules covered: 2 (personal docs + family), 5 (diplomas), 6 (certifications), 10 (awards, memberships, media, articles, books, conferences, judging, patents, income evidence), 11 (strategic evidence × 10 question types), 14 (petitioner documents), 15 (consultative letter + companion employment evidence).
 
 Called from `cases/[id]/page.tsx` (server component) after fetching the full submission with `select("*")`, and passed as `documentFiles` prop to `A2Panel`.
+
+---
+
+## 12. Type C0 — Employment Agreement
+
+### Overview
+
+Type C0 covers the employment agreement between the petitioner and the O-1/EB-1 beneficiary. AUCIS handles it through a bifurcated workflow driven by whether the client already has a written contract at intake time.
+
+### Bifurcation: generation vs. cross-verification
+
+The `hasWrittenContract` field captured in Module 12 (Petitioner Information) determines which path executes:
+
+| Condition | Path | Output |
+|---|---|---|
+| `hasWrittenContract === false` | **Generation** — A4 produces a minimum-viable employment agreement from intake data | Draft `.docx` contract |
+| `hasWrittenContract === true` | **Cross-verification** — A4 checks the uploaded contract against I-129 evidentiary requirements | Compliance report flagging gaps |
+
+### Minimum data core (generation path)
+
+The generated contract is built from the following fields already captured in Module 12:
+
+- Parties: `companyName` / `petitionerFullName` + beneficiary identity from Module 1
+- Position: `offeredPosition`, `businessNature`
+- Period: `serviceStartDate`, `serviceEndDate`
+- Compensation: salary field from Module 12 (amount + periodicity selector: hourly / monthly / annual)
+- Additional benefits: `additionalBenefits` free-text field from Module 12
+- Termination clause: mutual written notice (default 30 days); included in all generated contracts regardless of petitioner type
+- Governing law: determined from `stateOfIncorporation` or `petitionerAddress`
+
+### Optional modules excluded from standard core
+
+The following clauses are **not** included in the generated standard core due to higher legal exposure and the requirement for attorney review:
+
+- Non-compete / non-solicitation
+- Intellectual property assignment
+- Exclusivity provisions
+- Revenue-sharing or royalty structures
+
+When any of these apply, A4 flags the contract for attorney review rather than generating the clause.

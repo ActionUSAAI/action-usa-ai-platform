@@ -406,3 +406,56 @@ Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompaña
 | Evidencia de relación laboral | `employmentEvidencePath` / `employmentEvidenceName` | No — traducible si no está en inglés |
 
 La evidencia de relación laboral incluye contratos previos de conciertos o producciones, cartas de empleador que acreditan la relación, nóminas, o cualquier documento que establezca la duración y naturaleza de la colaboración.
+
+---
+
+## 12. Metodología de Extracción de Taxonomía desde Casos Aprobados
+
+### Principio
+
+El vocabulario de fortalezas, criterios y argumentos utilizados por AUCIS se deriva de un corpus de peticiones aprobadas por USCIS, no de interpretaciones teóricas de la normativa. Esto garantiza que el lenguaje generado refleja lo que USCIS ha aceptado en condiciones reales.
+
+### Proceso
+
+1. **Recopilación del corpus** — Peticiones aprobadas en múltiples especialidades (músicos, médicos, empresarios, científicos, atletas) y distintos niveles de elaboración del preparador.
+2. **Extracción de patrones por criterio** — Para cada criterio USCIS: argumentos centrales aceptados, nivel de detalle evidentiary requerido, frases de umbral recurrentes, documentos corroborantes comunes.
+3. **Hallazgo clave** — El peso probatorio que USCIS asigna correlaciona con el **cumplimiento del mínimo regulatorio**, no con la sofisticación del lenguaje. Una descripción factual y bien documentada de un logro que satisface el criterio supera consistentemente a una argumentación elaborada sobre un logro que no lo satisface. Este hallazgo informa la lógica de scoring de A1 y la construcción de narrativas de A4.
+4. **Actualización continua** — La taxonomía se enriquece con cada caso aprobado procesado por AUCIS, incrementando la especificidad del corpus por especialidad.
+
+### Aplicación
+
+- **A1**: determina si la evidencia del cliente satisface el mínimo regulatorio antes de asignar puntuación de viabilidad.
+- **A4**: estructura narrativas de criterio usando el lenguaje que USCIS ha aceptado en casos comparables.
+- **A3**: incorpora los argumentos de umbral al brief de cada recomendante.
+
+---
+
+## 13. Metodología de Auditoría de Integridad de Datos
+
+### Principio
+
+Cada columna definida en el esquema debe tener un camino de escritura verificable en el código de API correspondiente. La ausencia de ese camino es un defecto silencioso: el sistema acepta datos del cliente y los descarta sin error.
+
+### Procedimiento de verificación
+
+Para cada tabla con escritura desde la aplicación:
+
+1. `SELECT column_name FROM information_schema.columns WHERE table_name = '<tabla>' ORDER BY ordinal_position;`
+2. Inspección del bloque INSERT/UPDATE en la ruta de API correspondiente.
+3. Diferencia entre esquema y código: toda columna presente en el esquema pero ausente en el INSERT es candidata a defecto. Se verifica si la omisión es intencional (DEFAULT suficiente, columna calculada, columna de solo lectura) o defecto real.
+4. Columnas intencionalmente omitidas se documentan. Defectos reales se corrigen con migración + fix de ruta.
+
+### Caso de ejemplo: module14 y module15 (migración 007)
+
+`Module14.tsx` y `Module15.tsx` fueron integrados al formulario de intake en commit `938c98b` (2026-07-01). Las columnas `module14` y `module15` no existían en `intake_submissions`, y el INSERT en `/api/intake/route.ts` no las incluía. Todos los datos de peticionario y opinión consultiva capturados en el formulario eran silenciosamente descartados.
+
+Corrección: migración `007_add_module14_module15_columns.sql` (ADD COLUMN con tipo, constraint y DEFAULT idénticos a `module1`–`module12`) + adición de `module14: body.module14 ?? {}` y `module15: body.module15 ?? {}` al bloque INSERT.
+
+El defecto fue detectado antes del inicio de operación real con clientes. Todos los registros existentes eran datos de prueba.
+
+### Cuándo ejecutar
+
+- Al agregar campos a un módulo de intake existente
+- Al agregar una nueva tabla con escritura desde la aplicación
+- Como ítem de pre-launch checklist antes de operación real con clientes
+- Al agregar un nuevo agente con tabla de output propia
