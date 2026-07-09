@@ -1,12 +1,12 @@
 import type { Module9, ReferenceEntry } from "../types";
-import { Field, TextInput, Textarea, YesNo, AddBtn, Card, InfoBox } from "../primitives";
+import { Field, TextInput, Textarea, Select, AddBtn, Card, InfoBox } from "../primitives";
 
 type Props = { data: Module9; onChange: (d: Module9) => void };
 
 const emptyRef = (): ReferenceEntry => ({
   id: Math.random().toString(36).slice(2,9),
   name:"", currentTitle:"", company:"", country:"", email:"", phone:"",
-  howYouKnow:"", whatTheyCouldSay:"", hasBeenAsked:null,
+  relationshipType:"", relationshipDuration:"", signerCredentials:"", specificAchievements:"",
 });
 
 export function Module9({ data: d, onChange }: Props) {
@@ -45,17 +45,32 @@ export function Module9({ data: d, onChange }: Props) {
               <TextInput value={r.phone} onChange={v => upd(i,"phone",v)} placeholder="+1 617 000 0000"/>
             </Field>
           </div>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="¿Qué relación tienen?">
+              <Select value={r.relationshipType} onChange={v => upd(i,"relationshipType",v)}>
+                <option value="">Selecciona...</option>
+                <option value="supervisor">Supervisor(a)</option>
+                <option value="colega">Colega</option>
+                <option value="cliente">Cliente</option>
+                <option value="mentor">Mentor(a)</option>
+                <option value="colaborador">Colaborador(a)</option>
+                <option value="subordinado">Subordinado(a)</option>
+                <option value="otro">Otro</option>
+              </Select>
+            </Field>
+            <Field label="¿Desde cuándo se conocen o trabajan juntos?">
+              <TextInput value={r.relationshipDuration} onChange={v => upd(i,"relationshipDuration",v)}
+                placeholder="Desde 2019, hace 5 años, desde el proyecto X en 2021..."/>
+            </Field>
+          </div>
           <div className="mt-3 grid grid-cols-1 gap-3">
-            <Field label="¿Cómo conoces a esta persona?">
-              <TextInput value={r.howYouKnow} onChange={v => upd(i,"howYouKnow",v)}
-                placeholder="Ex-supervisor, colaborador en proyecto X, mentor desde 2015..."/>
+            <Field label="¿Qué trayectoria o autoridad tiene esta persona en su campo?">
+              <Textarea value={r.signerCredentials} onChange={v => upd(i,"signerCredentials",v)}
+                placeholder="Cargo actual, años de experiencia, reconocimientos que respaldan su criterio..." rows={2}/>
             </Field>
-            <Field label="¿Qué podría decir sobre tu trabajo?">
-              <Textarea value={r.whatTheyCouldSay} onChange={v => upd(i,"whatTheyCouldSay",v)}
-                placeholder="Podría confirmar mi rol crítico en el proyecto Y y mi impacto en..." rows={2}/>
-            </Field>
-            <Field label="¿Ya le has mencionado que podría ser referencia?">
-              <YesNo value={r.hasBeenAsked} onChange={v => upd(i,"hasBeenAsked",v)} yesLabel="Sí, lo sabe" noLabel="Todavía no"/>
+            <Field label="¿Qué logros o resultados concretos tuyos podría confirmar?">
+              <Textarea value={r.specificAchievements} onChange={v => upd(i,"specificAchievements",v)}
+                placeholder="Fechas, proyectos específicos, cifras o resultados medibles — evita generalidades..." rows={2}/>
             </Field>
           </div>
         </Card>

@@ -111,9 +111,18 @@ function buildUserPrompt(sub: Record<string, any>): string {
   if (validRefs.length === 0) {
     lines.push("Sin referencias registradas.");
   } else {
+    const relLabel = (v: string): string => ({
+      supervisor: "Supervisor(a)", colega: "Colega", cliente: "Cliente",
+      mentor: "Mentor(a)", colaborador: "Colaborador(a)", subordinado: "Subordinado(a)",
+      otro: "Otro",
+    }[v] || v);
     validRefs.forEach(r => {
       lines.push(`- ${str(r.name)} — ${str(r.currentTitle)} en ${str(r.company)} (${str(r.country)})`);
-      if (str(r.whatTheyCouldSay)) lines.push(`  Puede testificar: ${str(r.whatTheyCouldSay)}`);
+      const rel = str(r.relationshipType);
+      const dur = str(r.relationshipDuration);
+      if (rel || dur) lines.push(`  Relación: ${relLabel(rel) || "no especificada"}${dur ? ` — ${dur}` : ""}`);
+      if (str(r.signerCredentials)) lines.push(`  Trayectoria/autoridad: ${str(r.signerCredentials)}`);
+      if (str(r.specificAchievements)) lines.push(`  Puede confirmar: ${str(r.specificAchievements)}`);
     });
   }
 

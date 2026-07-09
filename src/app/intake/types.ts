@@ -127,8 +127,11 @@ export type Module8 = { hasOwnBusinesses: boolean | null; businesses: BusinessEn
 // ─── Module 9 — References ───────────────────────────────────────────────────
 export type ReferenceEntry = {
   id: string; name: string; currentTitle: string; company: string; country: string;
-  email: string; phone: string; howYouKnow: string; whatTheyCouldSay: string;
-  hasBeenAsked: boolean | null;
+  email: string; phone: string;
+  relationshipType: string; // "supervisor"|"colega"|"cliente"|"mentor"|"colaborador"|"subordinado"|"otro"|""
+  relationshipDuration: string;
+  signerCredentials: string;
+  specificAchievements: string;
 };
 export type Module9 = { references: ReferenceEntry[] };
 
