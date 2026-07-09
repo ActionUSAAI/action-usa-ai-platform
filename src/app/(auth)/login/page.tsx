@@ -38,11 +38,17 @@ export default function LoginPage() {
     }
 
     // Role-based redirect: authoritative source is the profiles table
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", data.user.id)
       .single();
+
+    if (profileErr) {
+      setError("No pudimos verificar tu perfil. Por favor intenta iniciar sesión de nuevo en unos segundos.");
+      setLoading(false);
+      return;
+    }
 
     const role = profile?.role;
     if (role === "admin" || role === "supervisor" || role === "agent") {

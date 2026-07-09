@@ -47,11 +47,14 @@ export async function updateSession(request: NextRequest) {
   if (user && isAuthRoute) {
     const url = request.nextUrl.clone();
     // Query the authoritative role from profiles (only runs on /login and /register)
-    const { data: profile } = await supabase
+    const { data: profile, error: profileErr } = await supabase
       .from("profiles")
       .select("role")
       .eq("id", user.id)
       .single();
+    if (profileErr) {
+      return supabaseResponse;
+    }
     const role = profile?.role;
     url.pathname =
       role === "admin" || role === "supervisor" || role === "agent"
