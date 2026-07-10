@@ -1,8 +1,16 @@
 # A3 — Taxonomía de Cartas (Letter Generator)
 
 **Estado:** Fase de diseño arquitectónico. No implementado.
-**Versión:** 1.0
-**Última actualización:** 2026-07-09
+**Versión:** 1.1
+**Última actualización:** 2026-07-10
+
+## Qué cambió respecto a 1.0
+
+La Versión 1.0 describía A3 como un conjunto de **tres** motores, incluyendo el **Motor Abogado** (Tipo 0 — Attorney Petition Letter, Tipo 0b — Consultation Exception Letter) como uno de sus submotores internos.
+
+**Corrección aplicada en 1.1:** el Motor Abogado no es parte de A3. Vive en **Agente 4** (`petition_builder`), agente independiente que depende de los Exhibits producidos por los dos motores de A3 (Testimonial e Institucional) pero es un agente separado. A3 contiene únicamente **dos** motores: el Motor Testimonial Personal y el Motor Institucional. El documento que ya refleja esta corrección es `A4_ENGINE_ABOGADO.md` (v1.1); esta revisión alinea la taxonomía con él.
+
+El catálogo de tipos de carta se conserva completo —incluyendo Tipo 0 y Tipo 0b— porque sigue siendo la referencia de todos los tipos de carta del sistema; lo único que cambia es la atribución del motor que los genera (Agente 4, no A3).
 
 ## Propósito
 
@@ -12,22 +20,25 @@ A3 genera borradores `.docx` limpios (sin membrete — el cliente imprime, firma
 
 **Riesgo de diseño activo:** reutilización casi verbatim de párrafos (especialmente de cierre) entre firmantes y casos distintos. A3 debe variar deliberadamente la construcción léxica y sintáctica de cada carta, preservando el patrón retórico subyacente.
 
+Los dos principios rectores anteriores (peso probatorio vs. sofisticación del lenguaje, y riesgo de reutilización verbatim) aplican transversalmente tanto a A3 como a A4 — no son exclusivos de A3.
+
 ## Motores de generación
 
-A3 no es un motor único — son tres motores especializados que comparten infraestructura pero difieren en voz y estructura:
+A3 no es un motor único — son dos motores especializados que comparten infraestructura pero difieren en voz y estructura:
 
 | Motor | Voz | Tipos de carta que cubre |
 |---|---|---|
-| **Motor Abogado** | Preparador del caso (Alex) | Tipo 0 (Attorney Petition Letter), Tipo 0b (Consultation Exception Letter) |
 | **Motor Testimonial Personal** | Colega, supervisor, cliente, mentor | Cartas de referencia individual (Módulo 9) |
 | **Motor Institucional** | Organización, asociación, experto reconocido | Opinión consultiva / no-objection, cartas de certificación |
+
+El Motor Abogado (Tipo 0, Tipo 0b) vive en Agente 4 — ver `A4_ENGINE_ABOGADO.md`.
 
 ## Catálogo de tipos de carta
 
 | Tipo | Voz / Motor | Obligatoria | Condición de activación | Fuente de datos (intake) |
 |---|---|---|---|---|
-| **Tipo 0 — Attorney Petition Letter** | Motor Abogado | Sí, en todo caso | Siempre | A1 (análisis de caso), todos los módulos |
-| **Tipo 0b — Consultation Exception Letter** | Motor Abogado (mismo engine que Tipo 0, prompt condicional) | Condicional | `hasPeerGroup = "no"` y no hay organización en el índice oficial de USCIS | Módulo 13 §A: `noAssociationJustification` |
+| **Tipo 0 — Attorney Petition Letter** | Motor Abogado (Agente 4 — ver `A4_ENGINE_ABOGADO.md`) | Sí, en todo caso | Siempre | A1 (análisis de caso), todos los módulos |
+| **Tipo 0b — Consultation Exception Letter** | Motor Abogado (Agente 4 — ver `A4_ENGINE_ABOGADO.md`) | Condicional | `hasPeerGroup = "no"` y no hay organización en el índice oficial de USCIS | Módulo 13 §A: `noAssociationJustification` |
 | **Testimonial personal** | Motor Testimonial Personal | Recomendada (mínimo 3) | Siempre disponible como opción | Módulo 9: `relationshipType`, `relationshipDuration`, `signerCredentials`, `specificAchievements` |
 | **Advisory Opinion / No-Objection (institucional)** | Motor Institucional | Condicional | `hasPeerGroup = "si"` (organización en el índice de USCIS o alternativa) | Módulo 13 §A: `peerGroupName`, `peerGroupLetterType`, `alternativeContactName/Org/Relation` |
 | **Carta de certificación de terceros** | Motor Institucional (mismo engine, propósito distinto: certificar hecho objetivo, no emitir juicio) | Opcional, según evidencia disponible | Cuando existe evidencia verificable por un tercero (membresía, salario promedio del sector, participación en evento) | Módulo 10 (evidencia existente) |
