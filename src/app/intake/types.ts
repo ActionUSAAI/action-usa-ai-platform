@@ -235,6 +235,10 @@ export type Module14 = {
   // itinerary
   hasItinerary: boolean | null;
   itineraryItems: ItineraryItem[];
+  // USCIS filing
+  wantsPremiumProcessing: boolean | null;
+  beneficiaryWorkState: string;
+  filesI485Concurrent: boolean | null;
 };
 
 // ─── Module 15 — Consultative Opinion & O-2 Companions ───────────────────────

@@ -2,7 +2,7 @@ import { Building2, User, Briefcase } from "lucide-react";
 import type { Module14, ItineraryItem } from "../types";
 import { Field, TextInput, Textarea, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
 
-type Props = { data: Module14; onChange: (d: Module14) => void; sessionId: string };
+type Props = { data: Module14; onChange: (d: Module14) => void; sessionId: string; visaType: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9);
 
@@ -32,7 +32,7 @@ const PETITIONER_TYPES = [
   },
 ];
 
-export function Module14({ data: d, onChange, sessionId }: Props) {
+export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
   const set = <K extends keyof Module14>(k: K, v: Module14[K]) => onChange({ ...d, [k]: v });
 
   const updItem = <K extends keyof ItineraryItem>(i: number, f: K, v: ItineraryItem[K]) => {
@@ -276,6 +276,41 @@ export function Module14({ data: d, onChange, sessionId }: Props) {
               <AddBtn label="Agregar evento" onClick={() => onChange({ ...d, itineraryItems: [...d.itineraryItems, emptyItem()] })} />
             </div>
           )}
+        </>
+      )}
+
+      {/* ── Presentación ante USCIS ───────────────────────────────────────── */}
+      <SectionDivider title="Presentación ante USCIS" />
+
+      <Field label="¿Desea Procesamiento Prioritario (Premium Processing / I-907)?">
+        <YesNo value={d.wantsPremiumProcessing} onChange={v => set("wantsPremiumProcessing", v)}
+          yesLabel="Sí, con Premium Processing" noLabel="No" />
+      </Field>
+
+      {visaType === "EB-1A" && (
+        <>
+          <Field label="¿En qué estado trabajará el beneficiario en EE.UU.?">
+            <TextInput value={d.beneficiaryWorkState} onChange={v => set("beneficiaryWorkState", v)}
+              placeholder="California, Texas, New York..." />
+          </Field>
+
+          <Field label="¿El Formulario I-485 se presentará junto con el I-140, o después de que el I-140 sea aprobado?">
+            <div className="grid gap-3 sm:grid-cols-2">
+              {[
+                { val: true, label: "Concurrente (junto con el I-140)" },
+                { val: false, label: "Después de la aprobación del I-140" },
+              ].map(({ val, label }) => (
+                <button key={String(val)} type="button" onClick={() => set("filesI485Concurrent", val)}
+                  className={`rounded-xl border-2 p-4 text-left text-sm font-medium transition-all ${
+                    d.filesI485Concurrent === val
+                      ? "border-[#1B2B5E] bg-[#1B2B5E]/5 text-[#1B2B5E]"
+                      : "border-gray-200 text-gray-700 hover:border-gray-300"
+                  }`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </Field>
         </>
       )}
     </div>

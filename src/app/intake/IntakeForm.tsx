@@ -126,6 +126,7 @@ const INITIAL: IntakeFormData = {
     businessNature: "", offeredPosition: "", serviceStartDate: "", serviceEndDate: "",
     hasWrittenContract: null, contractPath: "", contractName: "", contractVerbalTerms: "",
     hasItinerary: null, itineraryItems: [],
+    wantsPremiumProcessing: null, beneficiaryWorkState: "", filesI485Concurrent: null,
   },
   module15: {
     hasPeerGroup: "",
@@ -472,7 +473,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
             {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
             {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
-            {step === 12 && <Module14 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId}/>}
+            {step === 12 && <Module14 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId} visaType={data.module1.visaType}/>}
             {step === 13 && <Module15 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId}/>}
             {step === 14 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
