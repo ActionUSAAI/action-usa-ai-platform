@@ -10,7 +10,7 @@ En la Versión 1.0, el sub-criterio **Rol Crítico** se trataba como una sola ca
 
 **Corrección aplicada en 1.1:** Rol Crítico se separa en dos sub-criterios formales — **4a (Directivo/Electo)** y **4b (Técnico/Instructor)** — cada uno con su propio subconjunto de campos obligatorios. La nota de arquitectura que vinculaba `institutionalImpactEvidence` con `judgmentAuthorityAndConsequence` (Juez) bajo la misma lógica de originalidad+significancia queda acotada: esa lógica compartida aplica a **4b** y a Juez (ambos dependen de significancia verificable posterior), pero no a **4a**, cuyo mecanismo de prueba es la métrica de gestión en sí misma, no un impacto narrado.
 
-Verificación de impacto en otros documentos: `institutionalImpactEvidence` como campo único de Rol Crítico no está referenciado en ningún otro documento de `/docs` a la fecha de esta revisión (`A3_LETTER_TAXONOMY.md` aún no ha sido redactado ni comiteado). No hay, por tanto, otros artefactos que queden desactualizados por este cambio.
+Verificación de impacto en otros documentos: se revisó `A3_LETTER_TAXONOMY.md` (comiteado en fb2354c) y no contiene referencias a `institutionalImpactEvidence`, `specificFunctionalDuties` ni al nivel de detalle de campos por sub-criterio de Rol Crítico — se mantiene en un nivel de descripción más general. No hay, por tanto, otros artefactos que queden desactualizados por este cambio.
 
 ## Propósito
 
