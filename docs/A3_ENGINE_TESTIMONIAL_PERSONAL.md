@@ -1,12 +1,20 @@
-# A3 — Motor Testimonial Personal (Máquina 2)
+# A3 — Motor Testimonial Personal
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.0
+**Versión:** 1.1
 **Última actualización:** 2026-07-10
+
+## Qué cambió respecto a 1.0
+
+La Versión 1.0 tenía dos tipos de desactualización, corregidas en 1.1:
+
+**(a) Referencias al modelo de arquitectura viejo**, heredadas de la misma confusión ya corregida en `A3_ENGINE_INSTITUCIONAL.md`, `A4_ENGINE_ABOGADO.md` y `A3_LETTER_TAXONOMY.md`: el subtítulo "(Máquina 2)", la frase "el primero de los tres motores en ser diseñado" en Propósito, y el Pendiente #3 que trataba al Motor Abogado como parte de A3. Corregido: A3 contiene dos motores (Testimonial, Institucional); el Motor Abogado vive en Agente 4 — ver `A4_ENGINE_ABOGADO.md`.
+
+**(b) Pendiente #2 resuelto — contrato de salida estructurada.** Se define el formato JSON de salida, mapeando cada uno de los 7 bloques retóricos (8 claves, ya que el Bloque 4 se divide en 4a/4b) a una clave de datos independiente, y se precisa la sección "Fuente de datos" para reflejar que el Bloque 5 sí consume la determinación de criterios activos de A1 — una precisión que la v1.0 pasaba por alto al afirmar categóricamente que A3 solo consume `intake_submissions`.
 
 ## Propósito
 
-Este documento especifica el motor de generación de cartas testimoniales personales de A3 — el primero de los tres motores en ser diseñado por completo, siguiendo la taxonomía definida en `A3_LETTER_TAXONOMY.md`. Redacta cartas de recomendación en nombre de terceros (colegas, supervisores, clientes, mentores) que respaldan la petición de visa de un beneficiario.
+Este documento especifica el motor de generación de cartas testimoniales personales de A3 — uno de sus dos motores, junto con el Motor Institucional (`A3_ENGINE_INSTITUCIONAL.md`). Redacta cartas de recomendación en nombre de terceros (colegas, supervisores, clientes, mentores) que respaldan la petición de visa de un beneficiario.
 
 ## Fundamento normativo — validado contra un RFE real
 
@@ -49,11 +57,49 @@ Todas las cartas de un mismo caso se generan **en una sola pasada** (no una por 
 - (b) secciones con encabezados en negrita, sin numerar
 - (c) secciones numeradas con viñetas
 
-Ninguna carta consecutiva del mismo lote puede compartir formato.
+Ninguna carta consecutiva del mismo lote puede compartir formato. Este formato se captura en el campo `presentationFormat` del contrato de salida (ver sección siguiente) y es responsabilidad del builder de `.docx` — no del modelo — renderizar los bloques ya generados según el formato asignado.
 
-**Capa 2 — Variación de contenido.** Cada carta debe anclar su Bloque 4 en un hecho concreto y distinto (fecha, evento, cifra, institución) desde las primeras líneas del cuerpo. El modelo revisa los `specificAchievements` de todos los firmantes del lote antes de escribir — ningún hecho central puede repetirse entre cartas del mismo caso.
+**Capa 2 — Variación de contenido.** Cada carta debe anclar su Bloque 4a en un hecho concreto y distinto (fecha, evento, cifra, institución) desde las primeras líneas del cuerpo. El modelo revisa los `specificAchievements` de todos los firmantes del lote antes de escribir — ningún hecho central puede repetirse entre cartas del mismo caso.
 
 **Capa 3 — Variación de cierre.** El modelo revisa los cierres ya generados en el mismo lote antes de escribir el Bloque 6-7 de cada carta siguiente. Ninguna combinación de verbo-de-apoyo + estructura-de-disponibilidad puede repetirse (evita que todas las cartas terminen con la misma fórmula tipo "I strongly [urge/support/endorse]...").
+
+## Contrato de salida estructurada
+
+La llamada al modelo genera todas las cartas del lote en una sola respuesta, como un array donde cada carta expone sus bloques como claves independientes — no como un bloque de texto libre por carta. Esta decisión es deliberada: la Capa 1 del mecanismo de variación exige que el mismo contenido factual pueda renderizarse en tres formatos de presentación distintos según qué carta del lote sea. Si el modelo devolviera cada carta como prosa ya fusionada, el builder de `.docx` no podría reorganizar esos hechos en el formato correspondiente sin una segunda llamada al modelo. Con los bloques como claves separadas, la variación de Capa 1 se resuelve en el paso de renderizado, no en el de generación.
+
+```json
+{
+  "letters": [
+    {
+      "signerId": "string — id o índice de Module9.references[]",
+      "presentationFormat": "narrative | headed | numbered",
+      "blocks": {
+        "block1_header": "string",
+        "block2_signerAuthority": "string",
+        "block3_relationshipNature": "string",
+        "block4a_originality": "string",
+        "block4b_significance": "string",
+        "block5_regulatoryConnection": "string",
+        "block6_supportDeclaration": "string",
+        "block7_closing": "string"
+      }
+    }
+  ]
+}
+```
+
+### Mapeo bloque → campo de entrada → clave de salida
+
+| Bloque | Campo(s) de entrada | Clave de salida | Nota de generación |
+|---|---|---|---|
+| 1 — Encabezado/Asunto | Datos del caso (`Module1`: `fullName`, `visaType`) | `block1_header` | Fijo por caso, no varía entre firmantes del lote salvo el nombre del firmante mismo |
+| 2 — Identidad y autoridad | `signerCredentials` | `block2_signerAuthority` | — |
+| 3 — Naturaleza de la relación | `relationshipType`, `relationshipDuration` | `block3_relationshipNature` | — |
+| 4a — Originalidad | `specificAchievements` | `block4a_originality` | Sujeto a Capa 2: el modelo debe verificar que el hecho ancla no se repita con `block4a_originality` de otras cartas del mismo lote |
+| 4b — Significancia | `specificAchievements` | `block4b_significance` | Debe expresar impacto **posterior** verificable — no puede ser una repetición del mismo hecho de 4a sin el elemento temporal/downstream |
+| 5 — Conexión regulatoria | Criterios activos del caso (A1) | `block5_regulatoryConnection` | Único bloque que consume salida de A1, no solo `intake_submissions` |
+| 6 — Declaración de apoyo | — (generado) | `block6_supportDeclaration` | Sujeto a Capa 3: combinación verbo-de-apoyo no repetible entre cartas del lote |
+| 7 — Cierre | Datos del firmante (`name`, `currentTitle`, `company`, `email`, `phone`) | `block7_closing` | Sujeto a Capa 3 igual que Bloque 6 — se generan como unidad en la práctica, aunque como claves separadas |
 
 ## Datos de entrada
 
@@ -63,7 +109,9 @@ Ninguna carta consecutiva del mismo lote puede compartir formato.
 
 ## Fuente de datos — decisión de arquitectura
 
-A3 consume `intake_submissions` (datos crudos), no la salida de `agent_intake_analysis` (A1). Investigado y confirmado: el `buildUserPrompt` de A1 no procesa Módulo 9 en detalle suficiente para este propósito — resume las referencias en frases genéricas para su propio análisis de fortaleza del caso, perdiendo las fechas, cifras y hechos concretos que este motor necesita. A1 tampoco lee Módulo 12, 14 ni 15.
+A3 consume `intake_submissions` (datos crudos) como fuente primaria de hechos del beneficiario y del firmante — no la salida de `agent_intake_analysis` (A1). Investigado y confirmado: el `buildUserPrompt` de A1 no procesa Módulo 9 en detalle suficiente para este propósito — resume las referencias en frases genéricas para su propio análisis de fortaleza del caso, perdiendo las fechas, cifras y hechos concretos que este motor necesita. A1 tampoco lee Módulo 12, 14 ni 15.
+
+**Precisión aplicada en 1.1:** esta regla general tiene una excepción acotada y explícita — el Bloque 5 (Conexión regulatoria) sí consume la determinación de criterios activos de A1, porque necesita saber a qué criterio regulatorio específico ancla cada carta. A1 se usa aquí únicamente para esa determinación de criterio, nunca como fuente de hechos del beneficiario o del firmante.
 
 ## Salida
 
@@ -72,5 +120,5 @@ Documento `.docx` limpio, sin membrete — el firmante lo revisa, imprime, firma
 ## Pendiente antes de implementación
 
 1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048` — este motor probablemente necesita un límite de tokens mayor dado que genera múltiples cartas completas en una sola respuesta).
-2. Definir el formato exacto de salida estructurada (JSON con array de cartas vs. generación directa a `.docx`) antes de implementar la ruta API.
-3. Diseñar el mismo nivel de detalle para el Motor Institucional y el Motor Abogado, siguiendo este documento como plantilla de proceso.
+2. Definir el builder de `.docx` que consume el contrato de salida estructurada de la sección anterior y aplica el renderizado correspondiente a cada `presentationFormat` (narrative/headed/numbered) — el contrato de datos ya quedó definido en esta revisión; falta la lógica de renderizado.
+3. Diseñar el mismo nivel de detalle de contrato de salida estructurada para el Motor Institucional (`A3_ENGINE_INSTITUCIONAL.md`) y el Motor Abogado (`A4_ENGINE_ABOGADO.md`), siguiendo este documento como plantilla de proceso.
