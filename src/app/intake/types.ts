@@ -152,6 +152,25 @@ export type IncomeEvidence     = {
   hasContracts: boolean | null; contractFilePath: string; contractFileName: string;
 };
 
+// Critical Role — discriminated union by criticalRoleType (see A3_ENGINE_INSTITUCIONAL.md §Subtipo B)
+export type CriticalRoleEvidence =
+  | {
+      criticalRoleType: "elected";
+      electedOrAppointedTitle: string;
+      tenureStartDate: string;       // ISO 8601 (YYYY-MM-DD)
+      tenureEndDate: string | null;
+      organizationReputationEvidence: string;
+      organizationalGrowthMetrics: string;
+    }
+  | {
+      criticalRoleType: "technical";
+      formalPositionTitle: string;
+      serviceStartDate: string;      // ISO 8601 (YYYY-MM-DD)
+      serviceEndDate: string | null;
+      specificCoursesOrDutiesTaught: string;
+      institutionalizationEvidence: string;
+    };
+
 export type Module10 = {
   awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
@@ -165,6 +184,7 @@ export type Module10 = {
   hasWebsite: boolean | null;
   websiteUrl: string;
   websiteTopicIdea: string;
+  criticalRole?: CriticalRoleEvidence; // un solo rol crítico por expediente
 };
 
 // ─── Module 11 — Strategic Information ───────────────────────────────────────
