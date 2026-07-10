@@ -1,8 +1,16 @@
 # A3 — Motor Institucional (Máquina 3)
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.0
+**Versión:** 1.1
 **Última actualización:** 2026-07-10
+
+## Qué cambió respecto a 1.0
+
+En la Versión 1.0, el sub-criterio **Rol Crítico** se trataba como una sola categoría de Subtipo B, con cuatro campos genéricos compartidos: `formalPositionTitle`, `exactTenureDates`, `specificFunctionalDuties`, `institutionalImpactEvidence`. Esto era un **error de tipado**: Rol Crítico agrupaba, bajo un mismo esquema de datos, dos patrones fácticos con mecanismos de prueba conceptualmente distintos — el de un cargo directivo/electo (Carlos Rodríguez, Presidente de ACRICAMDE) y el de un cargo técnico/instructor (Dr. Andrés Neira, Escuela Nacional de Carabineros). El primero se prueba con métricas de gestión cuantificables durante el mandato; el segundo se prueba con evidencia de que el conocimiento transferido se institucionalizó después. Tratar ambos bajo el campo único `institutionalImpactEvidence` habría producido filas de base de datos mal tipadas en cuanto se formalizara esta distinción.
+
+**Corrección aplicada en 1.1:** Rol Crítico se separa en dos sub-criterios formales — **4a (Directivo/Electo)** y **4b (Técnico/Instructor)** — cada uno con su propio subconjunto de campos obligatorios. La nota de arquitectura que vinculaba `institutionalImpactEvidence` con `judgmentAuthorityAndConsequence` (Juez) bajo la misma lógica de originalidad+significancia queda acotada: esa lógica compartida aplica a **4b** y a Juez (ambos dependen de significancia verificable posterior), pero no a **4a**, cuyo mecanismo de prueba es la métrica de gestión en sí misma, no un impacto narrado.
+
+Verificación de impacto en otros documentos: `institutionalImpactEvidence` como campo único de Rol Crítico no está referenciado en ningún otro documento de `/docs` a la fecha de esta revisión (`A3_LETTER_TAXONOMY.md` aún no ha sido redactado ni comiteado). No hay, por tanto, otros artefactos que queden desactualizados por este cambio.
 
 ## Propósito
 
@@ -16,7 +24,7 @@ El diseño de este motor se validó contra el RFE real del caso Arroyo (I-129 O-
 
 **Juez.** El RFE fue explícito: *"the record is lacking in providing objective supporting documentation to establish the significance of the work judged by the beneficiary, and information identifying the criteria used to select judges."* Y enumeró exactamente tres piezas de evidencia exigidas: *"evidence showing the significance of the work judged by the beneficiary; information identifying the criteria used to select judges; and an explanation describing how and why the beneficiary received an invitation to be a judge."* La carta original de Double T Arena no las cubría. La carta corregida (`DOBLE T ARENA 2.pdf`) sí, y la plantilla de un caso posterior (`Rancho_La_Jarana_Judge.docx`) las cubre con un nivel de rigor superior, añadiendo un elemento no exigido explícitamente por el RFE pero que refuerza la significancia: que el veredicto del juez fue final y vinculante, con consecuencias verificables sobre los evaluados.
 
-**Rol Crítico.** El RFE rechazó la carta de la Cámara de Ganaderos de San Carlos por un error de categoría, no de detalle: *"Performing in an event an association sponsors or creates is not the same as being employed by that association."* La evidencia exigida —empleo real en capacidad esencial, para una organización de reputación distinguida— se encontró resuelta en dos cartas de casos ya aprobados: la de Dr. Andrés Neira en la Escuela Nacional de Carabineros de Colombia (mismo beneficiario del Motor Testimonial) y la de Carlos Rodríguez como Presidente de ACRICAMDE.
+**Rol Crítico.** El RFE rechazó la carta de la Cámara de Ganaderos de San Carlos por un error de categoría, no de detalle: *"Performing in an event an association sponsors or creates is not the same as being employed by that association."* La evidencia exigida —empleo o nombramiento formal real en capacidad esencial, para una organización de reputación distinguida— se encontró resuelta en dos cartas de casos ya aprobados, que resultaron ser **dos patrones fácticos distintos, no variaciones del mismo patrón**: la de Carlos Rodríguez como Presidente de ACRICAMDE (cargo electo, prueba por métricas de gestión — crecimiento de membresía, afiliación lograda con APHA en 2019, sistema de microchip implementado) y la de Dr. Andrés Neira en la Escuela Nacional de Carabineros de Colombia (mismo beneficiario del Motor Testimonial; cargo de instructor técnico, prueba por institucionalización — técnica incorporada al currículo, invitación renovada en 2021).
 
 **Competencias Ganadas.** El RFE señaló que los premios presentados eran indicativos de reconocimiento local o regional, no nacional o internacional, y exigió evidencia de *"criteria used to nominate and judge the participants and award winners"* y *"the origination, purpose, significance, and scope of each award,"* incluyendo la reputación del panel y la frecuencia del premio. La carta original de Pro Rodeo de Costa Rica (`PRO RODEO COSTA RICA.pdf`, 28 feb 2024) no lo hacía — es una narrativa factualmente rica pero que no responde a la pregunta regulatoria. La carta corregida de ACRICAMDE (`CARTA ACRICAMDE RFE_1.pdf`, 12 sep 2024) sí, punto por punto.
 
@@ -46,17 +54,18 @@ A diferencia del Motor Testimonial, aquí el riesgo no es el lenguaje hiperbóli
 | 4 | Declaración | De no-objeción u opinión favorable | De certificación del hecho |
 | 5 | Cierre | Siempre con placeholders en blanco — nunca datos reales de firmante | Igual en ambos |
 
-## Subtipo B — los tres sub-criterios prioritarios y sus campos obligatorios
+## Subtipo B — los sub-criterios prioritarios y sus campos obligatorios
 
-Estos tres son, por decisión operativa de ACTION USA, los sub-criterios institucionales que realmente suplen un criterio regulatorio ante USCIS (junto con Contribuciones al Campo, que se resuelve vía Motor Testimonial y queda fuera del alcance de este motor).
+Estos son, por decisión operativa de ACTION USA, los sub-criterios institucionales que realmente suplen un criterio regulatorio ante USCIS (junto con Contribuciones al Campo, que se resuelve vía Motor Testimonial y queda fuera del alcance de este motor). Rol Crítico se presenta dividido en 4a y 4b, conforme a la corrección aplicada en esta versión.
 
-| Sub-criterio | Campos obligatorios (Bloque 2/3) | Validado contra (fallo → éxito) |
-|---|---|---|
-| **Juez** | `judgeSelectionCriteria` (por qué la organización lo eligió/invitó a él específicamente); `judgedEventSignificance` (escala, nivel, relevancia del evento juzgado); `judgmentAuthorityAndConsequence` (si el veredicto fue final/vinculante y qué consecuencia verificable tuvo sobre los evaluados) | Double T Arena original (insuficiente) → Double T Arena corregida + Rancho La Jarana (plantilla de referencia) |
-| **Rol Crítico** | `formalPositionTitle` + `exactTenureDates` (cargo nombrado y rango de fechas exacto — no requiere contrato laboral tradicional, sí un nombramiento formal y verificable); `specificFunctionalDuties` (qué hizo concretamente en ese cargo); `institutionalImpactEvidence` (qué cambió estructuralmente en la institución como consecuencia — adopción curricular, mejoras medibles, renovación de la invitación) | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Neira/Escuela Nacional de Carabineros + Rodríguez/ACRICAMDE |
-| **Competencias Ganadas** | `awardNominationAndJudgingCriteria` (criterios de nominación y juzgamiento de participantes y ganadores); `panelOrOrgReputationEvidence` (afiliaciones, reconocimiento cruzado por otras asociaciones) `awardFrequencyAndScope` (cuántos premios se otorgan al año, alcance nacional/internacional) | Pro Rodeo de Costa Rica (insuficiente) → ACRICAMDE corregida (post-RFE) |
+| Sub-criterio | Campos obligatorios (Bloque 2/3) | Mecanismo de prueba | Validado contra (fallo → éxito) |
+|---|---|---|---|
+| **Juez** | `judgeSelectionCriteria` (por qué la organización lo eligió/invitó a él específicamente); `judgedEventSignificance` (escala, nivel, relevancia del evento juzgado); `judgmentAuthorityAndConsequence` (si el veredicto fue final/vinculante y qué consecuencia verificable tuvo sobre los evaluados) | Significancia del evento juzgado + autoridad del veredicto | Double T Arena original (insuficiente) → Double T Arena corregida + Rancho La Jarana (plantilla de referencia) |
+| **Rol Crítico 4a — Directivo/Electo** | `electedOrAppointedTitle` + `exactTenureDates` (cargo nombrado y rango de fechas exacto); `organizationReputationEvidence` (reputación distinguida de la organización); `organizationalGrowthMetrics` (crecimiento medible atribuible a la gestión durante el mandato — membresía, nuevas afiliaciones logradas, sistemas o programas implementados) | Métricas de gestión cuantificables durante el período de liderazgo | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Rodríguez/ACRICAMDE (presidencia 2017-2024, afiliación APHA lograda en 2019, sistema de microchip implementado) |
+| **Rol Crítico 4b — Técnico/Instructor** | `formalPositionTitle` + `exactServiceDates` (cargo nombrado y rango de fechas exacto — no requiere contrato laboral tradicional, sí un nombramiento formal y verificable); `specificCoursesOrDutiesTaught` (qué enseñó/entrenó concretamente — cursos numerados, programas específicos); `institutionalizationEvidence` (evidencia de que el conocimiento transferido se incorporó de forma permanente — adopción curricular, continuidad en el currículo, renovación de la invitación como prueba de valor continuado) | Institucionalización verificable del conocimiento transferido | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Neira/Escuela Nacional de Carabineros (instructor de los cursos 009/010, técnica incorporada al currículo, invitación renovada en 2021) |
+| **Competencias Ganadas** | `awardNominationAndJudgingCriteria` (criterios de nominación y juzgamiento de participantes y ganadores); `panelOrOrgReputationEvidence` (afiliaciones, reconocimiento cruzado por otras asociaciones); `awardFrequencyAndScope` (cuántos premios se otorgan al año, alcance nacional/internacional) | Rigor del proceso de nominación/juzgamiento | Pro Rodeo de Costa Rica (insuficiente) → ACRICAMDE corregida (post-RFE) |
 
-Nota de arquitectura: el campo `institutionalImpactEvidence` de Rol Crítico y el campo `judgmentAuthorityAndConsequence` de Juez comparten una misma lógica subyacente — la del principio de originalidad+significancia del Motor Testimonial, trasladado al nivel institucional. En ambos casos no basta con afirmar que el rol o el veredicto importó; hay que mostrar qué cambió después, de forma verificable, como consecuencia de él.
+**Nota de arquitectura (corregida en 1.1):** el campo `institutionalizationEvidence` de Rol Crítico 4b y el campo `judgmentAuthorityAndConsequence` de Juez comparten una misma lógica subyacente — la del principio de originalidad+significancia del Motor Testimonial, trasladado al nivel institucional. En ambos casos no basta con afirmar que el rol o el veredicto importó; hay que mostrar qué cambió después, de forma verificable, como consecuencia de él. **Rol Crítico 4a no comparte esta lógica.** Su mecanismo de prueba no depende de un impacto narrado ni de institucionalización posterior — depende de la métrica de gestión cuantificable en sí misma, verificable durante el propio período del mandato, sin necesidad de mostrar continuidad más allá de él.
 
 ## Mecanismo de variación
 
@@ -70,7 +79,7 @@ A diferencia del Motor Testimonial, aquí no aplican las tres capas completas. C
 
 **Subtipo A** (`Module13`): `peerGroupName`, `peerGroupLetterType`
 
-**Subtipo B** (`Module10`), ramificado por sub-criterio activo del caso: los campos de la tabla anterior, más el criterio USCIS específico que la carta busca satisfacer (para anclar el Bloque 4 a la cita regulatoria correcta)
+**Subtipo B** (`Module10`), ramificado por sub-criterio activo del caso: los campos de la tabla anterior, más el criterio USCIS específico que la carta busca satisfacer (para anclar el Bloque 4 a la cita regulatoria correcta), más una bandera de ramificación que indique si Rol Crítico corresponde a 4a o 4b antes de invocar el conjunto de campos correspondiente
 
 ## Fuente de datos — decisión de arquitectura
 
@@ -87,7 +96,8 @@ Documento `.docx` limpio, sin membrete. Idioma: inglés, salvo que el caso espec
 ## Pendiente antes de implementación
 
 1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048`).
-2. Definir el formato exacto de salida estructurada, incluyendo la lógica de ramificación por subtipo y sub-criterio dentro del mismo prompt (a diferencia del Motor Testimonial, aquí la estructura de campos cambia según qué criterio USCIS esté activo en el caso, no es un solo formato fijo).
-3. Validar si existe un caso real donde el campo `formalPositionTitle` de Rol Crítico corresponda a un contrato laboral tradicional (en lugar de un nombramiento formal como los de Neira/Rodríguez) — actualmente el diseño asume que un nombramiento verificable con fechas exactas basta, pero no se ha probado contra ese escenario.
+2. Definir el formato exacto de salida estructurada, incluyendo la lógica de ramificación por subtipo y sub-criterio dentro del mismo prompt — a diferencia del Motor Testimonial, aquí la estructura de campos cambia según qué criterio USCIS esté activo en el caso, y ahora además según si Rol Crítico es 4a o 4b, no es un solo formato fijo.
+3. Validar si existe un caso real donde el campo `formalPositionTitle` de Rol Crítico 4b corresponda a un contrato laboral tradicional (en lugar de un nombramiento formal como el de Neira) — actualmente el diseño asume que un nombramiento verificable con fechas exactas basta, pero no se ha probado contra ese escenario.
 4. Validar el mecanismo de variación de Capa única contra un caso real con múltiples cartas del mismo sub-criterio (pendiente, ver sección de Mecanismo de variación).
-5. Diseñar el mismo nivel de detalle para el Motor Abogado (Tipo 0 — Attorney Petition Letter, Tipo 0b — Consultation Exception Letter), siguiendo este documento y `A3_ENGINE_TESTIMONIAL_PERSONAL.md` como plantilla de proceso.
+5. Definir, en la migración de base de datos correspondiente a Módulo 10, cómo se representa la bandera de ramificación 4a/4b — como valor de un enum (`criticalRoleType: 'elected' | 'technical'`) o como dos sub-tablas de campos distintas — antes de que cualquier fila real se cree bajo el esquema viejo de campo único.
+6. Diseñar el mismo nivel de detalle para el Motor Abogado (Tipo 0 — Attorney Petition Letter, Tipo 0b — Consultation Exception Letter), siguiendo este documento y `A3_ENGINE_TESTIMONIAL_PERSONAL.md` como plantilla de proceso.
