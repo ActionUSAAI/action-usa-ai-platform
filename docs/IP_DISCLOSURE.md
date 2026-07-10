@@ -15,7 +15,7 @@
 | Owner | ACTION USA AI LLC |
 | Author / Inventor | Alexander Clavijo |
 | Creation date | 2026 |
-| Current version | 1.0 |
+| Current version | 1.4 |
 | Repository | Private — github.com/ActionUSAAI/action-usa-ai-platform |
 | Deployment | actionusaai.com |
 
@@ -129,6 +129,10 @@ The specific implementation of a three-level RLS architecture applied uniformly 
 
 The general architectural pattern — implemented initially for Type C0 — of branching AI document workflow execution based on the existence of a prior client document: when a document exists, the system performs cross-verification against regulatory requirements; when it does not, the system generates a minimum-viable document from structured intake data. The bifurcation point is captured in structured intake data at form submission time, drives agent prompt selection, and produces distinct output types (compliance report vs. generated draft) stored in a unified output table. This pattern decouples the intake data model from the document generation model and enables the system to handle both new and incumbent client relationships without separate workflows.
 
+### 3.25 Discriminated-union evidentiary modeling for dual-mechanism regulatory sub-criteria
+
+The design of the `CriticalRoleEvidence` type as a TypeScript discriminated union (`criticalRoleType: 'elected' | 'technical'`) modeling the USCIS "critical or essential capacity" sub-criterion as two mutually exclusive evidentiary proof mechanisms rather than a single generic field set: an elected/appointed-role branch requiring quantifiable organizational growth metrics during a documented tenure period, and a technical/instructor-role branch requiring evidence of post-engagement institutionalization of transferred knowledge. This bifurcation, derived from comparative analysis of two approved case precedents with structurally distinct factual patterns (Rodríguez/ACRICAMDE — elected association presidency; Neira/National Carabineros School — technical instructor role), prevents the evidentiary mistyping that would result from treating both proof mechanisms under a shared generic field schema, and enforces at compile time that letter-generation logic cannot access proof-mechanism-specific fields belonging to the inapplicable branch.
+
 ---
 
 ## 4. Technology Stack Disclosure
@@ -177,5 +181,6 @@ This disclosure is made for the purpose of establishing priority of creation and
 | 1.1 | 2026-06-30 | Alexander Clavijo | Added IP items 3.10–3.14: invitation system architecture |
 | 1.2 | 2026-07-01 | Alexander Clavijo | Added IP items 3.15–3.21: A2 translation pipeline, Modules 14–15, petitioner models, O-2 companions, signed URL gateway |
 | 1.3 | 2026-07-08 | Alexander Clavijo | Added IP items 3.22–3.24: Type C0 workflow architecture, three-level RLS pattern, generation-vs-cross-verification bifurcation pattern |
+| 1.4 | 2026-07-10 | Alexander Clavijo | Added IP item 3.25: discriminated-union evidentiary modeling (CriticalRoleEvidence) |
 
 *This document should be updated whenever material new IP is added to the AUCIS system.*
