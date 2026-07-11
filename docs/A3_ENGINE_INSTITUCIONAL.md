@@ -1,8 +1,14 @@
 # A3 — Motor Institucional
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.3
-**Última actualización:** 2026-07-10
+**Versión:** 1.4
+**Última actualización:** 2026-07-11
+
+## Qué cambió respecto a 1.3
+
+Se resuelve el Pendiente #1 (modelo/parámetros de ejecución), siguiendo la misma verificación aplicada en `A3_ENGINE_TESTIMONIAL_PERSONAL.md` v1.3 (`claude-sonnet-4-6`, hasta 128k tokens de salida, streaming obligatorio solo por encima de 21,333). Las cartas institucionales son individualmente más cortas que las testimoniales, y el escenario de múltiples cartas por lote (Capa única) sigue sin validación empírica — se fija `max_tokens: 4096` como presupuesto conservador para 2-3 cartas por lote.
+
+**Decisión:** `model: claude-sonnet-4-6`, `max_tokens: 4096`.
 
 ## Qué cambió respecto a 1.2
 
@@ -140,7 +146,7 @@ Documento `.docx` limpio, sin membrete. Idioma: inglés, salvo que el caso espec
 
 ## Pendiente antes de implementación
 
-1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048`).
+1. ~~Confirmar con qué modelo/parámetros se ejecutará la llamada...~~ **Resuelto en esta revisión** — ver "Qué cambió respecto a 1.3".
 2. ~~Definir el formato exacto de salida estructurada...~~ **Resuelto en esta revisión** — ver "Contrato de salida estructurada".
 3. Validar si existe un caso real donde el campo `formalPositionTitle` de Rol Crítico 4b corresponda a un contrato laboral tradicional (en lugar de un nombramiento formal como el de Neira) — actualmente el diseño asume que un nombramiento verificable con fechas exactas basta, pero no se ha probado contra ese escenario.
 4. Validar el mecanismo de variación de Capa única contra un caso real con múltiples cartas del mismo sub-criterio (pendiente, ver sección de Mecanismo de variación).

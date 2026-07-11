@@ -1,8 +1,14 @@
 # A3 — Motor Testimonial Personal
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.2
-**Última actualización:** 2026-07-10
+**Versión:** 1.3
+**Última actualización:** 2026-07-11
+
+## Qué cambió respecto a 1.2
+
+Se resuelve el Pendiente #1 (modelo/parámetros de ejecución). Verificado contra documentación vigente de Anthropic: `claude-sonnet-4-6` soporta hasta 128k tokens de salida en la Messages API; el streaming es obligatorio solo por encima de 21,333 tokens (requisito de los SDKs, no de la API en sí). Con el escenario confirmado de hasta 8-10 firmantes por caso robusto, el lote completo de cartas testimoniales se estima en 6,000-8,000 tokens de contenido — se fija `max_tokens: 16000` con margen de seguridad, quedando por debajo del umbral de streaming obligatorio para simplificar la implementación inicial.
+
+**Decisión:** `model: claude-sonnet-4-6`, `max_tokens: 16000`.
 
 ## Qué cambió respecto a 1.1
 
@@ -129,6 +135,6 @@ Documento `.docx` limpio, sin membrete — el firmante lo revisa, imprime, firma
 
 ## Pendiente antes de implementación
 
-1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048` — este motor probablemente necesita un límite de tokens mayor dado que genera múltiples cartas completas en una sola respuesta).
+1. ~~Confirmar con qué modelo/parámetros se ejecutará la llamada...~~ **Resuelto en esta revisión** — ver "Qué cambió respecto a 1.2".
 2. Definir el builder de `.docx` que consume el contrato de salida estructurada de la sección anterior y aplica el renderizado correspondiente a cada `presentationFormat` (narrative/headed/numbered) — el contrato de datos ya quedó definido en esta revisión; falta la lógica de renderizado.
 3. ~~Diseñar el mismo nivel de detalle de contrato de salida estructurada para el Motor Institucional y el Motor Abogado...~~ **Resuelto**: ambos motores tienen su contrato de salida definido (`A3_ENGINE_INSTITUCIONAL.md` v1.3, `A4_ENGINE_ABOGADO.md` v1.2).

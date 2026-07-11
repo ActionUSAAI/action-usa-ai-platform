@@ -1,8 +1,14 @@
 # A4 — Motor Abogado
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.2
-**Última actualización:** 2026-07-10
+**Versión:** 1.3
+**Última actualización:** 2026-07-11
+
+## Qué cambió respecto a 1.2
+
+Se resuelve por completo el Pendiente #1 (parcialmente resuelto desde v1.1 con la definición de `petitionStrategy`, faltaba modelo/parámetros). Misma verificación que en los dos motores de A3: `claude-sonnet-4-6`, hasta 128k tokens de salida, streaming obligatorio solo por encima de 21,333. Tipo 0 es el documento de mayor longitud individual de los tres motores (hasta 7 criterios desarrollados en Ruta A, según el caso Rodríguez) — se fija `max_tokens: 8192`. Tipo 0b es considerablemente más corto — se fija `max_tokens: 2048`.
+
+**Decisión:** `model: claude-sonnet-4-6` para ambos tipos; `max_tokens: 8192` (Tipo 0), `max_tokens: 2048` (Tipo 0b).
 
 ## Qué cambió respecto a 1.1
 
@@ -142,7 +148,7 @@ No aplica en el sentido de los motores de A3. Tipo 0 es un documento único por 
 
 ## Pendiente antes de implementación
 
-1. ~~Confirmar con qué modelo/parámetros se ejecutará la llamada, y si A1 debe exponer explícitamente un campo de determinación de ruta...~~ **Parcialmente resuelto**: `petitionStrategy` queda definido como campo de contrato en esta revisión. Sigue pendiente confirmar modelo/parámetros de ejecución (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048`).
+1. ~~Confirmar con qué modelo/parámetros se ejecutará la llamada, y si A1 debe exponer explícitamente un campo de determinación de ruta...~~ **Resuelto por completo en esta revisión** — ver "Qué cambió respecto a 1.2".
 2. ~~Definir el formato exacto de salida estructurada...~~ **Resuelto en esta revisión** — ver "Contrato de salida estructurada".
 3. ~~Definir el contrato de dependencia entre A3 y A4...~~ **Resuelto en esta revisión**: A4 depende del mapa `letterId → exhibitNumber`, construido en un paso de ensamblaje determinístico previo a la llamada de Tipo 0. Pendiente de implementar ese paso de ensamblaje como tal (no solo documentado aquí como decisión).
 4. ~~Cerrar la nota pendiente... confirmar si `agent_petition_drafts` vive bajo el dominio de A4...~~ **Resuelto en esta revisión** — ver "Fuente de datos — decisión de arquitectura".
