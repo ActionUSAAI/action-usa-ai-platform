@@ -146,6 +146,13 @@ export type BookEvidence       = { id: string; title: string; publisher: string;
 export type ConferenceEvidence = { id: string; event: string; org: string; country: string; date: string; topic: string; role: string; filePath: string; fileName: string };
 export type JudgingEvidence    = { id: string; eventOrProcess: string; org: string; country: string; date: string; roleDescription: string; filePath: string; fileName: string };
 export type PatentEvidence     = { id: string; type: string; name: string; country: string; year: string; number: string; filePath: string; fileName: string };
+export type ArtisticExhibitionEvidence = { id: string; exhibitionName: string; venue: string; country: string; date: string; description: string; filePath: string; fileName: string };
+export type PerformingArtsCommercialSuccessEvidence = { id: string; productionOrWorkTitle: string; successIndicator: string; figureOrMetric: string; source: string; date: string; filePath: string; fileName: string };
+export type LeadStarringRoleEvidence = { id: string; productionOrEventName: string; roleDescription: string; organization: string; date: string; reputationEvidence: string; filePath: string; fileName: string };
+export type CriticalReviewEvidence = { id: string; publication: string; title: string; author: string; date: string; link: string; filePath: string; fileName: string };
+export type CriticalRoleOrgEvidence = { id: string; organization: string; roleTitle: string; country: string; startDate: string; endDate: string; reputationEvidence: string; filePath: string; fileName: string };
+export type CommercialSuccessEvidence = { id: string; productionOrWorkTitle: string; successIndicator: string; figureOrMetric: string; source: string; date: string; filePath: string; fileName: string };
+export type SignificantRecognitionEvidence = { id: string; recognizingParty: string; recognizingPartyCredentials: string; achievementRecognized: string; date: string; filePath: string; fileName: string };
 export type IncomeEvidence     = {
   hasTaxReturns: boolean | null; taxFilePath: string; taxFileName: string;
   hasCertifications: boolean | null; certFilePath: string; certFileName: string;
@@ -184,6 +191,13 @@ export type Module10 = {
   hasWebsite: boolean | null;
   websiteUrl: string;
   websiteTopicIdea: string;
+  artisticExhibitionsStatus: EvidenceStatus; artisticExhibitions: ArtisticExhibitionEvidence[]; artisticExhibitionsDisposition: string;
+  performingArtsSuccessStatus: EvidenceStatus; performingArtsSuccess: PerformingArtsCommercialSuccessEvidence[]; performingArtsSuccessDisposition: string;
+  leadStarringRoleStatus: EvidenceStatus; leadStarringRole: LeadStarringRoleEvidence[]; leadStarringRoleDisposition: string;
+  criticalReviewsStatus: EvidenceStatus; criticalReviews: CriticalReviewEvidence[]; criticalReviewsDisposition: string;
+  criticalRoleOrgStatus: EvidenceStatus; criticalRoleOrg: CriticalRoleOrgEvidence[]; criticalRoleOrgDisposition: string;
+  commercialSuccessStatus: EvidenceStatus; commercialSuccess: CommercialSuccessEvidence[]; commercialSuccessDisposition: string;
+  significantRecognitionStatus: EvidenceStatus; significantRecognition: SignificantRecognitionEvidence[]; significantRecognitionDisposition: string;
   criticalRole?: CriticalRoleEvidence; // un solo rol crítico por expediente
 };
 

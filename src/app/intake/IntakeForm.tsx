@@ -107,6 +107,13 @@ const INITIAL: IntakeFormData = {
       hasContracts:null, contractFilePath:"", contractFileName:"",
     },
     hasWebsite:null, websiteUrl:"", websiteTopicIdea:"",
+    artisticExhibitionsStatus: "", artisticExhibitions: [], artisticExhibitionsDisposition: "",
+    performingArtsSuccessStatus: "", performingArtsSuccess: [], performingArtsSuccessDisposition: "",
+    leadStarringRoleStatus: "", leadStarringRole: [], leadStarringRoleDisposition: "",
+    criticalReviewsStatus: "", criticalReviews: [], criticalReviewsDisposition: "",
+    criticalRoleOrgStatus: "", criticalRoleOrg: [], criticalRoleOrgDisposition: "",
+    commercialSuccessStatus: "", commercialSuccess: [], commercialSuccessDisposition: "",
+    significantRecognitionStatus: "", significantRecognition: [], significantRecognitionDisposition: "",
   },
   module11: {
     createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(),
