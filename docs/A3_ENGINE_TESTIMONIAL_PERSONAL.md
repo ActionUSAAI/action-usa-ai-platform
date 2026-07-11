@@ -1,8 +1,16 @@
 # A3 — Motor Testimonial Personal
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.1
+**Versión:** 1.2
 **Última actualización:** 2026-07-10
+
+## Qué cambió respecto a 1.1
+
+Dos correcciones, ambas de cierre — no afectan el diseño sustantivo del motor:
+
+**(a) Unificación de nomenclatura: `signerId` → `letterId`.** El contrato de salida usaba `signerId` como identificador estable de carta. Al diseñar el Bloque 5 de Tipo 0 en `A4_ENGINE_ABOGADO.md` v1.2 (que debe citar el Exhibit correspondiente a cada carta), se estableció `letterId` como nombre estándar del identificador en los tres motores — ya adoptado en `A3_ENGINE_INSTITUCIONAL.md` v1.3 y en el diseño de ensamblaje de Exhibits de A4. Se corrige aquí para que los tres contratos usen el mismo nombre de campo para el mismo concepto, evitando mapeo de nombres innecesario entre capas durante la implementación.
+
+**(b) Pendiente #3 marcado como resuelto.** Pedía diseñar el mismo nivel de detalle de contrato de salida para el Motor Institucional y el Motor Abogado — ambos ya lo tienen (`A3_ENGINE_INSTITUCIONAL.md` v1.3, `A4_ENGINE_ABOGADO.md` v1.2). Queda obsoleto como pendiente activo.
 
 ## Qué cambió respecto a 1.0
 
@@ -71,7 +79,7 @@ La llamada al modelo genera todas las cartas del lote en una sola respuesta, com
 {
   "letters": [
     {
-      "signerId": "string — id o índice de Module9.references[]",
+      "letterId": "string — identificador estable de esta carta dentro del caso, p.ej. UUID o slug determinístico",
       "presentationFormat": "narrative | headed | numbered",
       "blocks": {
         "block1_header": "string",
@@ -87,6 +95,8 @@ La llamada al modelo genera todas las cartas del lote en una sola respuesta, com
   ]
 }
 ```
+
+`letterId` no participa en la generación de contenido — es asignado por el sistema (no por el modelo) al momento de crear el registro de la carta, y se preserva estable a través de regeneraciones, siguiendo la misma convención establecida en `A3_ENGINE_INSTITUCIONAL.md` v1.3.
 
 ### Mapeo bloque → campo de entrada → clave de salida
 
@@ -121,4 +131,4 @@ Documento `.docx` limpio, sin membrete — el firmante lo revisa, imprime, firma
 
 1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048` — este motor probablemente necesita un límite de tokens mayor dado que genera múltiples cartas completas en una sola respuesta).
 2. Definir el builder de `.docx` que consume el contrato de salida estructurada de la sección anterior y aplica el renderizado correspondiente a cada `presentationFormat` (narrative/headed/numbered) — el contrato de datos ya quedó definido en esta revisión; falta la lógica de renderizado.
-3. Diseñar el mismo nivel de detalle de contrato de salida estructurada para el Motor Institucional (`A3_ENGINE_INSTITUCIONAL.md`) y el Motor Abogado (`A4_ENGINE_ABOGADO.md`), siguiendo este documento como plantilla de proceso.
+3. ~~Diseñar el mismo nivel de detalle de contrato de salida estructurada para el Motor Institucional y el Motor Abogado...~~ **Resuelto**: ambos motores tienen su contrato de salida definido (`A3_ENGINE_INSTITUCIONAL.md` v1.3, `A4_ENGINE_ABOGADO.md` v1.2).
