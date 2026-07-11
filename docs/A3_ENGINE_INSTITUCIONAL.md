@@ -1,20 +1,24 @@
-# A3 — Motor Institucional (Máquina 3)
+# A3 — Motor Institucional
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.1
+**Versión:** 1.2
 **Última actualización:** 2026-07-10
 
-## Qué cambió respecto a 1.0
+## Qué cambió respecto a 1.1
 
-En la Versión 1.0, el sub-criterio **Rol Crítico** se trataba como una sola categoría de Subtipo B, con cuatro campos genéricos compartidos: `formalPositionTitle`, `exactTenureDates`, `specificFunctionalDuties`, `institutionalImpactEvidence`. Esto era un **error de tipado**: Rol Crítico agrupaba, bajo un mismo esquema de datos, dos patrones fácticos con mecanismos de prueba conceptualmente distintos — el de un cargo directivo/electo (Carlos Rodríguez, Presidente de ACRICAMDE) y el de un cargo técnico/instructor (Dr. Andrés Neira, Escuela Nacional de Carabineros). El primero se prueba con métricas de gestión cuantificables durante el mandato; el segundo se prueba con evidencia de que el conocimiento transferido se institucionalizó después. Tratar ambos bajo el campo único `institutionalImpactEvidence` habría producido filas de base de datos mal tipadas en cuanto se formalizara esta distinción.
+Esta revisión aplica cuatro correcciones:
 
-**Corrección aplicada en 1.1:** Rol Crítico se separa en dos sub-criterios formales — **4a (Directivo/Electo)** y **4b (Técnico/Instructor)** — cada uno con su propio subconjunto de campos obligatorios. La nota de arquitectura que vinculaba `institutionalImpactEvidence` con `judgmentAuthorityAndConsequence` (Juez) bajo la misma lógica de originalidad+significancia queda acotada: esa lógica compartida aplica a **4b** y a Juez (ambos dependen de significancia verificable posterior), pero no a **4a**, cuyo mecanismo de prueba es la métrica de gestión en sí misma, no un impacto narrado.
+**(a) Sincronización de nombres de campo con `types.ts`.** La tabla de Subtipo B usaba `exactTenureDates` (4a) y `exactServiceDates` (4b) como campos de fecha únicos. La implementación real de `CriticalRoleEvidence` (commit `677e16f`) usa fechas estructuradas separadas: `tenureStartDate`/`tenureEndDate` para 4a, `serviceStartDate`/`serviceEndDate` para 4b (ambas ISO 8601, con el campo de fin admitiendo `null` si el rol sigue activo). La tabla se corrige para reflejar los nombres reales.
 
-Verificación de impacto en otros documentos: se revisó `A3_LETTER_TAXONOMY.md` (comiteado en fb2354c) y no contiene referencias a `institutionalImpactEvidence`, `specificFunctionalDuties` ni al nivel de detalle de campos por sub-criterio de Rol Crítico — se mantiene en un nivel de descripción más general. No hay, por tanto, otros artefactos que queden desactualizados por este cambio.
+**(b) Referencias residuales al modelo de arquitectura viejo**, heredadas de la misma confusión ya corregida en `A3_ENGINE_TESTIMONIAL_PERSONAL.md`, `A4_ENGINE_ABOGADO.md` y `A3_LETTER_TAXONOMY.md`: el subtítulo "(Máquina 3)", la frase "el segundo de los tres motores" en Propósito, y el Pendiente #6 que trataba al Motor Abogado como parte de A3. Corregido: A3 contiene dos motores (Testimonial, Institucional); el Motor Abogado vive en Agente 4 — ver `A4_ENGINE_ABOGADO.md`.
+
+**(c) Pendiente #5 marcado como resuelto.** La bandera de ramificación 4a/4b ya está implementada como unión discriminada (`criticalRoleType: 'elected' | 'technical'`) en `CriticalRoleEvidence`, `src/app/intake/types.ts`, commit `677e16f`. No requiere migración de datos legados — verificado contra producción: `Module10` es JSONB, 2 filas al momento de la implementación, ninguna con datos de Rol Crítico.
+
+**(d) Pendiente #2 resuelto — contrato de salida estructurada.** Se define el formato JSON de salida con un discriminador `letterType` que captura ambos niveles de ramificación (Subtipo A/B, y dentro de B, el sub-criterio activo) sin expandir la forma de los bloques por cada combinación — a diferencia del Motor Testimonial, donde los bloques son estructuralmente fijos y solo varía el contenido, aquí el Bloque 3 tiene distintos campos de entrada según la rama, pero una única forma de salida.
 
 ## Propósito
 
-Este documento especifica el motor de generación de cartas institucionales de A3 — el segundo de los tres motores en ser diseñado por completo, siguiendo la taxonomía definida en `A3_LETTER_TAXONOMY.md` y el mismo proceso de validación empleado en `A3_ENGINE_TESTIMONIAL_PERSONAL.md`. Redacta cartas emitidas en nombre de una organización (asociación, federación, escuela, entidad gubernamental) — no de un individuo a título personal — que certifican un hecho puntual sobre el beneficiario o emiten una opinión de idoneidad general.
+Este documento especifica el motor de generación de cartas institucionales de A3 — uno de sus dos motores, junto con el Motor Testimonial Personal (`A3_ENGINE_TESTIMONIAL_PERSONAL.md`). Redacta cartas emitidas en nombre de una organización (asociación, federación, escuela, entidad gubernamental) — no de un individuo a título personal — que certifican un hecho puntual sobre el beneficiario o emiten una opinión de idoneidad general.
 
 A diferencia del Motor Testimonial, este motor agrupa dos subtipos con estructuras de datos, función legal y nivel de exigencia probatoria distintos. Tratarlos como una sola plantilla fue el primer error de diseño descartado en este proceso.
 
@@ -56,16 +60,16 @@ A diferencia del Motor Testimonial, aquí el riesgo no es el lenguaje hiperbóli
 
 ## Subtipo B — los sub-criterios prioritarios y sus campos obligatorios
 
-Estos son, por decisión operativa de ACTION USA, los sub-criterios institucionales que realmente suplen un criterio regulatorio ante USCIS (junto con Contribuciones al Campo, que se resuelve vía Motor Testimonial y queda fuera del alcance de este motor). Rol Crítico se presenta dividido en 4a y 4b, conforme a la corrección aplicada en esta versión.
+Estos son, por decisión operativa de ACTION USA, los sub-criterios institucionales que realmente suplen un criterio regulatorio ante USCIS (junto con Contribuciones al Campo, que se resuelve vía Motor Testimonial y queda fuera del alcance de este motor). Rol Crítico se presenta dividido en 4a y 4b, conforme a la corrección aplicada en la v1.1.
 
 | Sub-criterio | Campos obligatorios (Bloque 2/3) | Mecanismo de prueba | Validado contra (fallo → éxito) |
 |---|---|---|---|
 | **Juez** | `judgeSelectionCriteria` (por qué la organización lo eligió/invitó a él específicamente); `judgedEventSignificance` (escala, nivel, relevancia del evento juzgado); `judgmentAuthorityAndConsequence` (si el veredicto fue final/vinculante y qué consecuencia verificable tuvo sobre los evaluados) | Significancia del evento juzgado + autoridad del veredicto | Double T Arena original (insuficiente) → Double T Arena corregida + Rancho La Jarana (plantilla de referencia) |
-| **Rol Crítico 4a — Directivo/Electo** | `electedOrAppointedTitle` + `exactTenureDates` (cargo nombrado y rango de fechas exacto); `organizationReputationEvidence` (reputación distinguida de la organización); `organizationalGrowthMetrics` (crecimiento medible atribuible a la gestión durante el mandato — membresía, nuevas afiliaciones logradas, sistemas o programas implementados) | Métricas de gestión cuantificables durante el período de liderazgo | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Rodríguez/ACRICAMDE (presidencia 2017-2024, afiliación APHA lograda en 2019, sistema de microchip implementado) |
-| **Rol Crítico 4b — Técnico/Instructor** | `formalPositionTitle` + `exactServiceDates` (cargo nombrado y rango de fechas exacto — no requiere contrato laboral tradicional, sí un nombramiento formal y verificable); `specificCoursesOrDutiesTaught` (qué enseñó/entrenó concretamente — cursos numerados, programas específicos); `institutionalizationEvidence` (evidencia de que el conocimiento transferido se incorporó de forma permanente — adopción curricular, continuidad en el currículo, renovación de la invitación como prueba de valor continuado) | Institucionalización verificable del conocimiento transferido | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Neira/Escuela Nacional de Carabineros (instructor de los cursos 009/010, técnica incorporada al currículo, invitación renovada en 2021) |
+| **Rol Crítico 4a — Directivo/Electo** | `electedOrAppointedTitle`; `tenureStartDate` + `tenureEndDate` (ISO 8601; `tenureEndDate` admite `null` si el rol sigue activo); `organizationReputationEvidence` (reputación distinguida de la organización); `organizationalGrowthMetrics` (crecimiento medible atribuible a la gestión durante el mandato — membresía, nuevas afiliaciones logradas, sistemas o programas implementados) | Métricas de gestión cuantificables durante el período de liderazgo | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Rodríguez/ACRICAMDE (presidencia 2017-2024, afiliación APHA lograda en 2019, sistema de microchip implementado) |
+| **Rol Crítico 4b — Técnico/Instructor** | `formalPositionTitle`; `serviceStartDate` + `serviceEndDate` (ISO 8601; `serviceEndDate` admite `null` si el rol sigue activo — no requiere contrato laboral tradicional, sí un nombramiento formal y verificable); `specificCoursesOrDutiesTaught` (qué enseñó/entrenó concretamente — cursos numerados, programas específicos); `institutionalizationEvidence` (evidencia de que el conocimiento transferido se incorporó de forma permanente — adopción curricular, continuidad en el currículo, renovación de la invitación como prueba de valor continuado) | Institucionalización verificable del conocimiento transferido | San Carlos Livestock Chamber (rechazada — confundía patrocinio con empleo) → Neira/Escuela Nacional de Carabineros (instructor de los cursos 009/010, técnica incorporada al currículo, invitación renovada en 2021) |
 | **Competencias Ganadas** | `awardNominationAndJudgingCriteria` (criterios de nominación y juzgamiento de participantes y ganadores); `panelOrOrgReputationEvidence` (afiliaciones, reconocimiento cruzado por otras asociaciones); `awardFrequencyAndScope` (cuántos premios se otorgan al año, alcance nacional/internacional) | Rigor del proceso de nominación/juzgamiento | Pro Rodeo de Costa Rica (insuficiente) → ACRICAMDE corregida (post-RFE) |
 
-**Nota de arquitectura (corregida en 1.1):** el campo `institutionalizationEvidence` de Rol Crítico 4b y el campo `judgmentAuthorityAndConsequence` de Juez comparten una misma lógica subyacente — la del principio de originalidad+significancia del Motor Testimonial, trasladado al nivel institucional. En ambos casos no basta con afirmar que el rol o el veredicto importó; hay que mostrar qué cambió después, de forma verificable, como consecuencia de él. **Rol Crítico 4a no comparte esta lógica.** Su mecanismo de prueba no depende de un impacto narrado ni de institucionalización posterior — depende de la métrica de gestión cuantificable en sí misma, verificable durante el propio período del mandato, sin necesidad de mostrar continuidad más allá de él.
+**Nota de arquitectura:** el campo `institutionalizationEvidence` de Rol Crítico 4b y el campo `judgmentAuthorityAndConsequence` de Juez comparten una misma lógica subyacente — la del principio de originalidad+significancia del Motor Testimonial, trasladado al nivel institucional. En ambos casos no basta con afirmar que el rol o el veredicto importó; hay que mostrar qué cambió después, de forma verificable, como consecuencia de él. **Rol Crítico 4a no comparte esta lógica.** Su mecanismo de prueba no depende de un impacto narrado ni de institucionalización posterior — depende de la métrica de gestión cuantificable en sí misma, verificable durante el propio período del mandato, sin necesidad de mostrar continuidad más allá de él.
 
 ## Mecanismo de variación
 
@@ -73,13 +77,45 @@ A diferencia del Motor Testimonial, aquí no aplican las tres capas completas. C
 
 **Capa única — variación de contenido, solo cuando aplica.** Si un mismo caso requiere múltiples cartas del mismo sub-criterio (por ejemplo, varios acompañantes O-2 con cartas de Rol Crítico de organizaciones distintas), el modelo debe revisar las cartas ya generadas del mismo lote antes de escribir la siguiente, y no puede reutilizar la misma formulación de esencialidad o significancia entre ellas. Pendiente de confirmación con un caso real que presente esta situación — por ahora no se ha validado empíricamente.
 
+## Contrato de salida estructurada
+
+La ramificación de este motor ocurre en dos niveles — Subtipo (A/B) y, dentro de B, el sub-criterio activo (Juez, 4a, 4b, Competencias Ganadas) — pero la forma de los bloques de salida es idéntica en las cinco ramas: siempre son los mismos cinco campos (`block1` a `block5`, con `block3b` opcional). Lo que cambia entre ramas es qué campos de entrada alimentan `block3_coreContent`, no la forma de la salida. Por eso el contrato usa un discriminador único, `letterType`, en lugar de expandir una clave de salida distinta por cada sub-criterio — a diferencia del Motor Testimonial, donde los 8 campos de entrada mapean 1 a 1 con 8 claves de salida porque ahí la estructura nunca se ramifica, solo varía el contenido.
+
+```json
+{
+  "letterType": "subtypeA_advisory | subtypeB_judge | subtypeB_criticalRole4a | subtypeB_criticalRole4b | subtypeB_awards",
+  "blocks": {
+    "block1_header": "string",
+    "block2_organizationIdentity": "string",
+    "block3_coreContent": "string",
+    "block3b_specificReinforcement": "string | null",
+    "block4_declaration": "string",
+    "block5_closing": "string"
+  }
+}
+```
+
+`block3b_specificReinforcement` es `null` en toda rama de Subtipo B (el bloque 3b no aplica según la tabla de estructura obligatoria) y opcionalmente poblado en Subtipo A. `block5_closing` contiene siempre los placeholders literales (`[Nombre del funcionario autorizado]`, `[Cargo oficial]`, `[Teléfono]`, `[Correo electrónico]`, `[Firma]`) — nunca datos reales de firmante, conforme a la sección "Salida".
+
+### Mapeo `letterType` → campos de entrada que alimentan `block3_coreContent`
+
+| `letterType` | Campos de entrada | Fuente |
+|---|---|---|
+| `subtypeA_advisory` | `peerGroupName`, `peerGroupLetterType` | `Module13` |
+| `subtypeB_judge` | `judgeSelectionCriteria`, `judgedEventSignificance`, `judgmentAuthorityAndConsequence` | `Module10` |
+| `subtypeB_criticalRole4a` | `electedOrAppointedTitle`, `tenureStartDate`, `tenureEndDate`, `organizationReputationEvidence`, `organizationalGrowthMetrics` | `Module10.criticalRole` (rama `elected` de `CriticalRoleEvidence`) |
+| `subtypeB_criticalRole4b` | `formalPositionTitle`, `serviceStartDate`, `serviceEndDate`, `specificCoursesOrDutiesTaught`, `institutionalizationEvidence` | `Module10.criticalRole` (rama `technical` de `CriticalRoleEvidence`) |
+| `subtypeB_awards` | `awardNominationAndJudgingCriteria`, `panelOrOrgReputationEvidence`, `awardFrequencyAndScope` | `Module10` |
+
+`letterType` para Rol Crítico se deriva directamente de `Module10.criticalRole.criticalRoleType` (`'elected'` → `subtypeB_criticalRole4a`; `'technical'` → `subtypeB_criticalRole4b`) — no requiere una determinación separada por parte del modelo ni de A1, ya que la bandera de ramificación ya existe en el dato estructurado del intake.
+
 ## Datos de entrada
 
 **Del beneficiario** (`Module1`): `fullName`, `profession`, `industry`, `visaType`
 
 **Subtipo A** (`Module13`): `peerGroupName`, `peerGroupLetterType`
 
-**Subtipo B** (`Module10`), ramificado por sub-criterio activo del caso: los campos de la tabla anterior, más el criterio USCIS específico que la carta busca satisfacer (para anclar el Bloque 4 a la cita regulatoria correcta), más una bandera de ramificación que indique si Rol Crítico corresponde a 4a o 4b antes de invocar el conjunto de campos correspondiente
+**Subtipo B** (`Module10`), ramificado por sub-criterio activo del caso: los campos de la tabla anterior, más el criterio USCIS específico que la carta busca satisfacer (para anclar el Bloque 4 a la cita regulatoria correcta). Para Rol Crítico, el campo `Module10.criticalRole.criticalRoleType` (`CriticalRoleEvidence`, `src/app/intake/types.ts`) determina directamente si aplica 4a o 4b.
 
 ## Fuente de datos — decisión de arquitectura
 
@@ -96,8 +132,8 @@ Documento `.docx` limpio, sin membrete. Idioma: inglés, salvo que el caso espec
 ## Pendiente antes de implementación
 
 1. Confirmar con qué modelo/parámetros se ejecutará la llamada (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048`).
-2. Definir el formato exacto de salida estructurada, incluyendo la lógica de ramificación por subtipo y sub-criterio dentro del mismo prompt — a diferencia del Motor Testimonial, aquí la estructura de campos cambia según qué criterio USCIS esté activo en el caso, y ahora además según si Rol Crítico es 4a o 4b, no es un solo formato fijo.
+2. ~~Definir el formato exacto de salida estructurada...~~ **Resuelto en esta revisión** — ver "Contrato de salida estructurada".
 3. Validar si existe un caso real donde el campo `formalPositionTitle` de Rol Crítico 4b corresponda a un contrato laboral tradicional (en lugar de un nombramiento formal como el de Neira) — actualmente el diseño asume que un nombramiento verificable con fechas exactas basta, pero no se ha probado contra ese escenario.
 4. Validar el mecanismo de variación de Capa única contra un caso real con múltiples cartas del mismo sub-criterio (pendiente, ver sección de Mecanismo de variación).
-5. Definir, en la migración de base de datos correspondiente a Módulo 10, cómo se representa la bandera de ramificación 4a/4b — como valor de un enum (`criticalRoleType: 'elected' | 'technical'`) o como dos sub-tablas de campos distintas — antes de que cualquier fila real se cree bajo el esquema viejo de campo único.
-6. Diseñar el mismo nivel de detalle para el Motor Abogado (Tipo 0 — Attorney Petition Letter, Tipo 0b — Consultation Exception Letter), siguiendo este documento y `A3_ENGINE_TESTIMONIAL_PERSONAL.md` como plantilla de proceso.
+5. ~~Definir, en la migración de base de datos correspondiente a Módulo 10, cómo se representa la bandera de ramificación 4a/4b...~~ **Resuelto**: implementado como unión discriminada `CriticalRoleEvidence` en `src/app/intake/types.ts`, commit `677e16f`. Sin deuda de migración de datos legados (verificado contra producción al momento de la implementación).
+6. Definir el builder de `.docx` que consume el contrato de salida de este documento y el del Motor Testimonial, aplicando el layout correspondiente según `letterType` (Institucional) o `presentationFormat` (Testimonial).
