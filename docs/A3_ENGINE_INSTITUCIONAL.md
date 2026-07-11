@@ -1,8 +1,14 @@
 # A3 — Motor Institucional
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.2
+**Versión:** 1.3
 **Última actualización:** 2026-07-10
+
+## Qué cambió respecto a 1.2
+
+Al diseñar el contrato de salida del Motor Abogado (`A4_ENGINE_ABOGADO.md` v1.2), se detectó que el envelope de este documento no incluye ningún identificador estable por carta. Esto bloquea el Bloque 5 de Tipo 0 (Attorney Petition Letter), que debe referenciar el Exhibit específico de cada carta institucional citada — sin un identificador, A4 no puede distinguir entre dos cartas del mismo `letterType` generadas para el mismo caso (por ejemplo, dos cartas de Rol Crítico 4b de organizaciones distintas).
+
+**Corrección aplicada en 1.3:** se agrega `letterId` al envelope de salida, análogo a `signerId` del Motor Testimonial. La numeración de Exhibit (`Exhibit N`) no se asigna aquí — ese mapeo `letterId → exhibitNumber` es responsabilidad de A4 en su paso de ensamblaje del paquete completo de evidencia, no de este motor. Ver `A4_ENGINE_ABOGADO.md` §Contrato de salida — Tipo 0 para el detalle de esa decisión.
 
 ## Qué cambió respecto a 1.1
 
@@ -83,6 +89,7 @@ La ramificación de este motor ocurre en dos niveles — Subtipo (A/B) y, dentro
 
 ```json
 {
+  "letterId": "string — identificador estable de esta carta dentro del caso, p.ej. UUID o slug determinístico",
   "letterType": "subtypeA_advisory | subtypeB_judge | subtypeB_criticalRole4a | subtypeB_criticalRole4b | subtypeB_awards",
   "blocks": {
     "block1_header": "string",
@@ -108,6 +115,8 @@ La ramificación de este motor ocurre en dos niveles — Subtipo (A/B) y, dentro
 | `subtypeB_awards` | `awardNominationAndJudgingCriteria`, `panelOrOrgReputationEvidence`, `awardFrequencyAndScope` | `Module10` |
 
 `letterType` para Rol Crítico se deriva directamente de `Module10.criticalRole.criticalRoleType` (`'elected'` → `subtypeB_criticalRole4a`; `'technical'` → `subtypeB_criticalRole4b`) — no requiere una determinación separada por parte del modelo ni de A1, ya que la bandera de ramificación ya existe en el dato estructurado del intake.
+
+`letterId` no participa en la generación de contenido — es asignado por el sistema (no por el modelo) al momento de crear el registro de la carta, y se preserva estable a través de regeneraciones para que las referencias de Exhibit en Tipo 0 no se invaliden.
 
 ## Datos de entrada
 

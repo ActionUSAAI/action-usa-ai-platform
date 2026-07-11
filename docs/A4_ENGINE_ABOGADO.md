@@ -1,16 +1,18 @@
 # A4 — Motor Abogado
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.1
+**Versión:** 1.2
 **Última actualización:** 2026-07-10
 
-## Qué cambió respecto a 1.0
+## Qué cambió respecto a 1.1
 
-La Versión 1.0 de este documento fue escrita bajo un modelo de arquitectura incorrecto: describía este motor como "el tercer y último motor" de A3 ("Máquina 1" de un conjunto de tres, junto con el Motor Testimonial y el Motor Institucional), y su Pendiente #3 hablaba de "el orquestador que invoca los tres motores" como lógica interna de A3.
+Se resuelve el Pendiente #2 (contrato de salida estructurada), pendiente desde la v1.1 y ya resuelto para los dos motores de A3. Este es el tercer y último de los tres contratos de salida diseñados en esta fase.
 
-**Corrección aplicada en 1.1:** el Motor Abogado (Tipo 0 — Attorney Petition Letter, Tipo 0b — Consultation Exception Letter) no es parte de A3. Vive en **Agente 4** (`petition_builder`), agente independiente. A3 contiene únicamente dos motores: el Motor Testimonial (`A3_ENGINE_TESTIMONIAL_PERSONAL.md`) y el Motor Institucional (`A3_ENGINE_INSTITUCIONAL.md`). A4 depende de A3 — específicamente, de los Exhibits que sus dos motores producen — pero es un agente separado, no un tercer submotor interno.
+**Hallazgo durante el diseño:** el Bloque 5 de Tipo 0 debe citar el Exhibit específico que sustenta cada argumento de criterio, pero el contrato de salida del Motor Institucional no tenía ningún identificador estable por carta. Se corrigió `A3_ENGINE_INSTITUCIONAL.md` a v1.3, agregando `letterId` al envelope — ver ese documento para el detalle.
 
-Esta corrección no afecta el fundamento normativo, la estructura de bloques, ni la validación contra casos reales documentada más abajo — todo eso permanece vigente. El cambio es exclusivamente de ubicación arquitectónica: dónde vive este motor dentro del sistema de agentes.
+**Decisión de arquitectura tomada aquí:** ni el Motor Testimonial ni el Motor Institucional conocen su propio número de Exhibit al generarse — ese número depende del orden final del paquete probatorio completo del caso (que incluye documentos que no son cartas), y las cartas se generan antes de que ese orden exista. La numeración de Exhibits es responsabilidad de **A4**, en un paso de ensamblaje determinístico (no generativo) previo a la llamada de Tipo 0: A4 construye un mapa `letterId → exhibitNumber` a partir del orden real del paquete de evidencia, y ese mapa ya resuelto se entrega como parte del contexto de entrada al prompt de Tipo 0. El modelo nunca inventa ni infiere numeración de Exhibits.
+
+Esto también resuelve, de forma indirecta, el Pendiente #3 (contrato de dependencia A3 → A4): A4 no solo depende de que A3 haya completado sus dos motores — depende específicamente de tener el mapa `letterId → exhibitNumber` ya construido antes de invocar el prompt de Tipo 0.
 
 ## Propósito
 
@@ -40,7 +42,7 @@ El Bloque 2 aparece siempre, independientemente de la actividad u oficio del ben
 | 2 | Presentación del campo de actividad | Contextualiza la disciplina u oficio del beneficiario — siempre presente | Module1 |
 | 3 | Marco legal y estándar de prueba | Test de elegibilidad completo + enumeración literal de los criterios evidentiarios del CFR aplicable | A1 |
 | 4 | Declaración de criterios satisfechos | Cuántos y cuáles criterios cumple el beneficiario | A1 |
-| 5 | Desarrollo criterio por criterio | Cada criterio con su propio encabezado, argumento anclado al CFR, y referencia a Exhibit — aquí se citan las cartas testimoniales/institucionales que A3 ya generó | A1 + todos los módulos |
+| 5 | Desarrollo criterio por criterio | Cada criterio con su propio encabezado, argumento anclado al CFR, y referencia a Exhibit — aquí se citan las cartas testimoniales/institucionales que A3 ya generó | A1 + todos los módulos + mapa `letterId → exhibitNumber` ensamblado por A4 |
 | 6 | Conclusión | Síntesis de elegibilidad + solicitud formal de aprobación | — |
 | 7 | Cierre | Firma **real** del abogado que presenta el caso — a diferencia de los motores de A3, aquí no hay placeholders | Datos del abogado firmante |
 
@@ -50,7 +52,7 @@ El Bloque 2 aparece siempre, independientemente de la actividad u oficio del ben
 
 **Ruta B — Logro único (major, internationally recognized award).** Validada contra Iñigo (EB-1A vía Grammy/Latin Grammy, 8 CFR 204.5(h)(3)). Reemplaza el recorrido criterio-por-criterio del Bloque 5 por un bloque analítico único que argumenta por qué ese premio específico califica como "major internationally recognized award": naturaleza competitiva internacional, rigor del proceso de evaluación, autoridad de la institución otorgante, e impacto en la carrera del beneficiario.
 
-La ruta activa la determina A1, no es una decisión de formato — depende de si el caso cuenta con un logro que satisfaga por sí solo el estándar de premio mayor, o si debe construirse sobre la acumulación de criterios menores.
+La ruta activa la determina A1, no es una decisión de formato — depende de si el caso cuenta con un logro que satisfaga por sí solo el estándar de premio mayor, o si debe construirse sobre la acumulación de criterios menores. Se captura como `petitionStrategy` en el contrato de salida (ver sección siguiente), resolviendo el Pendiente #1: A1 debe exponer este campo explícitamente (`petitionStrategy: "multiCriteria" | "singleAchievement"`) para que Tipo 0 no tenga que inferir la ruta.
 
 ## Tipo 0b — Consultation Exception Letter
 
@@ -63,9 +65,62 @@ Validada contra el ejemplo real del caso Garibay (Escamilla & Poneck, LLP, abril
 
 Fuente de datos: `Module13 §A: noAssociationJustification`, más `Module10` para la evidencia sustituta ofrecida en el punto (c).
 
+## Contrato de salida estructurada
+
+### Tipo 0
+
+A diferencia de los dos motores de A3, el Bloque 5 de Tipo 0 no tiene longitud fija: en Ruta A es un array con tantos elementos como criterios satisfechos tenga el caso; en Ruta B es un único bloque analítico. El contrato usa `petitionStrategy` como discriminador de forma —no de contenido, como en el Motor Institucional— porque aquí sí cambia la estructura misma del Bloque 5, no solo qué lo alimenta.
+
+```json
+{
+  "petitionStrategy": "multiCriteria | singleAchievement",
+  "blocks": {
+    "block1_header": "string",
+    "block2_fieldPresentation": "string",
+    "block3_legalFrameworkStandard": "string",
+    "block4_criteriaSatisfiedDeclaration": "string",
+    "block5_criteriaDevelopment": [
+      {
+        "criterionCitation": "string — cita CFR/INA exacta, p.ej. '8 CFR 204.5(h)(3)(iv)'",
+        "criterionLabel": "string — nombre legible del criterio",
+        "argument": "string",
+        "exhibitNumbers": ["string — Exhibit N, ya resuelto por A4 antes de esta llamada"]
+      }
+    ],
+    "block5_singleAchievementAnalysis": "string | null",
+    "block6_conclusion": "string",
+    "block7_closing": "string"
+  }
+}
+```
+
+Regla de exclusión mutua: si `petitionStrategy = "multiCriteria"`, `block5_criteriaDevelopment` está poblado y `block5_singleAchievementAnalysis` es `null`. Si `petitionStrategy = "singleAchievement"`, `block5_criteriaDevelopment` es `[]` y `block5_singleAchievementAnalysis` contiene el bloque analítico único. Nunca ambos poblados a la vez.
+
+`exhibitNumbers` es un array (no un string único) porque un mismo argumento de criterio puede citar más de un Exhibit — por ejemplo, dos cartas testimoniales distintas que refuerzan el mismo criterio.
+
+`block7_closing` contiene datos reales del abogado firmante (nombre, no placeholder), conforme a la sección "Salida".
+
+### Tipo 0b
+
+Envelope propio, sin relación estructural con los 7 bloques de Tipo 0 — los tres movimientos del cuerpo (declaración, justificación, evidencia sustituta) se exponen como campos independientes en lugar de un bloque de texto único, para que el builder de `.docx` pueda aplicar formato diferenciado a cada movimiento si el caso lo requiere.
+
+```json
+{
+  "letterType": "consultationException",
+  "blocks": {
+    "block1_header": "string",
+    "block2_reSubject": "string",
+    "block3a_noPeerGroupDeclaration": "string",
+    "block3b_fieldSingularityJustification": "string",
+    "block3c_substituteEvidence": "string",
+    "block4_closing": "string"
+  }
+}
+```
+
 ## Datos de entrada
 
-**Tipo 0:** A1 (análisis de fortaleza del caso y determinación de ruta) + todos los módulos + referencias a los Exhibits producidos por el Motor Testimonial y el Motor Institucional de A3.
+**Tipo 0:** A1 (análisis de fortaleza del caso, `petitionStrategy`, criterios activos) + todos los módulos + mapa `letterId → exhibitNumber` ensamblado por A4 a partir de las cartas ya generadas por los dos motores de A3.
 
 **Tipo 0b:** `Module13 §A: noAssociationJustification` + `Module10` (evidencia sustituta).
 
@@ -75,7 +130,7 @@ A diferencia de los dos motores de A3, **Tipo 0 es el único que consume la sali
 
 **Consecuencia de orquestación entre agentes:** A4 debe generar Tipo 0 después de que A3 complete sus dos motores (Testimonial e Institucional) para el caso, porque el Bloque 5 de Tipo 0 referencia los Exhibits que esos dos motores producen. Generarlo antes dejaría referencias a documentos que aún no existen. Esta es una dependencia de secuencia entre agentes (A3 → A4), no una orquestación interna de submotores.
 
-**Nota pendiente de cierre**: este documento aún no referencia explícitamente el esquema de `agent_petition_drafts` (`petition_type: 'standard' | 'consultation_exception'`, con `build_phase: 'initial' | 'rfe'` como eje separado para la fase de radicación). Tipo 0b corresponde al valor `'consultation_exception'` de `petition_type`; Tipo 0 corresponde a `'standard'`. Pendiente confirmar si esta tabla vive bajo el dominio de A4 en el esquema de base de datos, dado que es este agente quien la genera.
+**Nota resuelta en esta revisión:** `agent_petition_drafts` usa `petition_type: 'standard' | 'consultation_exception'` para distinguir Tipo 0 de Tipo 0b, con `build_phase: 'initial' | 'rfe'` como eje separado para la fase de radicación. Esta tabla vive bajo el dominio de A4, que es quien la genera y la escribe.
 
 ## Salida
 
@@ -87,8 +142,10 @@ No aplica en el sentido de los motores de A3. Tipo 0 es un documento único por 
 
 ## Pendiente antes de implementación
 
-1. Confirmar con qué modelo/parámetros se ejecutará la llamada, y si A1 debe exponer explícitamente un campo de determinación de ruta (`petitionStrategy: "multi-criteria" | "one-time-achievement"`) para que Tipo 0 no tenga que inferirlo.
-2. Confirmar el diseño de la lógica de ramificación por tipo de formulario y service center dentro del mismo prompt (ya cubierto parcialmente por `uscisFilingAddresses.ts`).
-3. Definir el contrato de dependencia entre A3 y A4: cómo A4 confirma que los dos motores de A3 completaron su generación para el caso antes de iniciar Tipo 0 (estado de caso, bandera de completitud, o consulta directa de existencia de los Exhibits).
-4. Cerrar la nota pendiente de la sección "Fuente de datos — decisión de arquitectura": confirmar si `agent_petition_drafts` vive bajo el dominio de A4 y actualizar este documento con la referencia explícita al esquema (`petition_type`, `build_phase`) una vez confirmado.
-5. Con este documento, el diseño de A3 (dos motores: Testimonial e Institucional) y de A4 (Motor Abogado, Tipo 0 y Tipo 0b) queda completo en su primera fase de diseño. Pendiente: sesión de diseño para el mapeo definitivo de los siete bloques retóricos al esquema de datos (Pendiente #2 de `A3_LETTER_TAXONOMY.md`) antes de iniciar implementación.
+1. ~~Confirmar con qué modelo/parámetros se ejecutará la llamada, y si A1 debe exponer explícitamente un campo de determinación de ruta...~~ **Parcialmente resuelto**: `petitionStrategy` queda definido como campo de contrato en esta revisión. Sigue pendiente confirmar modelo/parámetros de ejecución (referencia: A1 usa `claude-sonnet-4-6`, `max_tokens: 2048`).
+2. ~~Definir el formato exacto de salida estructurada...~~ **Resuelto en esta revisión** — ver "Contrato de salida estructurada".
+3. ~~Definir el contrato de dependencia entre A3 y A4...~~ **Resuelto en esta revisión**: A4 depende del mapa `letterId → exhibitNumber`, construido en un paso de ensamblaje determinístico previo a la llamada de Tipo 0. Pendiente de implementar ese paso de ensamblaje como tal (no solo documentado aquí como decisión).
+4. ~~Cerrar la nota pendiente... confirmar si `agent_petition_drafts` vive bajo el dominio de A4...~~ **Resuelto en esta revisión** — ver "Fuente de datos — decisión de arquitectura".
+5. Confirmar el diseño de la lógica de ramificación por tipo de formulario y service center dentro del mismo prompt (ya cubierto parcialmente por `uscisFilingAddresses.ts`).
+6. Implementar el paso de ensamblaje que construye el mapa `letterId → exhibitNumber` a partir del paquete completo de evidencia del caso (cartas de A3 + documentos de Módulo 10 que no son cartas) — este paso es prerequisito operativo para poder invocar Tipo 0, y su lógica de ordenamiento de Exhibits (por criterio, por fecha, por tipo de documento) aún no está definida.
+7. Con este documento, el diseño de contrato de salida de los tres motores de generación de cartas (A3 Testimonial, A3 Institucional, A4 Abogado) queda completo. Falta implementación de los builders de `.docx` correspondientes.
