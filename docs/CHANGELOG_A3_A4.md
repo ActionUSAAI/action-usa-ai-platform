@@ -35,3 +35,19 @@ Tras cerrar la corrección de arquitectura, se abordó el pendiente #2 de `A3_EN
 9. **`A3_ENGINE_INSTITUCIONAL.md` v1.2** — se definió el contrato de salida estructurada con discriminador `letterType` (cinco valores: `subtypeA_advisory`, `subtypeB_judge`, `subtypeB_criticalRole4a`, `subtypeB_criticalRole4b`, `subtypeB_awards`), a diferencia del Testimonial, sin expandir los bloques de salida por rama — el discriminador captura la doble ramificación (Subtipo A/B, y sub-criterio dentro de B) mientras la forma de los 6 campos de salida permanece fija. Se sincronizaron además los nombres de campo de fecha de Rol Crítico (`exactTenureDates`/`exactServiceDates` → `tenureStartDate`/`tenureEndDate`, `serviceStartDate`/`serviceEndDate`) con la implementación real de `CriticalRoleEvidence`, que había quedado desalineada desde su propia v1.1. Commit `75842b0`.
 
 **Estado resultante (actualizado):** los cuatro documentos de arquitectura están sincronizados entre sí y con el código real. El Motor Testimonial y el Motor Institucional tienen su contrato de salida JSON formalmente definido — listo para que el builder de `.docx` de cada uno se implemente contra un esquema fijo. Pendiente: el mismo ejercicio de contrato de salida para el Motor Abogado (`A4_ENGINE_ABOGADO.md`).
+
+## 2026-07-11
+
+**Contexto:** continuación del trabajo de diseño de A3/A4, cerrando los pendientes menores identificados al final de la sesión anterior (modelo/parámetros de ejecución, mecanismo de notificación de discrepancias en Exhibits, orden determinístico de criterios para el ensamblaje).
+
+**Correcciones y diseño aplicados, en orden:**
+
+1. **Modelo y `max_tokens` de los tres motores** — se fija `claude-sonnet-4-6` para los tres, con `max_tokens` calibrado por motor según volumen de salida esperado (Testimonial 16000, Institucional 4096, Abogado Tipo 0 8192 / Tipo 0b 2048), verificado contra límites reales de la API (128k tokens de salida, streaming obligatorio >21,333). Commit `d4f8375`.
+
+2. **Mecanismo de fusión sobre orden manual en Exhibits** — cuando el ensamblaje detecta que un Exhibit con reordenamiento manual necesitaría cambios (documento nuevo o removido), calcula una fusión que preserva el orden curado por el abogado en vez de recalcular desde cero. Notificación vía banner en la vista del caso. Commit `f58c995`.
+
+3. **Orden canónico de criterios por clasificación de visa** — se investigó el Pendiente #3 (orden determinístico de criterios activos) y se encontró que A1 expone los criterios como `Record<string, ...>` producido directamente por el modelo de lenguaje, sin garantía de orden ni de estabilidad del conjunto entre llamadas. Se resolvió sin tocar A1: el ensamblaje usa un orden canónico fijo por clasificación de visa (O-1A, O-1B, EB-1A/EB-1B), verificado contra el USCIS Policy Manual.
+
+**Hallazgo pendiente de investigación (no resuelto en esta sesión):** el conjunto de criterios que A1 marca como `criteria_met` puede variar entre llamadas para los mismos datos de intake, porque la llamada al modelo no usa `temperature: 0` ni mecanismo de determinismo. Esto excede el alcance de A3/A4 — afecta a A1 en su totalidad y a cualquier agente río abajo que consuma `criteria_met`. Mitigación actual: revisión humana del análisis de A1 antes de que se use para generar cartas, lo cual reduce el riesgo práctico. Pendiente de una sesión de diseño dedicada a A1 si se decide abordarlo con más rigor que la revisión manual.
+
+**Estado resultante:** el diseño de contrato de salida y ensamblaje de los tres motores de generación de cartas queda completo, sin pendientes menores abiertos salvo implementación real (builders de `.docx`, lógica de ensamblaje ejecutable, migraciones aplicadas, rutas API, UI del banner de discrepancias).

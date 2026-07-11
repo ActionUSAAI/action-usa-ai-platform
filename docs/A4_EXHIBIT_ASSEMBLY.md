@@ -1,8 +1,18 @@
 # A4 — Ensamblaje de Exhibits
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.1
+**Versión:** 1.2
 **Última actualización:** 2026-07-11
+
+## Qué cambió respecto a 1.1
+
+Se resuelve por completo el Pendiente #3 (orden determinístico y estable de criterios activos entre llamadas de A1).
+
+**Hallazgo:** A1 (`src/app/api/agents/a1-intake-analyzer/route.ts`) expone los criterios como tres objetos `Record<string, ...>` (`criteria_scores`, `criteria_met`, `criteria_gaps`), producidos directamente por el modelo de lenguaje y persistidos sin normalización de orden. No hay array con orden semántico controlado por código, y el orden de claves que emite el modelo no está garantizado entre llamadas para el mismo caso.
+
+**Decisión adoptada — orden canónico en el consumidor, no en A1.** El paso de ensamblaje no depende del orden en que A1 devuelve `criteria_met`. En su lugar, ordena los criterios activos según una lista de referencia fija por clasificación de visa, verificada contra el USCIS Policy Manual (8 CFR 214.2(o)(3)(iii)(B) para O-1A, 8 CFR 214.2(o)(3)(iv)(B) para O-1B, 8 CFR 204.5(h)(3) para EB-1A/EB-1B). Esto resuelve el problema sin requerir ningún cambio en A1, y además da coherencia natural con `A4_ENGINE_ABOGADO.md`, cuyo Bloque 3 ("Marco legal y estándar de prueba") ya enumera los criterios en este mismo orden regulatorio.
+
+**Hallazgo relacionado, fuera de alcance de este documento.** Al investigar el Pendiente #3, se identificó un problema más amplio: no solo el orden de `criteria_met` es inestable — el propio *conjunto* de criterios que A1 marca como cumplidos puede variar entre llamadas para los mismos datos de intake, porque la llamada al modelo no usa `temperature: 0` ni ningún mecanismo de determinismo. Esto excede el alcance del ensamblaje de Exhibits (afecta a A1 en su totalidad, y a cualquier agente río abajo que consuma `criteria_met`). Mitigación actual: un humano revisa el análisis de A1 antes de que se use para generar cartas, lo cual reduce el riesgo práctico de que una inestabilidad silenciosa llegue a producción sin detectarse. Registrado como hallazgo pendiente de investigación en `CHANGELOG_A3_A4.md` — no se resuelve en este documento ni se bloquea el diseño de A3/A4 por él.
 
 ## Qué cambió respecto a 1.0
 
@@ -36,8 +46,53 @@ Se revisaron los patrones de numeración de Exhibits en tres Attorney Petition L
 
 1. El número de Exhibits de un caso es igual al número de criterios activos determinados por A1 para ese caso — una relación 1:1.
 2. Dentro de cada Exhibit, los documentos se agrupan sin numeración interna adicional — el Bloque 5 de Tipo 0 los referencia colectivamente por el número de Exhibit, no por posición dentro de él (consistente con cómo Rodríguez y Neira los citan: "see Exhibit F", no "see Exhibit F, item 3").
-3. El orden de los Exhibits entre sí sigue el mismo orden en que A1 determina y prioriza los criterios activos del caso — no hay un criterio de ordenamiento adicional (cronológico, alfabético) más allá de ese.
+3. El orden de los Exhibits entre sí sigue un **orden canónico fijo por clasificación de visa** (ver tabla siguiente), no el orden en que A1 devuelve `criteria_met` — que no está garantizado estable entre llamadas para el mismo caso (ver "Qué cambió respecto a 1.1").
 4. Dentro de un Exhibit, el orden interno de los documentos no es normativo — no afecta la validez de la evidencia ante USCIS. Por defecto: cartas del Motor Testimonial primero, luego cartas del Motor Institucional, luego documentos de Módulo 10 que no son cartas. El abogado puede reordenar manualmente sin restricción.
+
+## Orden canónico de criterios por clasificación de visa
+
+Verificado contra el USCIS Policy Manual. El paso de ensamblaje asigna `exhibit_number` siguiendo este orden — el primer criterio activo de la lista recibe el Exhibit más bajo, y así sucesivamente, saltando los criterios que el caso no documenta.
+
+### O-1A — 8 CFR 214.2(o)(3)(iii)(B)
+
+| Orden | Criterio |
+|---|---|
+| 1 | Premios nacional/internacionalmente reconocidos |
+| 2 | Membresía en asociaciones que exigen logros destacados |
+| 3 | Material publicado sobre el beneficiario |
+| 4 | Participación como juez del trabajo de otros |
+| 5 | Contribuciones originales de importancia mayor |
+| 6 | Autoría de artículos académicos |
+| 7 | Rol crítico/esencial en organización de reputación distinguida |
+| 8 | Salario alto o remuneración comparativamente alta |
+
+### O-1B — 8 CFR 214.2(o)(3)(iv)(B)
+
+Aplica por igual a ambas sub-variantes de O-1B (Arts y Motion Picture/Television) — comparten el mismo listado y orden de 6 criterios; MPTV se distingue únicamente en que no admite evidencia comparable, lo cual no afecta el orden de Exhibits.
+
+| Orden | Criterio |
+|---|---|
+| 1 | Rol principal o protagónico en producciones/eventos de reputación distinguida |
+| 2 | Reconocimiento nacional/internacional evidenciado por reseñas críticas o material publicado |
+| 3 | Rol principal, protagónico o crítico en organización de reputación distinguida |
+| 4 | Récord de éxitos comerciales o de crítica mayores |
+| 5 | Reconocimiento significativo de logros por organizaciones/críticos/expertos |
+| 6 | Salario alto o remuneración sustancial comparativa |
+
+### EB-1A / EB-1B — 8 CFR 204.5(h)(3)
+
+| Orden | Criterio |
+|---|---|
+| 1 | Premios/galardones menos reconocidos nacional/internacionalmente |
+| 2 | Membresía en asociaciones que exigen logros destacados |
+| 3 | Material publicado sobre el beneficiario |
+| 4 | Participación como juez del trabajo de otros |
+| 5 | Contribuciones de importancia notable (científicas/artísticas/académicas/deportivas/comerciales) |
+| 6 | Autoría de artículos académicos |
+| 7 | Exhibición del trabajo en exposiciones o muestras |
+| 8 | Rol principal o de suma importancia en organizaciones distinguidas |
+| 9 | Salario alto o remuneración notablemente alta |
+| 10 | Éxitos comerciales en las artes escénicas |
 
 ## Esquema — tabla dedicada `case_exhibits`
 
@@ -123,5 +178,5 @@ Si una carta de A3 se regenera (por ejemplo, el abogado pide una nueva versión 
 
 1. ~~Confirmar que `cases` es efectivamente el nombre correcto de tabla a referenciar...~~ **Resuelto** — verificado contra `supabase/schema.sql`, `public.cases`, `id UUID PRIMARY KEY DEFAULT uuid_generate_v4()`.
 2. ~~Definir el mecanismo de notificación al abogado cuando el ensamblaje detecta una discrepancia...~~ **Resuelto en esta revisión** — ver "Mecanismo de notificación de discrepancias".
-3. Confirmar que A1 expone los criterios activos en un orden determinístico y estable entre llamadas — el ensamblaje depende de que ese orden no cambie arbitrariamente entre una ejecución y otra para el mismo caso.
+3. ~~Confirmar que A1 expone los criterios activos en un orden determinístico y estable entre llamadas...~~ **Resuelto en esta revisión** — ver "Qué cambió respecto a 1.1" y "Orden canónico de criterios por clasificación de visa". El ensamblaje ya no depende de A1 para el orden.
 4. Con este documento, el diseño de contrato de salida y ensamblaje de los tres motores de generación de cartas (A3 Testimonial, A3 Institucional, A4 Abogado) queda completo, incluyendo el mecanismo de numeración de Exhibits y el manejo de discrepancias por reordenamiento manual. Falta implementación real: builders de `.docx`, la lógica de ensamblaje como función ejecutable (incluyendo la lógica de fusión), la migración de la tabla `case_exhibits` en sí (el SQL de este documento está diseñado pero no aplicado a producción), la UI del banner de discrepancias, y las rutas API correspondientes.
