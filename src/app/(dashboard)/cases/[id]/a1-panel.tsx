@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Brain, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
+import { CRITERIA_O1A, CRITERIA_EB1A, CRITERIA_O1B } from "@/lib/canonical-criteria";
 
 export interface IntakeAnalysis {
   id: string;
@@ -28,7 +29,7 @@ interface A1PanelProps {
   userRole: string;
 }
 
-const CRITERIA_LABELS_O1A: Record<string, string> = {
+const SHORT_LABEL_OVERRIDES: Record<string, string> = {
   awards: "Premios y reconocimientos",
   memberships: "Membresías en asociaciones",
   media_coverage: "Cobertura mediática",
@@ -38,35 +39,22 @@ const CRITERIA_LABELS_O1A: Record<string, string> = {
   critical_role_4a: "Rol crítico — directivo/electo",
   critical_role_4b: "Rol crítico — técnico/instructor",
   high_salary: "Alta remuneración",
-};
-
-const CRITERIA_LABELS_EB1A: Record<string, string> = {
-  awards: "Premios y reconocimientos",
-  memberships: "Membresías en asociaciones",
-  media_coverage: "Cobertura mediática",
-  judging: "Rol de juez o evaluador",
-  original_contributions: "Contribuciones de importancia notable",
-  scholarly_articles: "Artículos académicos",
   artistic_exhibitions: "Exhibición en muestras artísticas",
-  critical_role_4a: "Rol principal — directivo/electo",
-  critical_role_4b: "Rol principal — técnico/instructor",
-  high_salary: "Salario alto",
   performing_arts_commercial_success: "Éxitos comerciales en artes escénicas",
-};
-
-const CRITERIA_LABELS_O1B: Record<string, string> = {
   lead_starring_role: "Rol protagónico en producciones/eventos",
   national_recognition: "Reconocimiento por reseñas críticas",
   critical_role_org: "Rol crítico en organización distinguida",
   commercial_success: "Éxitos comerciales o de crítica",
   significant_recognition: "Reconocimiento de expertos/organizaciones",
-  high_salary: "Salario alto",
 };
 
 function resolveCriteriaLabels(classificationUsed: string | null): Record<string, string> {
-  if (classificationUsed === "O-1B") return CRITERIA_LABELS_O1B;
-  if (classificationUsed === "EB-1A") return CRITERIA_LABELS_EB1A;
-  return CRITERIA_LABELS_O1A; // default: O-1A o null (análisis previo a esta corrección)
+  const set = classificationUsed === "O-1B" ? CRITERIA_O1B
+    : classificationUsed === "EB-1A" ? CRITERIA_EB1A
+    : CRITERIA_O1A;
+  const map: Record<string, string> = {};
+  set.forEach(c => { map[c.key] = SHORT_LABEL_OVERRIDES[c.key] ?? c.label; });
+  return map;
 }
 
 const VISA_BADGE: Record<string, string> = {
