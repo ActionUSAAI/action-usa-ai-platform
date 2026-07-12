@@ -139,7 +139,7 @@ export type Module9 = { references: ReferenceEntry[] };
 // ─── Module 10 — Evidence ────────────────────────────────────────────────────
 export type EvidenceStatus = "tengo" | "no_tengo" | "tal_vez" | "";
 
-export type AwardEvidence      = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; filePath: string; fileName: string };
+export type AwardEvidence      = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; awardNominationAndJudgingCriteria: string; panelOrOrgReputationEvidence: string; awardFrequencyAndScope: string; filePath: string; fileName: string };
 export type MembershipEvidence = { id: string; orgName: string; country: string; yearJoined: string; requiredEval: boolean | null; filePath: string; fileName: string };
 export type MediaEvidence      = { id: string; medium: string; title: string; date: string; author: string; link: string; reach: string; filePath: string; fileName: string };
 export type ArticleEvidence    = { id: string; title: string; publication: string; date: string; link: string; filePath: string; fileName: string };

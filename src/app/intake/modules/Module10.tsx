@@ -99,7 +99,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         status={d.awardsStatus} onStatus={s => u("awardsStatus", s)}
         items={d.awards} onItems={v => u("awards", v)}
         disposition={d.awardsDisposition} onDisposition={v => u("awardsDisposition", v)}
-        emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"", filePath:"", fileName:"" } as AwardEvidence)}
+        emptyItem={() => ({ id:genId(), name:"", org:"", year:"", country:"", description:"", link:"", awardNominationAndJudgingCriteria:"", panelOrOrgReputationEvidence:"", awardFrequencyAndScope:"", filePath:"", fileName:"" } as AwardEvidence)}
         sessionId={sessionId} sectionKey="awards"
         strategyContent={<>
           <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
@@ -117,6 +117,15 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
             <Field label="País"><TextInput value={item.country} onChange={v=>upd("country",v)} placeholder="USA"/></Field>
             <Field label="Descripción breve"><TextInput value={item.description} onChange={v=>upd("description",v)} placeholder="Premio al mejor..."/></Field>
             <Field label="Link" hint="Opcional"><TextInput value={item.link} onChange={v=>upd("link",v)} placeholder="https://..."/></Field>
+            <Field label="Criterio de nominación y juzgamiento" hint="¿Cómo se nomina y evalúa a los candidatos?">
+              <Textarea value={item.awardNominationAndJudgingCriteria} onChange={v=>upd("awardNominationAndJudgingCriteria",v)} placeholder="Los candidatos son nominados por pares, evaluados por un panel de..."/>
+            </Field>
+            <Field label="Reputación del panel u organización" hint="Afiliaciones, reconocimiento cruzado por otras asociaciones">
+              <Textarea value={item.panelOrOrgReputationEvidence} onChange={v=>upd("panelOrOrgReputationEvidence",v)} placeholder="El panel está compuesto por expertos de..., la organización es reconocida por..."/>
+            </Field>
+            <Field label="Frecuencia y alcance del premio" hint="¿Cuántos se otorgan al año? ¿Alcance nacional/internacional?">
+              <Textarea value={item.awardFrequencyAndScope} onChange={v=>upd("awardFrequencyAndScope",v)} placeholder="Se otorga anualmente a nivel nacional, con un solo ganador por categoría..."/>
+            </Field>
           </div>
         )}
       </EvidenceSection>
