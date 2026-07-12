@@ -282,7 +282,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         status={d.judgingStatus} onStatus={s => u("judgingStatus", s)}
         items={d.judging} onItems={v => u("judging", v)}
         disposition={d.judgingDisposition} onDisposition={v => u("judgingDisposition", v)}
-        emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"", filePath:"", fileName:"" } as JudgingEvidence)}
+        emptyItem={() => ({ id:genId(), eventOrProcess:"", org:"", country:"", date:"", roleDescription:"", judgeSelectionCriteria:"", judgedEventSignificance:"", judgmentAuthorityAndConsequence:"", filePath:"", fileName:"" } as JudgingEvidence)}
         sessionId={sessionId} sectionKey="judging"
         strategyContent={<>
           <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
@@ -300,6 +300,15 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
             <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
             <Field label="Descripción del rol" hint="¿Qué evaluabas?">
               <TextInput value={item.roleDescription} onChange={v=>upd("roleDescription",v)} placeholder="Evaluador de cortometrajes documentales..."/>
+            </Field>
+            <Field label="Criterio de selección" hint="¿Por qué te eligieron a ti específicamente?">
+              <Textarea value={item.judgeSelectionCriteria} onChange={v=>upd("judgeSelectionCriteria",v)} placeholder="Fui invitado por mi experiencia en..., la organización buscaba expertos con..."/>
+            </Field>
+            <Field label="Significancia del evento juzgado" hint="Escala, nivel, relevancia del evento">
+              <Textarea value={item.judgedEventSignificance} onChange={v=>upd("judgedEventSignificance",v)} placeholder="Competencia nacional con 200 participantes, evento anual de referencia en la industria..."/>
+            </Field>
+            <Field label="Autoridad y consecuencia del veredicto" hint="¿Tu decisión fue final/vinculante? ¿Qué consecuencia tuvo?">
+              <Textarea value={item.judgmentAuthorityAndConsequence} onChange={v=>upd("judgmentAuthorityAndConsequence",v)} placeholder="Mi calificación determinó directamente el ganador, sin posibilidad de apelación..."/>
             </Field>
           </div>
         )}
