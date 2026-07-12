@@ -253,13 +253,13 @@ function buildUserPrompt(sub: Record<string, any>): string {
   if (str(m10.articlesDisposition)) lines.push(`  Notas del cliente: ${str(m10.articlesDisposition)}`);
 
   // Books
-  lines.push(`\n[CRITERION: scholarly_articles_books] LIBROS — ${statusLabel(str(m10.booksStatus))}`);
+  lines.push(`\n[CRITERION: scholarly_articles] LIBROS — ${statusLabel(str(m10.booksStatus))}`);
   const books = (m10.books ?? []) as Record<string, unknown>[];
   books.forEach(b => lines.push(`  - "${str(b.title)}" — ${str(b.publisher)} (${str(b.year)})`));
   if (str(m10.booksDisposition)) lines.push(`  Notas del cliente: ${str(m10.booksDisposition)}`);
 
   // Conferences
-  lines.push(`\n[CRITERION: critical_role_conferences] CONFERENCIAS/PRESENTACIONES — ${statusLabel(str(m10.conferencesStatus))}`);
+  lines.push(`\n[CRITERION: media_coverage] CONFERENCIAS/PRESENTACIONES — ${statusLabel(str(m10.conferencesStatus))}`);
   const conferences = (m10.conferences ?? []) as Record<string, unknown>[];
   conferences.forEach(c => lines.push(`  - ${str(c.name)} (${str(c.year)}) — ${str(c.role) || "presentación"}`));
   if (str(m10.conferencesDisposition)) lines.push(`  Notas del cliente: ${str(m10.conferencesDisposition)}`);
