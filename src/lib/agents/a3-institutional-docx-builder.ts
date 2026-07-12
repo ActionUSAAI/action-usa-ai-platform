@@ -95,6 +95,17 @@ function buildBodyParagraphs(blocks: InstitutionalLetterBlocks): Paragraph[] {
     );
 }
 
+function resolveCriterionKey(letterType: InstitutionalLetterType): string | null {
+  const map: Record<InstitutionalLetterType, string | null> = {
+    subtypeA_advisory: null,
+    subtypeB_judge: "judging",
+    subtypeB_criticalRole4a: "critical_role_4a",
+    subtypeB_criticalRole4b: "critical_role_4b",
+    subtypeB_awards: "awards",
+  };
+  return map[letterType];
+}
+
 async function buildInstitutionalDocx(
   entry: InstitutionalLetterEntry,
   beneficiaryFullName: string
@@ -177,6 +188,7 @@ export async function buildAndStoreInstitutionalLetters(
         recommender_org: entry.organizationName,
         relationship_type: null,
         criterion_covered: criterionCovered,
+        criterion_key: resolveCriterionKey(entry.letterType),
         letter_draft: plainTextSummary,
         motor: "institutional",
         letter_type: entry.letterType,

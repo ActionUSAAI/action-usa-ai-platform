@@ -89,6 +89,7 @@ export interface TestimonialLettersInput {
                       // (e.g., cross-checking against A1's determination).
   criterionCitation: string;
   criterionLabel: string;
+  criterionKey: string;
   letters: TestimonialLetterEntry[];
 }
 
@@ -215,6 +216,7 @@ export async function buildAndStoreTestimonialLetters(
         recommender_org: entry.signerCompany,
         relationship_type: entry.relationshipType,
         criterion_covered: `${input.criterionCitation} — ${input.criterionLabel}`,
+        criterion_key: input.criterionKey,
         letter_draft: plainTextSummary,
         motor: "testimonial",
         presentation_format: entry.presentationFormat,
