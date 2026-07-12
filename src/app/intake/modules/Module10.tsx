@@ -2,6 +2,9 @@ import type {
   Module10, EvidenceStatus, IncomeEvidence,
   AwardEvidence, MembershipEvidence, MediaEvidence, ArticleEvidence,
   BookEvidence, ConferenceEvidence, JudgingEvidence, PatentEvidence,
+  ArtisticExhibitionEvidence, PerformingArtsCommercialSuccessEvidence,
+  LeadStarringRoleEvidence, CriticalReviewEvidence, CriticalRoleOrgEvidence,
+  CommercialSuccessEvidence, SignificantRecognitionEvidence,
 } from "../types";
 import {
   Field, TextInput, Textarea, Select, YesNo,
@@ -330,6 +333,203 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
             <Field label="País"><TextInput value={item.country} onChange={v=>upd("country",v)} placeholder="USA, Colombia..."/></Field>
             <Field label="Año"><TextInput type="number" value={item.year} onChange={v=>upd("year",v)} placeholder="2020"/></Field>
             <Field label="Número de registro" hint="Opcional"><TextInput value={item.number} onChange={v=>upd("number",v)} placeholder="US10,123,456"/></Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      <SectionDivider title="Evidencia adicional — EB-1A"/>
+
+      {/* K — Artistic Exhibitions */}
+      <EvidenceSection
+        title="Exhibición de trabajo en muestras o exposiciones"
+        status={d.artisticExhibitionsStatus} onStatus={s => u("artisticExhibitionsStatus", s)}
+        items={d.artisticExhibitions} onItems={v => u("artisticExhibitions", v)}
+        disposition={d.artisticExhibitionsDisposition} onDisposition={v => u("artisticExhibitionsDisposition", v)}
+        emptyItem={() => ({ id:genId(), exhibitionName:"", venue:"", country:"", date:"", description:"", filePath:"", fileName:"" } as ArtisticExhibitionEvidence)}
+        sessionId={sessionId} sectionKey="artisticExhibitions"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Has exhibido o te gustaría exhibir tu trabajo en alguna muestra, galería o exposición?">
+            <Textarea value={d.artisticExhibitionsDisposition} onChange={v => u("artisticExhibitionsDisposition", v)}
+              placeholder="Ej: Me gustaría exhibir mi trabajo en la galería X, o participé en una muestra colectiva en..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Nombre de la exposición/muestra"><TextInput value={item.exhibitionName} onChange={v=>upd("exhibitionName",v)} placeholder="Bienal de Arte..."/></Field>
+            <Field label="Lugar / Venue"><TextInput value={item.venue} onChange={v=>upd("venue",v)} placeholder="Museo de Arte Moderno..."/></Field>
+            <Field label="País"><TextInput value={item.country} onChange={v=>upd("country",v)} placeholder="USA"/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
+            <Field label="Descripción breve"><TextInput value={item.description} onChange={v=>upd("description",v)} placeholder="Obra exhibida, contexto..."/></Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      {/* L — Performing Arts Commercial Success */}
+      <EvidenceSection
+        title="Éxitos comerciales en las artes escénicas"
+        status={d.performingArtsSuccessStatus} onStatus={s => u("performingArtsSuccessStatus", s)}
+        items={d.performingArtsSuccess} onItems={v => u("performingArtsSuccess", v)}
+        disposition={d.performingArtsSuccessDisposition} onDisposition={v => u("performingArtsSuccessDisposition", v)}
+        emptyItem={() => ({ id:genId(), productionOrWorkTitle:"", successIndicator:"", figureOrMetric:"", source:"", date:"", filePath:"", fileName:"" } as PerformingArtsCommercialSuccessEvidence)}
+        sessionId={sessionId} sectionKey="performingArtsSuccess"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Alguna producción o proyecto tuyo ha tenido éxito comercial medible (taquilla, ventas, audiencia)?">
+            <Textarea value={d.performingArtsSuccessDisposition} onChange={v => u("performingArtsSuccessDisposition", v)}
+              placeholder="Ej: Mi obra tuvo X funciones con Y espectadores, o mi álbum vendió Z copias..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Producción / Obra"><TextInput value={item.productionOrWorkTitle} onChange={v=>upd("productionOrWorkTitle",v)} placeholder="Nombre de la obra, álbum, gira..."/></Field>
+            <Field label="Indicador de éxito"><TextInput value={item.successIndicator} onChange={v=>upd("successIndicator",v)} placeholder="Taquilla, ventas, audiencia..."/></Field>
+            <Field label="Cifra / Métrica"><TextInput value={item.figureOrMetric} onChange={v=>upd("figureOrMetric",v)} placeholder="$500,000, 50,000 espectadores..."/></Field>
+            <Field label="Fuente"><TextInput value={item.source} onChange={v=>upd("source",v)} placeholder="Reporte de la productora, Billboard..."/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      <SectionDivider title="Evidencia — O-1B (Distinción en las Artes)"/>
+
+      {/* M — Lead/Starring Role */}
+      <EvidenceSection
+        title="Rol principal o protagónico en producciones o eventos"
+        status={d.leadStarringRoleStatus} onStatus={s => u("leadStarringRoleStatus", s)}
+        items={d.leadStarringRole} onItems={v => u("leadStarringRole", v)}
+        disposition={d.leadStarringRoleDisposition} onDisposition={v => u("leadStarringRoleDisposition", v)}
+        emptyItem={() => ({ id:genId(), productionOrEventName:"", roleDescription:"", organization:"", date:"", reputationEvidence:"", filePath:"", fileName:"" } as LeadStarringRoleEvidence)}
+        sessionId={sessionId} sectionKey="leadStarringRole"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Has tenido o te gustaría tener un rol protagónico en alguna producción o evento reconocido?">
+            <Textarea value={d.leadStarringRoleDisposition} onChange={v => u("leadStarringRoleDisposition", v)}
+              placeholder="Ej: Protagonicé la obra X en el teatro Y, o me gustaría el rol principal en..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Producción / Evento"><TextInput value={item.productionOrEventName} onChange={v=>upd("productionOrEventName",v)} placeholder="Nombre de la obra, película, evento..."/></Field>
+            <Field label="Descripción del rol"><TextInput value={item.roleDescription} onChange={v=>upd("roleDescription",v)} placeholder="Protagonista, rol principal..."/></Field>
+            <Field label="Organización / Productora"><TextInput value={item.organization} onChange={v=>upd("organization",v)} placeholder="Teatro Nacional, Studio X..."/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
+            <Field label="Evidencia de reputación distinguida" hint="Reseñas, publicidad, taquilla que acrediten la reputación">
+              <Textarea value={item.reputationEvidence} onChange={v=>upd("reputationEvidence",v)} placeholder="Reseñas críticas, cobertura de prensa, cifras de taquilla..."/>
+            </Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      {/* N — Critical Reviews */}
+      <EvidenceSection
+        title="Reseñas críticas sobre tu trabajo"
+        status={d.criticalReviewsStatus} onStatus={s => u("criticalReviewsStatus", s)}
+        items={d.criticalReviews} onItems={v => u("criticalReviews", v)}
+        disposition={d.criticalReviewsDisposition} onDisposition={v => u("criticalReviewsDisposition", v)}
+        emptyItem={() => ({ id:genId(), publication:"", title:"", author:"", date:"", link:"", filePath:"", fileName:"" } as CriticalReviewEvidence)}
+        sessionId={sessionId} sectionKey="criticalReviews"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Algún crítico o publicación especializada ha reseñado tu trabajo?">
+            <Textarea value={d.criticalReviewsDisposition} onChange={v => u("criticalReviewsDisposition", v)}
+              placeholder="Ej: Me gustaría que reseñaran mi trabajo en Variety, o fui reseñado en..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Publicación"><TextInput value={item.publication} onChange={v=>upd("publication",v)} placeholder="Variety, The Hollywood Reporter..."/></Field>
+            <Field label="Título de la reseña"><TextInput value={item.title} onChange={v=>upd("title",v)} placeholder="Título del artículo..."/></Field>
+            <Field label="Autor" hint="Opcional"><TextInput value={item.author} onChange={v=>upd("author",v)} placeholder="Jane Smith"/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
+            <Field label="Link" hint="Opcional"><TextInput value={item.link} onChange={v=>upd("link",v)} placeholder="https://..."/></Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      {/* O — Critical Role in Organization */}
+      <EvidenceSection
+        title="Rol principal, protagónico o crítico en organización distinguida"
+        status={d.criticalRoleOrgStatus} onStatus={s => u("criticalRoleOrgStatus", s)}
+        items={d.criticalRoleOrg} onItems={v => u("criticalRoleOrg", v)}
+        disposition={d.criticalRoleOrgDisposition} onDisposition={v => u("criticalRoleOrgDisposition", v)}
+        emptyItem={() => ({ id:genId(), organization:"", roleTitle:"", country:"", startDate:"", endDate:"", reputationEvidence:"", filePath:"", fileName:"" } as CriticalRoleOrgEvidence)}
+        sessionId={sessionId} sectionKey="criticalRoleOrg"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Has desempeñado un rol clave en alguna organización artística de reputación distinguida?">
+            <Textarea value={d.criticalRoleOrgDisposition} onChange={v => u("criticalRoleOrgDisposition", v)}
+              placeholder="Ej: Fui director artístico de la compañía X..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Organización"><TextInput value={item.organization} onChange={v=>upd("organization",v)} placeholder="Compañía de teatro, orquesta, estudio..."/></Field>
+            <Field label="Cargo / Rol"><TextInput value={item.roleTitle} onChange={v=>upd("roleTitle",v)} placeholder="Director artístico, primer bailarín..."/></Field>
+            <Field label="País"><TextInput value={item.country} onChange={v=>upd("country",v)} placeholder="USA"/></Field>
+            <Field label="Fecha de inicio"><TextInput type="date" value={item.startDate} onChange={v=>upd("startDate",v)}/></Field>
+            <Field label="Fecha de fin" hint="Deja en blanco si continúa"><TextInput type="date" value={item.endDate} onChange={v=>upd("endDate",v)}/></Field>
+            <Field label="Evidencia de reputación distinguida de la organización">
+              <Textarea value={item.reputationEvidence} onChange={v=>upd("reputationEvidence",v)} placeholder="Artículos, trayectoria, reconocimiento de la organización..."/>
+            </Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      {/* P — Commercial Success */}
+      <EvidenceSection
+        title="Éxitos comerciales o de crítica"
+        status={d.commercialSuccessStatus} onStatus={s => u("commercialSuccessStatus", s)}
+        items={d.commercialSuccess} onItems={v => u("commercialSuccess", v)}
+        disposition={d.commercialSuccessDisposition} onDisposition={v => u("commercialSuccessDisposition", v)}
+        emptyItem={() => ({ id:genId(), productionOrWorkTitle:"", successIndicator:"", figureOrMetric:"", source:"", date:"", filePath:"", fileName:"" } as CommercialSuccessEvidence)}
+        sessionId={sessionId} sectionKey="commercialSuccess"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Alguna de tus producciones ha tenido éxito comercial o de crítica destacable?">
+            <Textarea value={d.commercialSuccessDisposition} onChange={v => u("commercialSuccessDisposition", v)}
+              placeholder="Ej: Mi película tuvo X en taquilla, o recibió Y calificación en..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Producción / Obra"><TextInput value={item.productionOrWorkTitle} onChange={v=>upd("productionOrWorkTitle",v)} placeholder="Nombre de la producción..."/></Field>
+            <Field label="Indicador de éxito"><TextInput value={item.successIndicator} onChange={v=>upd("successIndicator",v)} placeholder="Taquilla, rating, ventas..."/></Field>
+            <Field label="Cifra / Métrica"><TextInput value={item.figureOrMetric} onChange={v=>upd("figureOrMetric",v)} placeholder="$1,000,000, 8.5/10..."/></Field>
+            <Field label="Fuente"><TextInput value={item.source} onChange={v=>upd("source",v)} placeholder="Box Office Mojo, Rotten Tomatoes..."/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
+          </div>
+        )}
+      </EvidenceSection>
+
+      {/* Q — Significant Recognition */}
+      <EvidenceSection
+        title="Reconocimiento significativo de organizaciones, críticos o expertos"
+        status={d.significantRecognitionStatus} onStatus={s => u("significantRecognitionStatus", s)}
+        items={d.significantRecognition} onItems={v => u("significantRecognition", v)}
+        disposition={d.significantRecognitionDisposition} onDisposition={v => u("significantRecognitionDisposition", v)}
+        emptyItem={() => ({ id:genId(), recognizingParty:"", recognizingPartyCredentials:"", achievementRecognized:"", date:"", filePath:"", fileName:"" } as SignificantRecognitionEvidence)}
+        sessionId={sessionId} sectionKey="significantRecognition"
+        strategyContent={<>
+          <p className="text-sm font-semibold text-amber-800">Construyamos este criterio</p>
+          <Field label="¿Alguna organización, crítico o experto reconocido ha destacado tu trabajo?">
+            <Textarea value={d.significantRecognitionDisposition} onChange={v => u("significantRecognitionDisposition", v)}
+              placeholder="Ej: Me gustaría que un crítico reconocido de mi campo hablara de mi trabajo..."/>
+          </Field>
+        </>}
+      >
+        {(item, _, upd) => (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Quién reconoce"><TextInput value={item.recognizingParty} onChange={v=>upd("recognizingParty",v)} placeholder="Organización, crítico, agencia gubernamental..."/></Field>
+            <Field label="Credenciales de quien reconoce"><TextInput value={item.recognizingPartyCredentials} onChange={v=>upd("recognizingPartyCredentials",v)} placeholder="Crítico de cine en X, director de Y..."/></Field>
+            <Field label="Logro reconocido"><Textarea value={item.achievementRecognized} onChange={v=>upd("achievementRecognized",v)} placeholder="Descripción del logro reconocido..."/></Field>
+            <Field label="Fecha"><TextInput type="date" value={item.date} onChange={v=>upd("date",v)}/></Field>
           </div>
         )}
       </EvidenceSection>
