@@ -5,6 +5,7 @@ import type {
   ArtisticExhibitionEvidence, PerformingArtsCommercialSuccessEvidence,
   LeadStarringRoleEvidence, CriticalReviewEvidence, CriticalRoleOrgEvidence,
   CommercialSuccessEvidence, SignificantRecognitionEvidence,
+  CriticalRoleEvidence,
 } from "../types";
 import {
   Field, TextInput, Textarea, Select, YesNo,
@@ -533,6 +534,69 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
           </div>
         )}
       </EvidenceSection>
+
+      {/* R — Critical Role (4a/4b) */}
+      <div className="rounded-xl border border-gray-200 p-4 space-y-4">
+        <h3 className="font-semibold text-gray-900 mb-1">Rol crítico o esencial en organización distinguida</h3>
+        <p className="text-sm text-gray-600 mb-3">¿Has desempeñado un cargo directivo/electo o técnico/instructor en una organización de reputación distinguida?</p>
+
+        <Field label="¿Tienes este tipo de evidencia?">
+          <Select
+            value={d.criticalRole ? "si" : "no"}
+            onChange={v => {
+              if (v === "si" && !d.criticalRole) {
+                u("criticalRole", { criticalRoleType: "elected", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
+              } else if (v === "no") {
+                u("criticalRole", undefined);
+              }
+            }}
+          >
+            <option value="no">No tengo</option>
+            <option value="si">Sí tengo</option>
+          </Select>
+        </Field>
+
+        {d.criticalRole && (() => {
+          const cr = d.criticalRole!;
+          return (
+          <div className="mt-3 space-y-3">
+            <Field label="Tipo de cargo">
+              <Select
+                value={cr.criticalRoleType}
+                onChange={v => {
+                  if (v === "elected") {
+                    u("criticalRole", { criticalRoleType:"elected", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
+                  } else {
+                    u("criticalRole", { criticalRoleType:"technical", formalPositionTitle:"", serviceStartDate:"", serviceEndDate:null, specificCoursesOrDutiesTaught:"", institutionalizationEvidence:"" } as CriticalRoleEvidence);
+                  }
+                }}
+              >
+                <option value="elected">Directivo / Electo</option>
+                <option value="technical">Técnico / Instructor</option>
+              </Select>
+            </Field>
+
+            {cr.criticalRoleType === "elected" ? (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Cargo (electo/designado)"><TextInput value={cr.electedOrAppointedTitle} onChange={v=>u("criticalRole",{...cr,electedOrAppointedTitle:v})} placeholder="Presidente, Director..."/></Field>
+                <Field label="Inicio del período"><TextInput type="date" value={cr.tenureStartDate} onChange={v=>u("criticalRole",{...cr,tenureStartDate:v})}/></Field>
+                <Field label="Fin del período" hint="Deja en blanco si continúa"><TextInput type="date" value={cr.tenureEndDate ?? ""} onChange={v=>u("criticalRole",{...cr,tenureEndDate:v || null})}/></Field>
+                <Field label="Reputación de la organización"><Textarea value={cr.organizationReputationEvidence} onChange={v=>u("criticalRole",{...cr,organizationReputationEvidence:v})} placeholder="Trayectoria, reconocimiento de la organización..."/></Field>
+                <Field label="Métricas de crecimiento durante tu gestión"><Textarea value={cr.organizationalGrowthMetrics} onChange={v=>u("criticalRole",{...cr,organizationalGrowthMetrics:v})} placeholder="Membresía, afiliaciones logradas, sistemas implementados..."/></Field>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Cargo (técnico/instructor)"><TextInput value={cr.formalPositionTitle} onChange={v=>u("criticalRole",{...cr,formalPositionTitle:v})} placeholder="Instructor, Entrenador..."/></Field>
+                <Field label="Inicio del período"><TextInput type="date" value={cr.serviceStartDate} onChange={v=>u("criticalRole",{...cr,serviceStartDate:v})}/></Field>
+                <Field label="Fin del período" hint="Deja en blanco si continúa"><TextInput type="date" value={cr.serviceEndDate ?? ""} onChange={v=>u("criticalRole",{...cr,serviceEndDate:v || null})}/></Field>
+                <Field label="Cursos o funciones específicas"><Textarea value={cr.specificCoursesOrDutiesTaught} onChange={v=>u("criticalRole",{...cr,specificCoursesOrDutiesTaught:v})} placeholder="Qué enseñaste, programas específicos..."/></Field>
+                <Field label="Evidencia de institucionalización"><Textarea value={cr.institutionalizationEvidence} onChange={v=>u("criticalRole",{...cr,institutionalizationEvidence:v})} placeholder="Adopción curricular, invitación renovada..."/></Field>
+              </div>
+            )}
+          </div>
+          );
+        })()}
+      </div>
 
       {/* J — Web presence */}
       <div className="rounded-xl border border-gray-200 p-4 space-y-4">
