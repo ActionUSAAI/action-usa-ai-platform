@@ -1,15 +1,19 @@
 import type { Module9, ReferenceEntry } from "../types";
 import { Field, TextInput, Textarea, Select, AddBtn, Card, InfoBox } from "../primitives";
+import { resolveCriteriaSet, criteriaSetForClassification } from "@/lib/canonical-criteria";
 
-type Props = { data: Module9; onChange: (d: Module9) => void };
+type Props = { data: Module9; onChange: (d: Module9) => void; visaType: string };
 
 const emptyRef = (): ReferenceEntry => ({
   id: Math.random().toString(36).slice(2,9),
   name:"", currentTitle:"", company:"", country:"", email:"", phone:"",
   relationshipType:"", relationshipDuration:"", signerCredentials:"", specificAchievements:"",
+  targetCriterionKey:"",
 });
 
-export function Module9({ data: d, onChange }: Props) {
+export function Module9({ data: d, onChange, visaType }: Props) {
+  const { classification } = resolveCriteriaSet(visaType);
+  const criteriaOptions = criteriaSetForClassification(classification);
   const addRef = () => onChange({ references: [...d.references, emptyRef()] });
   const removeRef = (i: number) => onChange({ references: d.references.filter((_,idx) => idx !== i) });
   const upd = <K extends keyof ReferenceEntry>(i: number, f: K, v: ReferenceEntry[K]) => {
@@ -56,6 +60,14 @@ export function Module9({ data: d, onChange }: Props) {
                 <option value="colaborador">Colaborador(a)</option>
                 <option value="subordinado">Subordinado(a)</option>
                 <option value="otro">Otro</option>
+              </Select>
+            </Field>
+            <Field label="Criterio que sustenta la carta">
+              <Select value={r.targetCriterionKey} onChange={v => upd(i, "targetCriterionKey", v)}>
+                <option value="">¿Qué criterio sustenta esta carta?</option>
+                {criteriaOptions.map(c => (
+                  <option key={c.key} value={c.key}>{c.label}</option>
+                ))}
               </Select>
             </Field>
             <Field label="¿Desde cuándo se conocen o trabajan juntos?">

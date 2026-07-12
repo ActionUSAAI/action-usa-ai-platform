@@ -132,6 +132,7 @@ export type ReferenceEntry = {
   relationshipDuration: string;
   signerCredentials: string;
   specificAchievements: string;
+  targetCriterionKey: string; // canonical-criteria.ts key this signer's letter will target
 };
 export type Module9 = { references: ReferenceEntry[] };
 

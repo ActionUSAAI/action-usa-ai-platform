@@ -91,7 +91,7 @@ const INITIAL: IntakeFormData = {
     }],
   },
   module8:  { hasOwnBusinesses:null, businesses:[] },
-  module9:  { references:[{ id:genId(), name:"", currentTitle:"", company:"", country:"", email:"", phone:"", relationshipType:"", relationshipDuration:"", signerCredentials:"", specificAchievements:"" }] },
+  module9:  { references:[{ id:genId(), name:"", currentTitle:"", company:"", country:"", email:"", phone:"", relationshipType:"", relationshipDuration:"", signerCredentials:"", specificAchievements:"", targetCriterionKey:"" }] },
   module10: {
     awardsStatus:"", awards:[], awardsDisposition:"",
     membershipsStatus:"", memberships:[], membershipsDisposition:"",
@@ -476,7 +476,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
             {step === 5  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6:  m }))} sessionId={sessionId}/>}
             {step === 6  && <Module7  data={data.module7}  onChange={m => setData(p => ({ ...p, module7:  m }))}/>}
             {step === 7  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8:  m }))}/>}
-            {step === 8  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))}/>}
+            {step === 8  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))} visaType={data.module1.visaType}/>}
             {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
             {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
