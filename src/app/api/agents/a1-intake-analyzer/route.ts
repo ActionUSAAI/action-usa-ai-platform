@@ -28,6 +28,105 @@ function statusLabel(s: string): string {
   return s || "no especificado";
 }
 
+// ── Criteria sets by classification ──────────────────────────────────────────
+
+interface CriterionDef { key: string; label: string; }
+
+const CRITERIA_O1A: CriterionDef[] = [
+  { key: "awards", label: "Premios o reconocimientos por excelencia en el campo" },
+  { key: "memberships", label: "Membresía en asociaciones que requieren logros extraordinarios" },
+  { key: "media_coverage", label: "Material publicado sobre el solicitante en medios de comunicación" },
+  { key: "judging", label: "Haber evaluado o juzgado el trabajo de otros en el campo" },
+  { key: "original_contributions", label: "Contribuciones originales de importancia significativa al campo" },
+  { key: "scholarly_articles", label: "Artículos académicos en revistas o publicaciones profesionales" },
+  { key: "critical_role_4a", label: "Rol crítico/esencial en organización distinguida — cargo directivo/electo" },
+  { key: "critical_role_4b", label: "Rol crítico/esencial en organización distinguida — cargo técnico/instructor" },
+  { key: "high_salary", label: "Alta remuneración relativa a los pares del campo" },
+];
+
+const CRITERIA_EB1A: CriterionDef[] = [
+  ...CRITERIA_O1A.slice(0, 6),
+  { key: "artistic_exhibitions", label: "Exhibición del trabajo en exposiciones o muestras artísticas" },
+  { key: "critical_role_4a", label: "Rol principal o de suma importancia en organizaciones distinguidas — cargo directivo/electo" },
+  { key: "critical_role_4b", label: "Rol principal o de suma importancia en organizaciones distinguidas — cargo técnico/instructor" },
+  { key: "high_salary", label: "Salario alto o remuneración notablemente alta" },
+  { key: "performing_arts_commercial_success", label: "Éxitos comerciales en las artes escénicas" },
+];
+
+const CRITERIA_O1B: CriterionDef[] = [
+  { key: "lead_starring_role", label: "Rol principal o protagónico en producciones/eventos de reputación distinguida" },
+  { key: "national_recognition", label: "Reconocimiento nacional/internacional por reseñas críticas o material publicado" },
+  { key: "critical_role_org", label: "Rol principal, protagónico o crítico en organización de reputación distinguida" },
+  { key: "commercial_success", label: "Récord de éxitos comerciales o de crítica mayores" },
+  { key: "significant_recognition", label: "Reconocimiento significativo de logros por organizaciones/críticos/expertos" },
+  { key: "high_salary", label: "Salario alto o remuneración sustancial comparativa" },
+];
+
+function resolveCriteriaSet(visaType: string): { classification: "O-1A" | "O-1B" | "EB-1A"; criteria: CriterionDef[] } {
+  const v = (visaType || "").toUpperCase();
+  if (v.includes("O-1B")) return { classification: "O-1B", criteria: CRITERIA_O1B };
+  if (v.includes("EB-1")) return { classification: "EB-1A", criteria: CRITERIA_EB1A };
+  return { classification: "O-1A", criteria: CRITERIA_O1A };
+}
+
+function buildSystemPrompt(
+  classification: "O-1A" | "O-1B" | "EB-1A",
+  criteria: CriterionDef[]
+): string {
+  const criteriaList = criteria.map(c => `- ${c.key}: ${c.label}`).join("\n");
+  const scoresSchema = criteria.map(c => `    "${c.key}": 0-100`).join(",\n");
+  const metSchema = criteria.map(c => `    "${c.key}": true/false`).join(",\n");
+  const gapsSchema = criteria.map(c => `    "${c.key}": "descripción de brecha o null si está cubierto"`).join(",\n");
+
+  const hasSplitCriticalRole =
+    criteria.some(c => c.key === "critical_role_4a") && criteria.some(c => c.key === "critical_role_4b");
+
+  const countingRule = hasSplitCriticalRole
+    ? `\nNOTA IMPORTANTE SOBRE CONTEO: critical_role_4a y critical_role_4b representan el MISMO criterio regulatorio (rol crítico/esencial en organización distinguida), evaluado por dos mecanismos de prueba distintos (cargo directivo/electo vs. técnico/instructor). Si AMBOS resultan "met" = true, cuentan como UN SOLO criterio satisfecho para el umbral mínimo, no como dos.`
+    : "";
+
+  return `Eres el Agente A1 — Intake Analyzer de AUCIS (Automated Case Intelligence System) de ACTION USA AI.
+
+Tu función es analizar los datos de intake de un cliente y evaluar su viabilidad para una petición ${classification}, basándote en los criterios de USCIS correspondientes a esa clasificación.
+
+CRITERIOS ${classification} (evalúa cada uno con un puntaje 0-100):
+${criteriaList}
+
+METODOLOGÍA DE PUNTAJE:
+- 75-100: VIABLE — Evidencia sólida, suficiente para sustentar el criterio en la petición
+- 50-74: DESARROLLABLE — Alguna evidencia pero necesita fortalecerse o documentarse mejor
+- 25-49: DÉBIL — Evidencia limitada, brechas significativas
+- 0-24: AUSENTE — Sin evidencia encontrada
+
+Un criterio se considera "met" (criteria_met = true) si su puntaje es ≥ 60.
+Se requieren al menos 3 criterios met.${countingRule}
+
+Considera también:
+- El estado declarado ("tengo/tal_vez/no_tengo") refleja la percepción del cliente — verifica con la evidencia concreta
+- Las notas de disposición ("no_tengo") son oportunidades de desarrollo prospectivo
+- Las respuestas del Módulo 11 son indicadores cualitativos del perfil
+
+Devuelve ÚNICAMENTE este objeto JSON exacto, sin markdown ni explicación adicional:
+{
+  "visa_recommendation": "O-1A" | "O-1B" | "EB-1A" | "O-1A/EB-1A" | "unclear",
+  "visa_confidence": "high" | "medium" | "low",
+  "overall_strength": "strong" | "moderate" | "weak",
+  "criteria_scores": {
+${scoresSchema}
+  },
+  "criteria_met": {
+${metSchema}
+  },
+  "criteria_gaps": {
+${gapsSchema}
+  },
+  "strengths": ["fortaleza 1", "fortaleza 2", ...],
+  "weaknesses": ["debilidad 1", "debilidad 2", ...],
+  "strategic_notes": "Resumen estratégico ejecutivo para el equipo legal (3-5 oraciones)",
+  "recommended_actions": ["acción 1", "acción 2", ...]
+}`;
+}
+
 // ── Prompt builder ───────────────────────────────────────────────────────────
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -177,6 +276,68 @@ function buildUserPrompt(sub: Record<string, any>): string {
   patents.forEach(p => lines.push(`  - ${str(p.title)} (${str(p.year)}) — ${str(p.status)}`));
   if (str(m10.patentsDisposition)) lines.push(`  Notas del cliente: ${str(m10.patentsDisposition)}`);
 
+  // Critical Role (4a/4b) — defensive read, no intake UI exists for this field yet
+  if (m10.criticalRole) {
+    const cr = m10.criticalRole as Record<string, unknown>;
+    if (cr.criticalRoleType === "elected") {
+      lines.push(`\n[CRITERION: critical_role_4a] ROL CRÍTICO — DIRECTIVO/ELECTO`);
+      lines.push(`  Cargo: ${str(cr.electedOrAppointedTitle)}`);
+      lines.push(`  Período: ${str(cr.tenureStartDate)} — ${str(cr.tenureEndDate) || "Presente"}`);
+      lines.push(`  Reputación de la organización: ${str(cr.organizationReputationEvidence)}`);
+      lines.push(`  Métricas de crecimiento: ${str(cr.organizationalGrowthMetrics)}`);
+    } else if (cr.criticalRoleType === "technical") {
+      lines.push(`\n[CRITERION: critical_role_4b] ROL CRÍTICO — TÉCNICO/INSTRUCTOR`);
+      lines.push(`  Cargo: ${str(cr.formalPositionTitle)}`);
+      lines.push(`  Período: ${str(cr.serviceStartDate)} — ${str(cr.serviceEndDate) || "Presente"}`);
+      lines.push(`  Cursos/funciones: ${str(cr.specificCoursesOrDutiesTaught)}`);
+      lines.push(`  Evidencia de institucionalización: ${str(cr.institutionalizationEvidence)}`);
+    }
+  } else {
+    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — Sin datos capturados (pendiente de UI de intake)`);
+  }
+
+  // Artistic Exhibitions (EB-1A)
+  lines.push(`\n[CRITERION: artistic_exhibitions] EXHIBICIONES ARTÍSTICAS — ${statusLabel(str(m10.artisticExhibitionsStatus))}`);
+  const artExh = (m10.artisticExhibitions ?? []) as Record<string, unknown>[];
+  artExh.forEach(a => lines.push(`  - ${str(a.exhibitionName)} — ${str(a.venue)} (${str(a.country)}, ${str(a.date)})`));
+  if (str(m10.artisticExhibitionsDisposition)) lines.push(`  Notas del cliente: ${str(m10.artisticExhibitionsDisposition)}`);
+
+  // Performing Arts Commercial Success (EB-1A)
+  lines.push(`\n[CRITERION: performing_arts_commercial_success] ÉXITOS COMERCIALES EN ARTES ESCÉNICAS — ${statusLabel(str(m10.performingArtsSuccessStatus))}`);
+  const paSuccess = (m10.performingArtsSuccess ?? []) as Record<string, unknown>[];
+  paSuccess.forEach(p => lines.push(`  - ${str(p.productionOrWorkTitle)} — ${str(p.successIndicator)}: ${str(p.figureOrMetric)} (${str(p.source)}, ${str(p.date)})`));
+  if (str(m10.performingArtsSuccessDisposition)) lines.push(`  Notas del cliente: ${str(m10.performingArtsSuccessDisposition)}`);
+
+  // Lead/Starring Role (O-1B)
+  lines.push(`\n[CRITERION: lead_starring_role] ROL PROTAGÓNICO — ${statusLabel(str(m10.leadStarringRoleStatus))}`);
+  const leadRole = (m10.leadStarringRole ?? []) as Record<string, unknown>[];
+  leadRole.forEach(l => lines.push(`  - ${str(l.productionOrEventName)} — ${str(l.roleDescription)} (${str(l.organization)}, ${str(l.date)}) — Reputación: ${str(l.reputationEvidence)}`));
+  if (str(m10.leadStarringRoleDisposition)) lines.push(`  Notas del cliente: ${str(m10.leadStarringRoleDisposition)}`);
+
+  // Critical Reviews (O-1B → national_recognition)
+  lines.push(`\n[CRITERION: national_recognition] RESEÑAS CRÍTICAS — ${statusLabel(str(m10.criticalReviewsStatus))}`);
+  const reviews = (m10.criticalReviews ?? []) as Record<string, unknown>[];
+  reviews.forEach(r => lines.push(`  - ${str(r.publication)} — "${str(r.title)}" (${str(r.date)})`));
+  if (str(m10.criticalReviewsDisposition)) lines.push(`  Notas del cliente: ${str(m10.criticalReviewsDisposition)}`);
+
+  // Critical Role in Organization (O-1B)
+  lines.push(`\n[CRITERION: critical_role_org] ROL CRÍTICO EN ORGANIZACIÓN (O-1B) — ${statusLabel(str(m10.criticalRoleOrgStatus))}`);
+  const roleOrg = (m10.criticalRoleOrg ?? []) as Record<string, unknown>[];
+  roleOrg.forEach(r => lines.push(`  - ${str(r.organization)} — ${str(r.roleTitle)} (${str(r.startDate)} — ${str(r.endDate) || "Presente"}) — Reputación: ${str(r.reputationEvidence)}`));
+  if (str(m10.criticalRoleOrgDisposition)) lines.push(`  Notas del cliente: ${str(m10.criticalRoleOrgDisposition)}`);
+
+  // Commercial Success (O-1B)
+  lines.push(`\n[CRITERION: commercial_success] ÉXITOS COMERCIALES/DE CRÍTICA — ${statusLabel(str(m10.commercialSuccessStatus))}`);
+  const commSuccess = (m10.commercialSuccess ?? []) as Record<string, unknown>[];
+  commSuccess.forEach(c => lines.push(`  - ${str(c.productionOrWorkTitle)} — ${str(c.successIndicator)}: ${str(c.figureOrMetric)} (${str(c.source)}, ${str(c.date)})`));
+  if (str(m10.commercialSuccessDisposition)) lines.push(`  Notas del cliente: ${str(m10.commercialSuccessDisposition)}`);
+
+  // Significant Recognition (O-1B)
+  lines.push(`\n[CRITERION: significant_recognition] RECONOCIMIENTO SIGNIFICATIVO — ${statusLabel(str(m10.significantRecognitionStatus))}`);
+  const sigRecog = (m10.significantRecognition ?? []) as Record<string, unknown>[];
+  sigRecog.forEach(s => lines.push(`  - ${str(s.recognizingParty)} (${str(s.recognizingPartyCredentials)}) — ${str(s.achievementRecognized)} (${str(s.date)})`));
+  if (str(m10.significantRecognitionDisposition)) lines.push(`  Notas del cliente: ${str(m10.significantRecognitionDisposition)}`);
+
   // Income evidence
   const inc = (m10.incomeEvidence ?? {}) as Record<string, unknown>;
   lines.push("\n[CRITERION: high_salary] EVIDENCIA DE INGRESOS");
@@ -232,76 +393,7 @@ interface A1Response {
   recommended_actions: string[];
 }
 
-async function callClaude(userPrompt: string): Promise<A1Response> {
-  const systemPrompt = `Eres el Agente A1 — Intake Analyzer de AUCIS (Automated Case Intelligence System) de ACTION USA AI.
-
-Tu función es analizar los datos de intake de un cliente y evaluar su viabilidad para peticiones de visa de habilidad extraordinaria (O-1A, O-1B, EB-1A) basándote en los criterios de USCIS.
-
-CRITERIOS O-1A / EB-1A (evalúa cada uno con un puntaje 0-100):
-- awards: Premios o reconocimientos por excelencia en el campo
-- memberships: Membresía en asociaciones que requieren logros extraordinarios
-- media_coverage: Material publicado sobre el solicitante en medios de comunicación
-- judging: Haber evaluado o juzgado el trabajo de otros en el campo
-- original_contributions: Contribuciones originales de importancia significativa al campo
-- scholarly_articles: Artículos académicos en revistas o publicaciones profesionales
-- critical_role: Rol crítico o esencial en organizaciones distinguidas
-- high_salary: Alta remuneración relativa a los pares del campo
-
-METODOLOGÍA DE PUNTAJE:
-- 75-100: VIABLE — Evidencia sólida, suficiente para sustentar el criterio en la petición
-- 50-74: DESARROLLABLE — Alguna evidencia pero necesita fortalecerse o documentarse mejor
-- 25-49: DÉBIL — Evidencia limitada, brechas significativas
-- 0-24: AUSENTE — Sin evidencia encontrada
-
-Un criterio se considera "met" (criteria_met = true) si su puntaje es ≥ 60.
-Para O-1A/EB-1A se requieren al menos 3 criterios met.
-
-Considera también:
-- El estado declarado ("tengo/tal_vez/no_tengo") refleja la percepción del cliente — verifica con la evidencia concreta
-- Las notas de disposición ("no_tengo") son oportunidades de desarrollo prospectivo
-- Las respuestas del Módulo 11 son indicadores cualitativos del perfil
-
-Devuelve ÚNICAMENTE este objeto JSON exacto, sin markdown ni explicación adicional:
-{
-  "visa_recommendation": "O-1A" | "O-1B" | "EB-1A" | "O-1A/EB-1A" | "unclear",
-  "visa_confidence": "high" | "medium" | "low",
-  "overall_strength": "strong" | "moderate" | "weak",
-  "criteria_scores": {
-    "awards": 0-100,
-    "memberships": 0-100,
-    "media_coverage": 0-100,
-    "judging": 0-100,
-    "original_contributions": 0-100,
-    "scholarly_articles": 0-100,
-    "critical_role": 0-100,
-    "high_salary": 0-100
-  },
-  "criteria_met": {
-    "awards": true/false,
-    "memberships": true/false,
-    "media_coverage": true/false,
-    "judging": true/false,
-    "original_contributions": true/false,
-    "scholarly_articles": true/false,
-    "critical_role": true/false,
-    "high_salary": true/false
-  },
-  "criteria_gaps": {
-    "awards": "descripción de brecha o null si está cubierto",
-    "memberships": "...",
-    "media_coverage": "...",
-    "judging": "...",
-    "original_contributions": "...",
-    "scholarly_articles": "...",
-    "critical_role": "...",
-    "high_salary": "..."
-  },
-  "strengths": ["fortaleza 1", "fortaleza 2", ...],
-  "weaknesses": ["debilidad 1", "debilidad 2", ...],
-  "strategic_notes": "Resumen estratégico ejecutivo para el equipo legal (3-5 oraciones)",
-  "recommended_actions": ["acción 1", "acción 2", ...]
-}`;
-
+async function callClaude(userPrompt: string, systemPrompt: string): Promise<A1Response> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -379,10 +471,15 @@ export async function POST(request: NextRequest) {
     if (subErr) throw new Error(`Error fetching submission: ${subErr.message}`);
     if (!submission) throw new Error("No intake submission found for this case. The client must complete the intake form first.");
 
-    // ── 3. Build prompt and call Claude ────────────────────────────────────
+    // ── 3. Resolve classification and build prompts ────────────────────────
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const m1ForClassification = (submission as Record<string, any>).module1 ?? {};
+    const { classification, criteria } = resolveCriteriaSet(String(m1ForClassification.visaType ?? ""));
+    const systemPrompt = buildSystemPrompt(classification, criteria);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userPrompt = buildUserPrompt(submission as Record<string, any>);
-    const result = await callClaude(userPrompt);
+    const result = await callClaude(userPrompt, systemPrompt);
 
     // ── 4. Insert agent_intake_analysis ────────────────────────────────────
     const { data: analysis, error: insertErr } = await db
@@ -393,6 +490,7 @@ export async function POST(request: NextRequest) {
         run_id: runId,
         status: "completed",
         recommended_visa_type: result.visa_recommendation,  // existing column name
+        classification_used: classification,
         visa_confidence: result.visa_confidence,
         overall_strength: result.overall_strength,
         criteria_scores: result.criteria_scores,
