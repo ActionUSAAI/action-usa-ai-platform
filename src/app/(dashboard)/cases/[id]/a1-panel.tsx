@@ -8,6 +8,7 @@ export interface IntakeAnalysis {
   case_id: string;
   status: string;
   recommended_visa_type: string | null;
+  classification_used: string | null;
   visa_confidence: string | null;
   overall_strength: string | null;
   criteria_scores: Record<string, number> | null;
@@ -27,16 +28,46 @@ interface A1PanelProps {
   userRole: string;
 }
 
-const CRITERIA_LABELS: Record<string, string> = {
-  awards:                "Premios y reconocimientos",
-  memberships:           "Membresías en asociaciones",
-  media_coverage:        "Cobertura mediática",
-  judging:               "Rol de juez o evaluador",
-  original_contributions:"Contribuciones originales al campo",
-  scholarly_articles:    "Artículos académicos",
-  critical_role:         "Rol crítico en organización distinguida",
-  high_salary:           "Alta remuneración",
+const CRITERIA_LABELS_O1A: Record<string, string> = {
+  awards: "Premios y reconocimientos",
+  memberships: "Membresías en asociaciones",
+  media_coverage: "Cobertura mediática",
+  judging: "Rol de juez o evaluador",
+  original_contributions: "Contribuciones originales al campo",
+  scholarly_articles: "Artículos académicos",
+  critical_role_4a: "Rol crítico — directivo/electo",
+  critical_role_4b: "Rol crítico — técnico/instructor",
+  high_salary: "Alta remuneración",
 };
+
+const CRITERIA_LABELS_EB1A: Record<string, string> = {
+  awards: "Premios y reconocimientos",
+  memberships: "Membresías en asociaciones",
+  media_coverage: "Cobertura mediática",
+  judging: "Rol de juez o evaluador",
+  original_contributions: "Contribuciones de importancia notable",
+  scholarly_articles: "Artículos académicos",
+  artistic_exhibitions: "Exhibición en muestras artísticas",
+  critical_role_4a: "Rol principal — directivo/electo",
+  critical_role_4b: "Rol principal — técnico/instructor",
+  high_salary: "Salario alto",
+  performing_arts_commercial_success: "Éxitos comerciales en artes escénicas",
+};
+
+const CRITERIA_LABELS_O1B: Record<string, string> = {
+  lead_starring_role: "Rol protagónico en producciones/eventos",
+  national_recognition: "Reconocimiento por reseñas críticas",
+  critical_role_org: "Rol crítico en organización distinguida",
+  commercial_success: "Éxitos comerciales o de crítica",
+  significant_recognition: "Reconocimiento de expertos/organizaciones",
+  high_salary: "Salario alto",
+};
+
+function resolveCriteriaLabels(classificationUsed: string | null): Record<string, string> {
+  if (classificationUsed === "O-1B") return CRITERIA_LABELS_O1B;
+  if (classificationUsed === "EB-1A") return CRITERIA_LABELS_EB1A;
+  return CRITERIA_LABELS_O1A; // default: O-1A o null (análisis previo a esta corrección)
+}
 
 const VISA_BADGE: Record<string, string> = {
   "O-1A":      "bg-blue-100 text-blue-800",
@@ -89,6 +120,7 @@ export function A1Panel({ caseId, submissionId, initialAnalysis, userRole }: A1P
   const [analysis, setAnalysis] = useState<IntakeAnalysis | null>(initialAnalysis);
 
   const canTrigger = ["admin", "supervisor", "agent"].includes(userRole);
+  const criteriaLabels = resolveCriteriaLabels(analysis?.classification_used ?? null);
 
   async function runAnalysis() {
     setLoading(true);
@@ -220,9 +252,11 @@ export function A1Panel({ caseId, submissionId, initialAnalysis, userRole }: A1P
           {/* Criteria bars */}
           {analysis.criteria_scores && (
             <div>
-              <h4 className="text-sm font-semibold text-gray-900 mb-4">Criterios O-1A / EB-1A</h4>
+              <h4 className="text-sm font-semibold text-gray-900 mb-4">
+                Criterios {analysis.classification_used ?? "O-1A (análisis previo a esta corrección)"}
+              </h4>
               <div className="space-y-4">
-                {Object.entries(CRITERIA_LABELS).map(([key, label]) => {
+                {Object.entries(criteriaLabels).map(([key, label]) => {
                   const score = analysis.criteria_scores?.[key] ?? 0;
                   const met   = analysis.criteria_met?.[key] ?? false;
                   const gap   = analysis.criteria_gaps?.[key];
