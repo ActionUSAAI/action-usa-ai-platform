@@ -1,8 +1,12 @@
 # A3 — Taxonomía de Cartas (Letter Generator)
 
 **Estado:** Fase de diseño arquitectónico. No implementado.
-**Versión:** 1.2
-**Última actualización:** 2026-07-10
+**Versión:** 1.3
+**Última actualización:** 2026-07-16
+
+## Qué cambió respecto a 1.2
+
+Corrección de nomenclatura: las referencias a la fuente de datos `Módulo 13 §A` en la tabla de taxonomía (Tipo 0b y Advisory Opinion / No-Objection) se actualizan a `Módulo 15 §A`, alineando el documento con la columna real `module15` de `intake_submissions`. Sin cambios de taxonomía ni de enrutamiento.
 
 ## Qué cambió respecto a 1.0
 
@@ -44,9 +48,9 @@ El Motor Abogado (Tipo 0, Tipo 0b) vive en Agente 4 — ver `A4_ENGINE_ABOGADO.m
 | Tipo | Voz / Motor | Obligatoria | Condición de activación | Fuente de datos (intake) |
 |---|---|---|---|---|
 | **Tipo 0 — Attorney Petition Letter** | Motor Abogado (Agente 4 — ver `A4_ENGINE_ABOGADO.md`) | Sí, en todo caso | Siempre | A1 (análisis de caso), todos los módulos |
-| **Tipo 0b — Consultation Exception Letter** | Motor Abogado (Agente 4 — ver `A4_ENGINE_ABOGADO.md`) | Condicional | `hasPeerGroup = "no"` y no hay organización en el índice oficial de USCIS | Módulo 13 §A: `noAssociationJustification` |
+| **Tipo 0b — Consultation Exception Letter** | Motor Abogado (Agente 4 — ver `A4_ENGINE_ABOGADO.md`) | Condicional | `hasPeerGroup = "no"` y no hay organización en el índice oficial de USCIS | Módulo 15 §A: `noAssociationJustification` |
 | **Testimonial personal** | Motor Testimonial Personal | Recomendada (mínimo 3) | Siempre disponible como opción | Módulo 9: `relationshipType`, `relationshipDuration`, `signerCredentials`, `specificAchievements` |
-| **Advisory Opinion / No-Objection (institucional)** | Motor Institucional | Condicional | `hasPeerGroup = "si"` (organización en el índice de USCIS o alternativa) | Módulo 13 §A: `peerGroupName`, `peerGroupLetterType`, `alternativeContactName/Org/Relation` |
+| **Advisory Opinion / No-Objection (institucional)** | Motor Institucional | Condicional | `hasPeerGroup = "si"` (organización en el índice de USCIS o alternativa) | Módulo 15 §A: `peerGroupName`, `peerGroupLetterType`, `alternativeContactName/Org/Relation` |
 | **Carta de certificación de terceros** | Motor Institucional (mismo engine, propósito distinto: certificar hecho objetivo, no emitir juicio) | Opcional, según evidencia disponible | Cuando existe evidencia verificable por un tercero (membresía, salario promedio del sector, participación en evento) | Módulo 10 (evidencia existente). El sub-criterio Rol Crítico se modela como unión discriminada `CriticalRoleEvidence` (`src/app/intake/types.ts`) con dos variantes — **4a directivo/electo** y **4b técnico/instructor** — cada una con su propio mecanismo de prueba; ver `A3_ENGINE_INSTITUCIONAL.md §Subtipo B`. |
 | **Resumen de acuerdo verbal** | N/A — documento estructurado, no carta narrativa | Condicional | `hasWrittenContract = false` | Módulo 12: `contractVerbalTerms`. Estructura obligatoria: (1) términos ofrecidos por el empleador, (2) términos aceptados por el beneficiario. No requiere firma de ambas partes (USCIS Policy Manual Vol. 2, Part M, Ch. 7). |
 

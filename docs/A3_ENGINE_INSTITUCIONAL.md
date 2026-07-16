@@ -1,8 +1,12 @@
 # A3 — Motor Institucional
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.4
-**Última actualización:** 2026-07-11
+**Versión:** 1.5
+**Última actualización:** 2026-07-16
+
+## Qué cambió respecto a 1.4
+
+Corrección de nomenclatura: se actualizan las 6 referencias a `Module13`/«Módulo 13» del documento completo para alinearlas con la columna real `module15` de `intake_submissions`. Esto cubre el path de datos `Module13.peerGroupLetterPath` → `Module15.peerGroupLetterPath`, los tres identificadores de fuente de datos del Subtipo A (tablas comparativa y de `letterType`, y la lista de campos por subtipo) → `Module15 §A`, y las dos menciones en prosa de la sección de arquitectura y de salida → «Módulo 15». Sin cambios de diseño.
 
 ## Qué cambió respecto a 1.3
 
@@ -56,7 +60,7 @@ A diferencia del Motor Testimonial, aquí el riesgo no es el lenguaje hiperbóli
 |---|---|---|
 | Función legal | Veredicto de idoneidad general | Confirmar un hecho puntual y verificable |
 | Hecho específico | Opcional (refuerzo si existe relación directa) | Obligatorio — es el contenido central |
-| Fuente de datos | `Module13` (`peerGroupName`, `peerGroupLetterType`) | `Module10`, según sub-criterio específico |
+| Fuente de datos | `Module15 §A` (`peerGroupName`, `peerGroupLetterType`) | `Module10`, según sub-criterio específico |
 | Ejemplo validado | AQHA/Garibay (O-2, no-objeción, corta y genérica); AQHA/Rodríguez (O-1, más rica por membresía compartida) | Ver tabla de sub-criterios abajo |
 
 ## Estructura obligatoria — 5 bloques con contenido variable por subtipo
@@ -114,7 +118,7 @@ La ramificación de este motor ocurre en dos niveles — Subtipo (A/B) y, dentro
 
 | `letterType` | Campos de entrada | Fuente |
 |---|---|---|
-| `subtypeA_advisory` | `peerGroupName`, `peerGroupLetterType` | `Module13` |
+| `subtypeA_advisory` | `peerGroupName`, `peerGroupLetterType` | `Module15 §A` |
 | `subtypeB_judge` | `judgeSelectionCriteria`, `judgedEventSignificance`, `judgmentAuthorityAndConsequence` | `Module10` |
 | `subtypeB_criticalRole4a` | `electedOrAppointedTitle`, `tenureStartDate`, `tenureEndDate`, `organizationReputationEvidence`, `organizationalGrowthMetrics` | `Module10.criticalRole` (rama `elected` de `CriticalRoleEvidence`) |
 | `subtypeB_criticalRole4b` | `formalPositionTitle`, `serviceStartDate`, `serviceEndDate`, `specificCoursesOrDutiesTaught`, `institutionalizationEvidence` | `Module10.criticalRole` (rama `technical` de `CriticalRoleEvidence`) |
@@ -128,19 +132,19 @@ La ramificación de este motor ocurre en dos niveles — Subtipo (A/B) y, dentro
 
 **Del beneficiario** (`Module1`): `fullName`, `profession`, `industry`, `visaType`
 
-**Subtipo A** (`Module13`): `peerGroupName`, `peerGroupLetterType`
+**Subtipo A** (`Module15 §A`): `peerGroupName`, `peerGroupLetterType`
 
 **Subtipo B** (`Module10`), ramificado por sub-criterio activo del caso: los campos de la tabla anterior, más el criterio USCIS específico que la carta busca satisfacer (para anclar el Bloque 4 a la cita regulatoria correcta). Para Rol Crítico, el campo `Module10.criticalRole.criticalRoleType` (`CriticalRoleEvidence`, `src/app/intake/types.ts`) determina directamente si aplica 4a o 4b.
 
 ## Fuente de datos — decisión de arquitectura
 
-Misma decisión que en el Motor Testimonial y por la misma razón: A3 consume `intake_submissions` (datos crudos), no la salida de `agent_intake_analysis` (A1). El `buildUserPrompt` de A1 no procesa Módulo 10 ni Módulo 13 con el nivel de detalle que este motor necesita — resume para su propio análisis de fortaleza del caso, perdiendo las fechas, cargos exactos y criterios de selección que aquí son obligatorios.
+Misma decisión que en el Motor Testimonial y por la misma razón: A3 consume `intake_submissions` (datos crudos), no la salida de `agent_intake_analysis` (A1). El `buildUserPrompt` de A1 no procesa Módulo 10 ni Módulo 15 con el nivel de detalle que este motor necesita — resume para su propio análisis de fortaleza del caso, perdiendo las fechas, cargos exactos y criterios de selección que aquí son obligatorios.
 
 ## Salida
 
 A diferencia del Motor Testimonial, cuyo output es un documento terminado que el firmante solo revisa y firma, aquí el output es **siempre un modelo con placeholders explícitos** — `[Nombre del funcionario autorizado]`, `[Cargo oficial]`, `[Teléfono]`, `[Correo electrónico]`, `[Firma]` — nunca datos reales de firmante. Esto quedó confirmado empíricamente por `Rancho_La_Jarana_Judge.docx`, que usa exactamente esta convención (`[Name]`, `[Title]`) mientras deja completamente poblados los hechos institucionales y del evento.
 
-El flujo posterior a la generación no cambia respecto a lo ya acordado: el cliente lleva el modelo a la organización, la organización lo transcribe a su papel membretado, lo firma, y el cliente lo re-sube al portal (alimentando `Module13.peerGroupLetterPath` / `peerGroupLetterName`). Por esto, Módulo 10 y Módulo 13 no necesitan campos de firmante institucional — el diseño original del intake, con esos campos como carga de archivo y no de generación, ya era correcto.
+El flujo posterior a la generación no cambia respecto a lo ya acordado: el cliente lleva el modelo a la organización, la organización lo transcribe a su papel membretado, lo firma, y el cliente lo re-sube al portal (alimentando `Module15.peerGroupLetterPath` / `peerGroupLetterName`). Por esto, Módulo 10 y Módulo 15 no necesitan campos de firmante institucional — el diseño original del intake, con esos campos como carga de archivo y no de generación, ya era correcto.
 
 Documento `.docx` limpio, sin membrete. Idioma: inglés, salvo que el caso específico requiera español.
 

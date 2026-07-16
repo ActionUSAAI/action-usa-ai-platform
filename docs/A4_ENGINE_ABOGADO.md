@@ -1,8 +1,12 @@
 # A4 — Motor Abogado
 
 **Estado:** Diseño completo. No implementado.
-**Versión:** 1.3
-**Última actualización:** 2026-07-11
+**Versión:** 1.4
+**Última actualización:** 2026-07-16
+
+## Qué cambió respecto a 1.3
+
+Corrección de nomenclatura: las referencias a la fuente de datos `Module13 §A` se actualizan a `Module15 §A` (Tipos 0b), alineando el documento con la columna real `module15` de `intake_submissions`. Sin cambios de diseño ni de contrato de salida.
 
 ## Qué cambió respecto a 1.2
 
@@ -69,7 +73,7 @@ Validada contra el ejemplo real del caso Garibay (Escamilla & Poneck, LLP, abril
 3. Cuerpo en tres movimientos: (a) declarar que no existe un peer group apropiado, incluyendo organización laboral, que pueda emitir una opinión consultiva escrita para el área de habilidad del beneficiario; (b) justificar por qué — el campo es demasiado singular o poco prevalente para tener una organización reconocida en el índice de USCIS; (c) ofrecer evidencia sustituta — colaboración con una organización análoga de mayor alcance, más cartas de recomendación, reconocimientos o certificados adjuntos.
 4. Cierre.
 
-Fuente de datos: `Module13 §A: noAssociationJustification`, más `Module10` para la evidencia sustituta ofrecida en el punto (c).
+Fuente de datos: `Module15 §A: noAssociationJustification`, más `Module10` para la evidencia sustituta ofrecida en el punto (c).
 
 ## Contrato de salida estructurada
 
@@ -128,7 +132,7 @@ Envelope propio, sin relación estructural con los 7 bloques de Tipo 0 — los t
 
 **Tipo 0:** A1 (análisis de fortaleza del caso, `petitionStrategy`, criterios activos) + todos los módulos + mapa `letterId → exhibitNumber` ensamblado por A4 a partir de las cartas ya generadas por los dos motores de A3.
 
-**Tipo 0b:** `Module13 §A: noAssociationJustification` + `Module10` (evidencia sustituta).
+**Tipo 0b:** `Module15 §A: noAssociationJustification` + `Module10` (evidencia sustituta).
 
 ## Fuente de datos — decisión de arquitectura
 

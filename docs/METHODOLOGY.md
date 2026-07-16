@@ -2,8 +2,8 @@
 
 **System:** Automated Case Intelligence System (AUCIS)  
 **Owner:** ACTION USA AI LLC  
-**Version:** 1.0  
-**Date:** 2026-06-29  
+**Version:** 1.1  
+**Date:** 2026-07-16  
 **Classification:** Confidential — Proprietary Methodology
 
 ---
@@ -363,7 +363,7 @@ Aplica cuando un agente o agencia actúa en nombre de múltiples empleadores —
 
 En estos casos, el **itinerario de eventos es obligatorio** per 8 CFR (o)(2)(ii)(C): el agente debe demostrar su capacidad de supervisar las condiciones de empleo mediante la presentación de fechas, nombres de empleadores por evento, venues y ubicaciones geográficas. El array `itineraryItems` del Módulo 12 captura esta información directamente exportable al I-129 y al cover letter.
 
-### Tres escenarios de opinión consultiva (Módulo 13)
+### Tres escenarios de opinión consultiva (Módulo 15 Sección A)
 
 **Escenario 1 — Existe asociación de pares reconocida por USCIS:**
 
@@ -375,7 +375,7 @@ USCIS acepta la carta de un experto reconocido del campo cuando no existe una as
 
 **Escenario 3 — No existe asociación ni experto disponible:**
 
-El peticionario debe presentar una justificación escrita explicando la ausencia de asociación de pares aplicable a la especialidad del beneficiario. El campo `noAssociationJustification` del Módulo 13 captura esta narrativa, que el equipo puede usar directamente en la petición sin reformulación.
+El peticionario debe presentar una justificación escrita explicando la ausencia de asociación de pares aplicable a la especialidad del beneficiario. El campo `noAssociationJustification` del Módulo 15 Sección A captura esta narrativa, que el equipo puede usar directamente en la petición sin reformulación.
 
 ---
 
@@ -387,7 +387,7 @@ El peticionario debe presentar una justificación escrita explicando la ausencia
 
 ### Campo whyEssential como herramienta de argumentación
 
-El campo `whyEssential` del Módulo 13 instruye al cliente a explicar en sus propias palabras:
+El campo `whyEssential` del Módulo 15 Sección B instruye al cliente a explicar en sus propias palabras:
 - Por qué la persona es indispensable para la actividad específica planeada en EE.UU.
 - Por qué no puede ser reemplazada por un trabajador estadounidense disponible localmente
 - La naturaleza específica de las habilidades que la hacen única en el contexto de la actuación del O-1
@@ -396,7 +396,7 @@ Este texto, revisado y enriquecido por el equipo preparador, alimenta directamen
 
 ### Precedente validado
 
-Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompañamiento). La petición conjunta fue aprobada. La evidencia determinante fue la acreditación de la **relación laboral preexistente de larga data** (contratos de conciertos previos, cartas de empleador documentando años de trabajo conjunto). El campo `relationshipDuration` del Módulo 13 captura este dato explícitamente porque USCIS lo pondera para evaluar si el acompañante es verdaderamente integral a la actuación del O-1.
+Caso Aldo Garibay (O-1B, cantante) + Fernando Higuera (O-2, músico de acompañamiento). La petición conjunta fue aprobada. La evidencia determinante fue la acreditación de la **relación laboral preexistente de larga data** (contratos de conciertos previos, cartas de empleador documentando años de trabajo conjunto). El campo `relationshipDuration` del Módulo 15 Sección B captura este dato explícitamente porque USCIS lo pondera para evaluar si el acompañante es verdaderamente integral a la actuación del O-1.
 
 ### Documentación requerida por acompañante
 
