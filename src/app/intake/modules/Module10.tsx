@@ -563,7 +563,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
             value={d.criticalRole ? "si" : "no"}
             onChange={v => {
               if (v === "si" && !d.criticalRole) {
-                u("criticalRole", { criticalRoleType: "elected", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
+                u("criticalRole", { criticalRoleType: "elected", organizationName:"", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
               } else if (v === "no") {
                 u("criticalRole", undefined);
               }
@@ -583,9 +583,9 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
                 value={cr.criticalRoleType}
                 onChange={v => {
                   if (v === "elected") {
-                    u("criticalRole", { criticalRoleType:"elected", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
+                    u("criticalRole", { criticalRoleType:"elected", organizationName:"", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
                   } else {
-                    u("criticalRole", { criticalRoleType:"technical", formalPositionTitle:"", serviceStartDate:"", serviceEndDate:null, specificCoursesOrDutiesTaught:"", institutionalizationEvidence:"" } as CriticalRoleEvidence);
+                    u("criticalRole", { criticalRoleType:"technical", organizationName:"", formalPositionTitle:"", serviceStartDate:"", serviceEndDate:null, specificCoursesOrDutiesTaught:"", institutionalizationEvidence:"" } as CriticalRoleEvidence);
                   }
                 }}
               >
@@ -596,6 +596,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
 
             {cr.criticalRoleType === "elected" ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Nombre de la organización"><TextInput value={cr.organizationName} onChange={v=>u("criticalRole",{...cr,organizationName:v})} placeholder="Federación Nacional de..., Cámara de..."/></Field>
                 <Field label="Cargo (electo/designado)"><TextInput value={cr.electedOrAppointedTitle} onChange={v=>u("criticalRole",{...cr,electedOrAppointedTitle:v})} placeholder="Presidente, Director..."/></Field>
                 <Field label="Inicio del período"><TextInput type="date" value={cr.tenureStartDate} onChange={v=>u("criticalRole",{...cr,tenureStartDate:v})}/></Field>
                 <Field label="Fin del período" hint="Deja en blanco si continúa"><TextInput type="date" value={cr.tenureEndDate ?? ""} onChange={v=>u("criticalRole",{...cr,tenureEndDate:v || null})}/></Field>
@@ -604,6 +605,7 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
               </div>
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Field label="Nombre de la organización"><TextInput value={cr.organizationName} onChange={v=>u("criticalRole",{...cr,organizationName:v})} placeholder="Escuela de..., Academia..."/></Field>
                 <Field label="Cargo (técnico/instructor)"><TextInput value={cr.formalPositionTitle} onChange={v=>u("criticalRole",{...cr,formalPositionTitle:v})} placeholder="Instructor, Entrenador..."/></Field>
                 <Field label="Inicio del período"><TextInput type="date" value={cr.serviceStartDate} onChange={v=>u("criticalRole",{...cr,serviceStartDate:v})}/></Field>
                 <Field label="Fin del período" hint="Deja en blanco si continúa"><TextInput type="date" value={cr.serviceEndDate ?? ""} onChange={v=>u("criticalRole",{...cr,serviceEndDate:v || null})}/></Field>

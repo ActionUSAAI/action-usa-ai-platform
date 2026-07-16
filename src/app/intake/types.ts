@@ -164,6 +164,7 @@ export type IncomeEvidence     = {
 export type CriticalRoleEvidence =
   | {
       criticalRoleType: "elected";
+      organizationName: string;
       electedOrAppointedTitle: string;
       tenureStartDate: string;       // ISO 8601 (YYYY-MM-DD)
       tenureEndDate: string | null;
@@ -172,6 +173,7 @@ export type CriticalRoleEvidence =
     }
   | {
       criticalRoleType: "technical";
+      organizationName: string;
       formalPositionTitle: string;
       serviceStartDate: string;      // ISO 8601 (YYYY-MM-DD)
       serviceEndDate: string | null;
