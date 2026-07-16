@@ -481,7 +481,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
             {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
             {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
             {step === 12 && <Module14 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId} visaType={data.module1.visaType}/>}
-            {step === 13 && <Module15 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId}/>}
+            {step === 13 && <Module15 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId} profession={data.module1.profession} industry={data.module1.industry} visaType={data.module1.visaType}/>}
             {step === 14 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
 

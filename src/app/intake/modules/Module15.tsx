@@ -1,7 +1,8 @@
+import { useState, useEffect } from "react";
 import type { Module15, O2Companion } from "../types";
 import { Field, TextInput, Textarea, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
 
-type Props = { data: Module15; onChange: (d: Module15) => void; sessionId: string };
+type Props = { data: Module15; onChange: (d: Module15) => void; sessionId: string; profession: string; industry: string; visaType: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9);
 
@@ -35,8 +36,20 @@ const PEER_OPTIONS = [
   },
 ];
 
-export function Module15({ data: d, onChange, sessionId }: Props) {
+export function Module15({ data: d, onChange, sessionId, profession, industry, visaType }: Props) {
   const set = <K extends keyof Module15>(k: K, v: Module15[K]) => onChange({ ...d, [k]: v });
+
+  const [suggestions, setSuggestions] = useState<{ id: string; organization_name: string; category: string }[]>([]);
+
+  useEffect(() => {
+    if (d.hasPeerGroup !== "si") return;
+    if (!profession && !industry) return;
+    const params = new URLSearchParams({ profession, industry, visaType });
+    fetch(`/api/peer-group-search?${params}`)
+      .then((r) => r.json())
+      .then((j) => setSuggestions(j.suggestions ?? []))
+      .catch(() => setSuggestions([]));
+  }, [d.hasPeerGroup, profession, industry, visaType]);
 
   const updComp = <K extends keyof O2Companion>(i: number, f: K, v: O2Companion[K]) => {
     const arr = [...d.companions];
@@ -93,6 +106,23 @@ export function Module15({ data: d, onChange, sessionId }: Props) {
         {/* If yes — peer group exists */}
         {d.hasPeerGroup === "si" && (
           <div className="space-y-4 rounded-xl border border-green-200 bg-green-50/30 p-4">
+            {suggestions.length > 0 && (
+              <div>
+                <p className="mb-2 text-xs font-medium text-gray-600">Sugerencias basadas en tu profesión:</p>
+                <div className="flex flex-wrap gap-2">
+                  {suggestions.map((s) => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => set("peerGroupName", s.organization_name)}
+                      className="rounded-full border border-green-300 bg-white px-3 py-1.5 text-xs font-medium text-green-800 hover:bg-green-100"
+                    >
+                      {s.organization_name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             <Field label="Nombre de la asociación o grupo de pares" required>
               <TextInput value={d.peerGroupName} onChange={v => set("peerGroupName", v)}
                 placeholder="Screen Actors Guild (SAG-AFTRA), IEEE, ASCAP..." />
