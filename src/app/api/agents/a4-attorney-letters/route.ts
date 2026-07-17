@@ -115,7 +115,11 @@ ESTRUCTURA OBLIGATORIA — 7 bloques:
   const strategySpecific =
     petitionStrategy === "multiCriteria"
       ? `
-RUTA: Multi-criterio. Para cada criterio activo que se te proporcione, escribe un argumento (campo "argument") que conecte la evidencia disponible con el texto exacto del criterio. NO cites números de Exhibit en el texto — eso lo agrega el sistema automáticamente después. Devuelve un array "criteriaArguments" con un elemento por criterio, en el mismo orden en que se te proporcionaron, cada uno con "criterionCitation" (copiado exactamente) y "argument".`
+RUTA: Multi-criterio. Para cada criterio activo que se te proporcione, escribe un argumento (campo "argument") que conecte la evidencia disponible con el texto exacto del criterio. NO cites números de Exhibit en el texto — eso lo agrega el sistema automáticamente después. Devuelve un array "criteriaArguments" con un elemento por criterio, en el mismo orden en que se te proporcionaron, cada uno con "criterionCitation" (copiado exactamente) y "argument".
+
+IMPORTANTE: "criterionCitation" debe ser copiado EXACTAMENTE del valor que sigue a "Criterion citation:" en la lista de criterios activos que se te proporciona — solo la cita regulatoria, sin el label y sin el número de Exhibit. Por ejemplo, si el criterio activo se te presenta como:
+- Criterion citation: 8 CFR 214.2(o)(3)(iii)(B)(5) | Label: Contribuciones originales de importancia significativa al campo | Exhibit: 1
+entonces "criterionCitation" en tu respuesta debe ser exactamente "8 CFR 214.2(o)(3)(iii)(B)(5)" — NO "Contribuciones originales de importancia significativa al campo (8 CFR 214.2(o)(3)(iii)(B)(5))" ni ninguna otra variación con el label incluido.`
       : `
 RUTA: Logro único (major, internationally recognized award). Se te proporcionarán todos los premios documentados del beneficiario. Identifica cuál de ellos, si alguno, califica como premio mayor de reconocimiento internacional, y escribe un único análisis ("singleAchievementAnalysis") argumentando por qué ese premio específico satisface el estándar: naturaleza competitiva internacional, rigor del proceso de evaluación, autoridad de la institución otorgante, e impacto en la carrera del beneficiario. Si ningún premio califica claramente, sé honesto en el análisis sobre la fortaleza relativa del caso.`;
 
@@ -164,7 +168,7 @@ function buildTipo0UserPrompt(
   if (petitionStrategy === "multiCriteria") {
     lines.push(`CRITERIOS ACTIVOS (en orden canónico, con Exhibit ya asignado):`);
     exhibitRows.forEach((r) => {
-      lines.push(`- ${r.criterion_label} (${r.criterion_citation}) — Exhibit ${r.exhibit_number}`);
+      lines.push(`- Criterion citation: ${r.criterion_citation} | Label: ${r.criterion_label} | Exhibit: ${r.exhibit_number}`);
     });
   } else {
     lines.push(`PREMIOS DOCUMENTADOS (identifica cuál califica como logro único mayor):`);
@@ -288,7 +292,7 @@ export async function POST(req: NextRequest) {
     if (petitionStrategy === "multiCriteria") {
       const rawArguments = (modelResponse.criteriaArguments ?? []) as { criterionCitation: string; argument: string }[];
       criteriaDevelopment = rawArguments.map((ra) => {
-        const row = exhibitRows.find((r) => r.criterion_citation === ra.criterionCitation);
+        const row = exhibitRows.find((r) => r.criterion_citation.trim() === ra.criterionCitation.trim());
         return {
           criterionCitation: ra.criterionCitation,
           criterionLabel: row?.criterion_label ?? "",
