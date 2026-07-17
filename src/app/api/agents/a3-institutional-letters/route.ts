@@ -197,8 +197,22 @@ interface ModelBlocksResponse {
 
 function stripMarkdownFences(raw: string): string {
   const trimmed = raw.trim();
+
+  // Try the strict fence pattern first (fast path for the common case).
   const fenceMatch = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
-  return fenceMatch ? fenceMatch[1] : trimmed;
+  if (fenceMatch) return fenceMatch[1];
+
+  // Fallback: extract the first balanced {...} block, tolerating
+  // surrounding prose, single-line fences, trailing content after
+  // the closing fence, or any other wrapping the model might add
+  // despite the system prompt asking for pure JSON.
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    return trimmed.slice(firstBrace, lastBrace + 1);
+  }
+
+  return trimmed;
 }
 
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<ModelBlocksResponse> {
