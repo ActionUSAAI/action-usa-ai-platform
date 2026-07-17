@@ -71,3 +71,24 @@ Tras cerrar la corrección de arquitectura, se abordó el pendiente #2 de `A3_EN
 **Caso de prueba sintético:** creado y limpiado en su totalidad al cierre de la sesión (cliente, caso, intake_submission, agent_run, 2 cartas, y el .docx huérfano) — ningún dato de prueba permanece en producción.
 
 **Estado resultante:** los tres motores de generación de cartas (Testimonial, Institucional, Abogado) tienen código completo y, en el caso del Testimonial, verificación real de ejecución de punta a punta. Institucional y Abogado comparten las mismas correcciones (fences, run_id vía el mismo módulo compartido) pero no se probaron en ejecución real en esta sesión — candidatos naturales para la próxima sesión de pruebas.
+
+## 2026-07-17
+
+**Contexto:** continuación de la validación en ejecución real — hoy, el Motor Institucional (ayer fue el Testimonial).
+
+**Bug encontrado y corregido:**
+
+**Fences de markdown más allá del patrón esperado** — el fix de ayer (`2b636fc`) usaba un regex estricto que exigía el fence exactamente al inicio y fin absolutos del string. La primera prueba real del Motor Institucional falló con el mismo error de "not valid JSON" a pesar de que el fix ya estaba cableado — el regex no cubría la variante específica de envoltorio que produjo el modelo en esta corrida. Corregido agregando un fallback de extracción por llaves balanceadas (`indexOf("{")`/`lastIndexOf("}")`), tolerante a prosa envolvente, fences de una línea, o contenido tras el cierre. Commit `157adb9`. Validado en ejecución real: generó exitosamente las 2 cartas de prueba tras el fix.
+
+**Validación de contenido — resultado mixto:**
+
+Se generaron y revisaron manualmente dos cartas institucionales contra un caso de prueba sintético (O-1A): `subtypeB_criticalRole4a` (Rol Crítico directivo/electo) y `subtypeA_advisory` (Opinión Consultiva).
+
+- **Rol Crítico 4a — impecable.** `organizationName` se usó correctamente (confirmando el fix `e5e7fe4` de ayer), las tres métricas de gestión exigidas por el criterio se desarrollaron con hechos verificables, cierre con placeholders en blanco correctos.
+- **Advisory Opinion — comportamiento no deseado, sin corregir.** El `systemPrompt` instruye que el Bloque 3 debe limitarse a declarar la postura de la organización (favorable/no-objeción), pero el modelo generó un recorrido completo de los 8 criterios O-1A, cada uno con placeholders `[To be completed by the organization: ...]` — una plantilla genérica, no la opinión sustantiva esperada. Causa raíz: `sourceData` del candidato `subtypeA_advisory` llega casi vacío al modelo (solo `peerGroupLetterType`), porque el intake (`Module15` Sección A) no captura evidencia sustantiva más allá del nombre de la organización y el tipo de carta esperada — a diferencia de los sub-criterios de Subtipo B, que sí tienen campos de detalle ricos (agregados en sesiones anteriores). El modelo, sin datos con qué trabajar, generó una estructura no solicitada en vez de una carta corta y honesta sobre los datos limitados disponibles.
+
+**Pendiente de decisión en sesión futura:** dos caminos no excluyentes — (a) endurecer el `systemPrompt` de `subtypeA_advisory` para que, ante datos escasos, genere una carta breve y fiel a lo disponible en vez de inventar estructura no solicitada; (b) enriquecer el intake (`Module15` Sección A) con campos de contexto adicionales para que el candidato tenga más con qué trabajar. No es un bug de código — es una interacción entre diseño de prompt y suficiencia de datos de intake, mismo patrón de causa raíz que motivó las correcciones de intake de sesiones anteriores (Juez, Competencias Ganadas, Rol Crítico).
+
+**Caso de prueba sintético:** creado y limpiado en su totalidad — sin huérfanos en Storage esta vez (confirmado con listado dinámico por prefijo), a diferencia de la sesión de ayer.
+
+**Estado resultante:** dos de los tres motores (Testimonial, Institucional) validados en ejecución real, con sus respectivos bugs de runtime corregidos. Pendiente: Motor Abogado (Tipo 0/Tipo 0b) — nunca probado en ejecución real.
