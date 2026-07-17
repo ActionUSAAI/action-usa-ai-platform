@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createAgentRun, completeAgentRun, failAgentRun } from "./agent-runs";
 import { Document, Packer, Paragraph, TextRun } from "docx";
 
 // ============================================================
@@ -142,6 +143,13 @@ export async function buildAndStoreInstitutionalLetters(
   const db = adminDb();
   const results: BuiltLetterResult[] = [];
 
+  const runId = await createAgentRun(db, input.caseId, "letter_generator", {
+    case_id: input.caseId,
+    motor: "institutional",
+    letter_count: input.letters.length,
+  });
+
+  try {
   for (const entry of input.letters) {
     const docxBuffer = await buildInstitutionalDocx(
       entry,
@@ -182,6 +190,7 @@ export async function buildAndStoreInstitutionalLetters(
     const { data: inserted, error: insertError } = await db
       .from("agent_recommendation_letters")
       .insert({
+        run_id: runId,
         case_id: input.caseId,
         recommender_name: entry.organizationName,
         recommender_title: null,
@@ -211,5 +220,11 @@ export async function buildAndStoreInstitutionalLetters(
     });
   }
 
-  return results;
+    await completeAgentRun(db, runId, { letters_generated: results.length });
+    return results;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await failAgentRun(db, runId, message);
+    throw err;
+  }
 }

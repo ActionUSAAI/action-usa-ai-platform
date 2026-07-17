@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { createAgentRun, completeAgentRun, failAgentRun } from "./agent-runs";
 import {
   Document,
   Packer,
@@ -177,6 +178,14 @@ export async function buildAndStoreTestimonialLetters(
   const db = adminDb();
   const results: BuiltLetterResult[] = [];
 
+  const runId = await createAgentRun(db, input.caseId, "letter_generator", {
+    case_id: input.caseId,
+    motor: "testimonial",
+    criterion_key: input.criterionKey,
+    letter_count: input.letters.length,
+  });
+
+  try {
   for (const entry of input.letters) {
     const docxBuffer = await buildTestimonialDocx(entry, input.beneficiaryFullName);
     const uploadPath = `${input.caseId}/letters/testimonial/${entry.letterId}.docx`;
@@ -210,6 +219,7 @@ export async function buildAndStoreTestimonialLetters(
     const { data: inserted, error: insertError } = await db
       .from("agent_recommendation_letters")
       .insert({
+        run_id: runId,
         case_id: input.caseId,
         recommender_name: entry.signerName,
         recommender_title: entry.signerTitle,
@@ -245,5 +255,11 @@ export async function buildAndStoreTestimonialLetters(
     void relationshipEn;
   }
 
-  return results;
+    await completeAgentRun(db, runId, { letters_generated: results.length });
+    return results;
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    await failAgentRun(db, runId, message);
+    throw err;
+  }
 }
