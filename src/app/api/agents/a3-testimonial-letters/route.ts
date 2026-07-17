@@ -125,6 +125,12 @@ interface ModelLetterResponse {
   blocks: TestimonialLetterEntry["blocks"];
 }
 
+function stripMarkdownFences(raw: string): string {
+  const trimmed = raw.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n([\s\S]*?)\n```$/);
+  return fenceMatch ? fenceMatch[1] : trimmed;
+}
+
 async function callClaude(systemPrompt: string, userPrompt: string): Promise<ModelLetterResponse[]> {
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -151,7 +157,7 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Mod
 
   let parsed: { letters: ModelLetterResponse[] };
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(stripMarkdownFences(raw));
   } catch {
     throw new Error(`Claude response was not valid JSON: ${raw.slice(0, 500)}`);
   }
