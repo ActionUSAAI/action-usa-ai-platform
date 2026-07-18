@@ -58,7 +58,7 @@ const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null, fi
 
 const INITIAL: IntakeFormData = {
   module1: {
-    fullName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"",
+    fullName:"", familyName:"", givenName:"", middleName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"",
     countryOfResidence:"", cityOfResidence:"", email:"", whatsapp:"",
     profession:"", industry:"", yearsExperience:"", usaObjective:"", visaType:"",
   },

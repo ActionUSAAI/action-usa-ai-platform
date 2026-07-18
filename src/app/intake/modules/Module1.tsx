@@ -3,13 +3,32 @@ import { Field, TextInput, Textarea, Select } from "../primitives";
 
 type Props = { data: Module1; onChange: (d: Module1) => void; errors: Record<string, string> };
 
+function composeFullName(familyName: string, givenName: string, middleName: string): string {
+  return [givenName, middleName, familyName].filter(Boolean).join(" ").trim();
+}
+
 export function Module1({ data: d, onChange, errors: err }: Props) {
   const u = (f: keyof Module1, v: string) => onChange({ ...d, [f]: v });
+
+  function updateNameField(field: "familyName" | "givenName" | "middleName", value: string) {
+    const updated = { ...d, [field]: value };
+    const fullName = composeFullName(updated.familyName, updated.givenName, updated.middleName);
+    onChange({ ...updated, fullName });
+  }
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
-        <Field label="Nombre completo" required error={err.fullName}>
-          <TextInput value={d.fullName} onChange={v => u("fullName", v)} placeholder="Juan Carlos Rodríguez"/>
+        <Field label="Apellido(s)" required error={err.familyName}>
+          <TextInput value={d.familyName} onChange={v => updateNameField("familyName", v)} placeholder="Rodríguez"/>
+        </Field>
+        <Field label="Nombre(s)" required error={err.givenName}>
+          <TextInput value={d.givenName} onChange={v => updateNameField("givenName", v)} placeholder="Juan Carlos"/>
+        </Field>
+        <Field label="Segundo nombre" error={err.middleName}>
+          <TextInput value={d.middleName} onChange={v => updateNameField("middleName", v)} placeholder="(opcional)"/>
+        </Field>
+        <Field label="Nombre completo (generado automáticamente)">
+          <TextInput value={d.fullName} onChange={() => {}} disabled placeholder=""/>
         </Field>
         <Field label="Fecha de nacimiento" required error={err.dateOfBirth}>
           <TextInput type="date" value={d.dateOfBirth} onChange={v => u("dateOfBirth", v)}/>

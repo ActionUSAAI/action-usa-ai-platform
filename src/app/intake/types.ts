@@ -1,6 +1,9 @@
 // ─── Module 1 — Identity ─────────────────────────────────────────────────────
 export type Module1 = {
-  fullName: string;
+  fullName: string; // derivado automáticamente de familyName/givenName/middleName — no editar directamente
+  familyName: string;
+  givenName: string;
+  middleName: string;
   dateOfBirth: string;
   countryOfBirth: string;
   nationalities: string;
