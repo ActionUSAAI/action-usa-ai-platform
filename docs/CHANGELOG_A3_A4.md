@@ -92,3 +92,31 @@ Se generaron y revisaron manualmente dos cartas institucionales contra un caso d
 **Caso de prueba sintético:** creado y limpiado en su totalidad — sin huérfanos en Storage esta vez (confirmado con listado dinámico por prefijo), a diferencia de la sesión de ayer.
 
 **Estado resultante:** dos de los tres motores (Testimonial, Institucional) validados en ejecución real, con sus respectivos bugs de runtime corregidos. Pendiente: Motor Abogado (Tipo 0/Tipo 0b) — nunca probado en ejecución real.
+
+## 2026-07-17 (continuación) — Motor Abogado
+
+**Contexto:** cierre de la validación en ejecución real de los tres motores de generación de cartas. Sesión previa (misma fecha) cubrió el Motor Institucional; esta cubre el Motor Abogado (Tipo 0 + Tipo 0b) — el único que faltaba, y el más complejo por depender de Exhibits reales previamente ensamblados.
+
+**Caso de prueba:** encadenó los tres motores en secuencia por primera vez — Testimonial → Institucional → Abogado — sobre un único caso sintético, con `agent_intake_analysis` sembrada manualmente (nunca se corrió A1 real) para simular `classification_used`/`criteria_met` con dos criterios activos (`original_contributions`, `critical_role_4a`).
+
+**Incidentes de infraestructura, no de código:**
+
+- Saldo de la cuenta de API de Anthropic agotado a mitad de sesión — resuelto recargando créditos en console.anthropic.com. Causó una falsa alarma: el primer error tras el agotamiento se leyó como fallo de parseo de JSON, cuando en realidad era el error 400 de crédito insuficiente devuelto por la API, camuflado por el mensaje genérico de error del `catch`.
+- Caché de build de Next.js (`.next/`) corrompiéndose repetidamente tras varios reinicios y ediciones de archivo en caliente durante la sesión — resuelto con `rm -rf .next` (y en una ocasión también `node_modules/.cache`). No relacionado con el código de la aplicación.
+- Se aprovechó para vincular Claude Code a la suscripción Pro existente (`/login` → cuenta con suscripción) en vez de seguir facturando por uso de API directa, evitando agotamientos de saldo futuros en el propio Claude Code.
+
+**Bug real encontrado y corregido — trazabilidad de Exhibits rota en Tipo 0:**
+
+`assembleExhibits` funcionó correctamente en su primera ejecución real (ensambló 2 Exhibits a partir de las cartas Testimonial e Institucional ya generadas), y ambas llamadas a Claude para Tipo 0 y Tipo 0b completaron sin error — pero una revisión de los datos crudos en `agent_petition_drafts.blocks` reveló que `block5_criteriaDevelopment[].exhibitNumbers` y `.criterionLabel` quedaban vacíos para ambos criterios, a pesar de que `case_exhibits` sí tenía las citas correctas.
+
+Causa raíz: el `.find()` que empareja la respuesta del modelo con las filas de `case_exhibits` comparaba `r.criterion_citation` (solo la cita CFR cruda) contra `ra.criterionCitation` devuelto por el modelo — pero el modelo devolvía el string combinado `"Label (Citation)"`, siguiendo fielmente el formato con el que `buildTipo0UserPrompt` le mostraba los criterios activos (`"${label} (${citation}) — Exhibit ${n}"`). El modelo no desobedeció ninguna instrucción; el prompt le enseñó, sin querer, el patrón incorrecto a imitar.
+
+Corregido en la causa raíz, no en el síntoma: `buildTipo0UserPrompt` ahora presenta cada criterio con tres campos explícitamente separados (`"Criterion citation: X | Label: Y | Exhibit: Z"`), y `buildTipo0SystemPrompt` agrega un ejemplo concreto de qué copiar (solo la cita) y qué no copiar (el label combinado). Se agregó `.trim()` en ambos lados del `.find()` como salvaguarda adicional, sin sustituir el fix de fondo. Commit `d6a3433`.
+
+**Validación posterior al fix:** re-ejecutado contra el mismo caso (con `case_exhibits` ya ensamblado, así que la re-ejecución solo ejercitó la llamada a Claude y el `.find()` corregidos, sin tocar el ensamblaje). Ambos criterios resolvieron correctamente: `exhibitNumbers: ["1"]` / `["2"]`, con `criterionLabel` poblado en ambos.
+
+**Validación de contenido:** Tipo 0 cita jurisprudencia real y correcta (INA §101(a)(15)(O)(i), 8 CFR 214.2(o)(3), *Kazarian*, *Matter of Dhanasar*, *Matter of Chawathe*), desarrolla ambos criterios con el estándar de dos elementos exigido por cada uno, y cierra con firma real del abogado (no placeholder, conforme al diseño). Tipo 0b cita correctamente 8 CFR 214.2(o)(5)(ii) y el precedente Garibay, usa fielmente los datos de `noAssociationJustification`/`alternativeContactName` del intake, y también cierra con firma real.
+
+**Caso de prueba sintético:** limpiado en su totalidad — 8 tablas y 4 subcarpetas de Storage verificadas en 0, sin huérfanos (confirmado con listado dinámico por prefijo en las 4 rutas).
+
+**Estado resultante:** los tres motores de generación de cartas (Testimonial, Institucional, Abogado) están validados en ejecución real de punta a punta, con todos los bugs de runtime descubiertos corregidos y commiteados. Pendientes abiertos, sin cambios respecto a entradas anteriores: (1) comportamiento del Advisory Opinion con datos escasos (entrada anterior de hoy), (2) huérfanos de Storage si el insert falla tras el upload (entrada de ayer), (3) no-determinismo de `criteria_met` en A1 (entrada previa).
