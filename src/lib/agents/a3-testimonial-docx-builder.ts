@@ -237,6 +237,7 @@ export async function buildAndStoreTestimonialLetters(
       .single();
 
     if (insertError || !inserted) {
+      await db.storage.from(BUCKET).remove([uploadPath]).catch(() => {});
       throw new Error(
         `Failed to register testimonial letter ${entry.letterId}: ${insertError?.message}`
       );

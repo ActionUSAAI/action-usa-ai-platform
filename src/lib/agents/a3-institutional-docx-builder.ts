@@ -208,6 +208,7 @@ export async function buildAndStoreInstitutionalLetters(
       .single();
 
     if (insertError || !inserted) {
+      await db.storage.from(BUCKET).remove([uploadPath]).catch(() => {});
       throw new Error(
         `Failed to register institutional letter ${entry.letterId}: ${insertError?.message}`
       );

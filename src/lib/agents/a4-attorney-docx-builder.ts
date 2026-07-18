@@ -319,6 +319,7 @@ export async function buildAndStoreAttorneyPetitionLetter(
       .single();
 
     if (insertError || !inserted) {
+      await db.storage.from(BUCKET).remove([uploadPath]).catch(() => {});
       throw new Error(
         `Failed to register attorney petition draft: ${insertError?.message}`
       );
@@ -434,6 +435,7 @@ export async function buildAndStoreConsultationExceptionLetter(
       .single();
 
     if (insertError || !inserted) {
+      await db.storage.from(BUCKET).remove([uploadPath]).catch(() => {});
       throw new Error(
         `Failed to register consultation exception draft: ${insertError?.message}`
       );
