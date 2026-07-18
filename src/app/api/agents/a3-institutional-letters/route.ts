@@ -142,7 +142,9 @@ ESTRUCTURA OBLIGATORIA — 5 bloques:
   const typeSpecific: Record<InstitutionalLetterType, string> = {
     subtypeA_advisory: `
 TIPO: Opinión Consultiva / No-Objeción.
-El Bloque 3 debe declarar la postura de la organización respecto a la petición del beneficiario — opinión favorable o no-objeción, según corresponda.`,
+El Bloque 3 debe declarar EXCLUSIVAMENTE la postura de la organización respecto a la petición del beneficiario — opinión favorable o no-objeción, según corresponda — en un párrafo breve (2-4 oraciones). Esta carta NO argumenta los criterios USCIS de la petición (esa es función de la Attorney Petition Letter, un documento distinto) — es una certificación corta de que la organización avala o no objeta la solicitud.
+
+Si no se te proporciona evidencia específica más allá de la postura y el nombre de la organización, NO inventes contenido adicional ni recorras los criterios de la petición uno por uno. Genera una carta breve y honesta, fiel a los datos disponibles — una opinión consultiva corta y genuina es preferible a una plantilla extensa con contenido inventado.`,
     subtypeB_judge: `
 TIPO: Certificación de rol de Juez/Evaluador.
 El Bloque 3 DEBE cubrir explícitamente estos tres elementos, cada uno con evidencia verificable: (a) por qué la organización eligió a este beneficiario específicamente como juez/evaluador; (b) la significancia del evento juzgado (escala, nivel, relevancia); (c) si el veredicto del beneficiario fue final/vinculante y qué consecuencia verificable tuvo sobre los evaluados.`,
