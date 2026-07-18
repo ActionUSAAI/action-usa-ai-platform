@@ -132,3 +132,13 @@ Corregido en la causa raíz, no en el síntoma: `buildTipo0UserPrompt` ahora pre
 **Caso de prueba sintético:** limpiado en su totalidad — verificado en 0 en las 4 tablas relevantes y Storage.
 
 **Estado resultante:** los tres motores de generación de cartas (Testimonial, Institucional, Abogado) están validados en ejecución real de punta a punta, sin bugs de comportamiento conocidos pendientes. Pendientes de diseño que permanecen abiertos, sin cambios: (1) huérfanos de Storage si el insert falla tras el upload, (2) no-determinismo de `criteria_met` en A1, (3) enriquecer `Module15` Sección A con más campos de intake (opción complementaria al fix de hoy, no necesaria para el comportamiento correcto, solo para opiniones consultivas más sustantivas si el negocio lo requiere en el futuro).
+
+## 2026-07-18 — Fix de huérfanos en Storage
+
+**Contexto:** cierre del hallazgo de diseño registrado hace dos días — los cuatro puntos de escritura de documentos (A3 Testimonial, A3 Institucional, A4 Tipo 0, A4 Tipo 0b) subían el `.docx` a Storage antes de insertar el registro en base de datos. Si el insert fallaba después del upload exitoso, quedaba un archivo huérfano sin fila que lo referenciara — se había observado dos veces en sesiones de prueba anteriores.
+
+**Fix aplicado:** compensación inmediata en los cuatro puntos — si `insertError || !inserted`, se borra el archivo recién subido (`uploadPath`) antes de propagar el error original, con `.catch(() => {})` deliberado para que un fallo del propio borrado de compensación no oscurezca el error real del insert. Commit `ab442d6`.
+
+**Opción elegida y por qué:** de las tres opciones registradas originalmente (compensar en el catch, invertir el orden de upload/insert, job de barrido periódico), se eligió la compensación inmediata por ser la de menor superficie de cambio — no toca el flujo ya validado en producción de los tres builders, y resuelve el problema en el momento exacto donde nace, sin requerir infraestructura adicional (a diferencia del job de barrido).
+
+**Estado resultante:** los tres motores de generación de cartas quedan sin deuda técnica conocida de huérfanos en Storage. Pendientes de diseño que permanecen abiertos, sin cambios: (1) no-determinismo de `criteria_met` en A1, (2) enriquecer `Module15` Sección A con más campos de intake (mejora opcional, no correctiva).
