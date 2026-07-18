@@ -120,3 +120,15 @@ Corregido en la causa raíz, no en el síntoma: `buildTipo0UserPrompt` ahora pre
 **Caso de prueba sintético:** limpiado en su totalidad — 8 tablas y 4 subcarpetas de Storage verificadas en 0, sin huérfanos (confirmado con listado dinámico por prefijo en las 4 rutas).
 
 **Estado resultante:** los tres motores de generación de cartas (Testimonial, Institucional, Abogado) están validados en ejecución real de punta a punta, con todos los bugs de runtime descubiertos corregidos y commiteados. Pendientes abiertos, sin cambios respecto a entradas anteriores: (1) comportamiento del Advisory Opinion con datos escasos (entrada anterior de hoy), (2) huérfanos de Storage si el insert falla tras el upload (entrada de ayer), (3) no-determinismo de `criteria_met` en A1 (entrada previa).
+
+## 2026-07-17 (cierre) — Fix del Advisory Opinion
+
+**Contexto:** cierre del último pendiente abierto de la sesión de hoy — el comportamiento no deseado del candidato `subtypeA_advisory` con datos escasos, registrado en la entrada anterior de la mañana.
+
+**Fix aplicado:** el `systemPrompt` de `subtypeA_advisory` restringe ahora explícitamente el Bloque 3 a una declaración de postura breve (2-4 oraciones), aclara que esta carta no argumenta los criterios de la petición (función exclusiva de la Attorney Petition Letter), y prohíbe explícitamente inventar contenido o recorrer criterios uno por uno cuando los datos de entrada son escasos — instruyendo preferir una carta corta y honesta sobre una plantilla extensa inventada. Commit `b9ff9db`.
+
+**Validación en ejecución real:** caso de prueba aislado (solo `Module15.hasPeerGroup: "si"`, sin candidatos de Subtipo B) replicando exactamente el escenario de datos escasos de la mañana. Resultado: carta de 2-3 oraciones declarando la postura, sin ningún desglose de criterios ni placeholders de relleno — contraste directo con la plantilla de 8 criterios de la corrida anterior al fix. El modelo agregó por iniciativa propia un disclaimer legal breve ("does not constitute legal representation"), coherente con el tono pedido, sin contradecir ninguna instrucción.
+
+**Caso de prueba sintético:** limpiado en su totalidad — verificado en 0 en las 4 tablas relevantes y Storage.
+
+**Estado resultante:** los tres motores de generación de cartas (Testimonial, Institucional, Abogado) están validados en ejecución real de punta a punta, sin bugs de comportamiento conocidos pendientes. Pendientes de diseño que permanecen abiertos, sin cambios: (1) huérfanos de Storage si el insert falla tras el upload, (2) no-determinismo de `criteria_met` en A1, (3) enriquecer `Module15` Sección A con más campos de intake (opción complementaria al fix de hoy, no necesaria para el comportamiento correcto, solo para opiniones consultivas más sustantivas si el negocio lo requiere en el futuro).
