@@ -37,3 +37,16 @@ El I-129 es un formulario **XFA dinámico de Adobe LiveCycle Designer**, no un A
 - Decidir alcance de implementación: ¿rellenar el AcroForm completo automáticamente, o generar primero una hoja de resumen/checklist de datos para transcripción manual (opción intermedia de menor riesgo)?
 - Diseñar el/los campo(s) nuevos necesarios en `Module1`/`Module15` para cerrar los gaps 1-4 y 7.
 - Confirmar con una prueba real de llenado + apertura en Adobe Reader si el AcroForm de respaldo es fiable para XFA, antes de construir el pipeline de generación.
+
+## Estado de implementación (2026-07-18)
+
+Los 26 campos nuevos de intake diseñados para cerrar los gaps #1-4, #6, #7 están implementados y commiteados en `main`:
+
+- **Gap #7** (nombre/dirección sin desglosar) — cerrado en `Module1` (beneficiario), y ambas ramas de `Module14` (representante de empresa, peticionario persona natural). Commits `8707123`, `b209d13`, `1deabc3`.
+- **Gap #4** (SSN/ITIN) — cerrado en `Module14`, rama persona natural. Commit `09b6e41`.
+- **Gap #6** (Basis for Classification) — cerrado en `Module14`, sección común. Commit `c269d20`.
+- **Gaps #1-3** (dirección/fecha/teléfono de la organización de consulta) — cerrado en `Module15` Sección A. Commit `acd7b19`.
+
+**Fuera de alcance por decisión explícita:** solo se implementó para O-1A, la única clasificación completamente validada en el pipeline de generación de cartas hasta la fecha. El **gap #5** (granularidad de clasificación de visa — O-2, variantes P, sub-rama arts/motion-picture-TV dentro de O-1B) queda pendiente de forma deliberada: no es necesario para O-1A, y tocaría `Module1.visaType`, campo consumido por los tres motores de generación de cartas ya validados en producción — cambio de mayor riesgo que merece su propia sesión de diseño.
+
+**Pendiente para desbloquear el llenado real del PDF (siguiente fase, no iniciada):** con el modelo de datos ya completo para O-1A, la siguiente pieza sería la ruta/script que tome un caso real, lea estos campos, y use `pypdf` para rellenar el AcroForm del I-129 (edición 02/27/26) con los `field_id` reales documentados en `i129-field-info-2026-02-27-edition.json`, generando el PDF final. No se ha diseñado ni empezado esta pieza.
