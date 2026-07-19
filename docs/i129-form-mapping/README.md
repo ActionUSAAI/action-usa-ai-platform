@@ -135,3 +135,24 @@ Verificado en Adobe Acrobat Reader real por Alex, con confirmación explícita e
 3. ⏳ Aceptación de USCIS del documento sin `/XFA` — sigue pendiente, es una pregunta de cumplimiento legal, no técnica, fuera del alcance de lo que se puede verificar con pruebas de software.
 
 Con los puntos 1 y 2 cerrados, el camino técnico para construir el pipeline real de llenado (eliminar `/XFA` → rellenar con `pypdf` usando el mapeo de `i129-field-info-2026-02-27-edition.json` → entregar el PDF) queda validado. Falta solo resolver el punto 3 antes de usarlo en un caso de radicación real, y diseñar/construir la ruta de orquestación (probablemente un microservicio Python o una función serverless con runtime Python, dado que esta lógica depende de `pypdf`/`pikepdf`, no reproducible en el Node.js/TypeScript del resto de la aplicación).
+
+## [VERIFICADO 2026-07-19] Punto 3 cerrado — radicación electrónica del I-129 solo existe para H-1B, y AUCIS es exclusivamente de radicación física
+
+**Corrección de proceso:** un primer intento de esta entrada (mismo día) se basó en fuentes de terceros que resultaron contradictorias entre sí, sin verificación contra la fuente oficial — fue señalado y descartado antes de comitear, sin llegar a documentarse como verificado. Se repite la verificación correctamente a continuación.
+
+**Fuente primaria, verificada directamente por Alex en su navegador** (la página bloquea el acceso automatizado tanto de Claude como de Claude Code): `uscis.gov/file-online/forms-available-to-file-online`. Las únicas entradas relacionadas con el Formulario I-129 en la lista oficial de formularios disponibles para radicación en línea son:
+- "USCIS acepta el Formulario I-129 para las peticiones H-1B que no están sujetas a la cantidad máxima reglamentaria."
+- "USCIS acepta el Formulario I-129 para las peticiones H-1B que están sujetas a la cantidad máxima reglamentaria para peticionarios cuyos registros fueron seleccionados."
+
+Ninguna clasificación O (O-1A, O-1B, O-2) aparece en la lista — la radicación electrónica del I-129 hoy está limitada exclusivamente a H-1B.
+
+**Decisión de producto confirmada por Alex:** independientemente de qué clasificaciones tengan o no radicación electrónica disponible en el futuro, AUCIS está diseñada exclusivamente para radicación física (impresa y enviada por correo) — no para radicación en línea. Esto hace que la pregunta de si USCIS "acepta" la estructura digital de un PDF sea, en la práctica, irrelevante: el documento se imprime y se envía por correo, y USCIS recibe tinta sobre papel, nunca el archivo digital ni su estructura interna (presencia o ausencia de `/XFA`).
+
+**Requisitos reales que sí aplican a la radicación física**, según la guía oficial de USCIS: páginas de una sola cara, tamaño carta estándar (8½ x 11 pulgadas), y que todas las páginas correspondan a la misma edición del formulario — ninguno de estos depende de la estructura interna del PDF.
+
+**Estado final de los tres pendientes originales:**
+1. ✅ Integridad visual — confirmado.
+2. ✅ Tipos de campo variados — confirmado.
+3. ✅ Cumplimiento de USCIS — confirmado como no aplicable, verificado con fuente primaria directa (no de terceros) y con la decisión de producto de radicación exclusivamente física.
+
+Con los tres pendientes cerrados, el camino técnico y de cumplimiento para el llenado real del I-129 queda completamente validado. Queda pendiente únicamente la pieza de implementación: diseñar y construir la ruta/pipeline de generación real (probablemente un microservicio o función con runtime Python, dado que la lógica depende de `pypdf`/`pikepdf`).
