@@ -1,3 +1,0 @@
-# Requerido por Vercel para reconocer el runtime de Python.
-# Las dependencias reales (pypdf, pikepdf) se agregarán cuando
-# construyamos la función real de relleno del I-129.

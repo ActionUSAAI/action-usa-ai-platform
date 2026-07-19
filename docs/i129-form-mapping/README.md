@@ -156,3 +156,13 @@ Ninguna clasificación O (O-1A, O-1B, O-2) aparece en la lista — la radicació
 3. ✅ Cumplimiento de USCIS — confirmado como no aplicable, verificado con fuente primaria directa (no de terceros) y con la decisión de producto de radicación exclusivamente física.
 
 Con los tres pendientes cerrados, el camino técnico y de cumplimiento para el llenado real del I-129 queda completamente validado. Queda pendiente únicamente la pieza de implementación: diseñar y construir la ruta/pipeline de generación real (probablemente un microservicio o función con runtime Python, dado que la lógica depende de `pypdf`/`pikepdf`).
+
+## [VERIFICADO 2026-07-19] Vercel soporta funciones Python conviviendo con Next.js en el mismo proyecto
+
+Antes de diseñar el pipeline real de generación del I-129, se verificó si Vercel permite desplegar una función serverless en Python (necesaria porque `pypdf`/`pikepdf` son las únicas herramientas confirmadas capaces de rellenar el formulario de forma visible en Adobe Reader) en el mismo proyecto donde vive la aplicación Next.js/TypeScript existente — sin necesidad de un servicio de hosting externo separado.
+
+**Prueba:** un archivo mínimo `api/hello-python.py` (convención de Vercel: un directorio `api/` en la raíz del repo, distinto de `src/app/api/` que es exclusivo de las rutas de Next.js App Router), con `requirements.txt` duplicado en la raíz y dentro de `api/` para cubrir ambas convenciones posibles del builder.
+
+**Resultado:** desplegado exitosamente (estado "Ready" en Vercel), y verificado en el navegador real de Alex contra `https://actionusaai.com/api/hello-python` — responde correctamente el JSON de prueba.
+
+**Conclusión:** la arquitectura de pipeline puede construirse como una función Python serverless dentro del mismo proyecto/despliegue, sin infraestructura externa adicional. El archivo de prueba (`api/hello-python.py`) se elimina en este mismo commit, reemplazado más adelante por la función real de relleno del I-129.
