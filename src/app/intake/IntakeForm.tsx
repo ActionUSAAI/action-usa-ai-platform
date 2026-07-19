@@ -128,7 +128,7 @@ const INITIAL: IntakeFormData = {
     companyAddress: "", companyStreetNumberName: "", companyAptSteFlr: "", companyAptSteFlrNumber: "", companyCity: "", companyState: "", companyZipCode: "",
     representativeName: "", representativeFamilyName: "", representativeGivenName: "", representativeMiddleName: "", representativeTitle: "",
     companyArticlesPath: "", companyArticlesName: "", einDocPath: "", einDocName: "",
-    petitionerFullName: "", petitionerFamilyName: "", petitionerGivenName: "", petitionerMiddleName: "", petitionerDateOfBirth: "", petitionerRelationship: "",
+    petitionerFullName: "", petitionerFamilyName: "", petitionerGivenName: "", petitionerMiddleName: "", petitionerDateOfBirth: "", petitionerRelationship: "", petitionerSSN: "", petitionerITIN: "",
     petitionerAddress: "", petitionerStreetNumberName: "", petitionerAptSteFlr: "", petitionerAptSteFlrNumber: "", petitionerCity: "", petitionerState: "", petitionerZipCode: "",
     petitionerIdPath: "", petitionerIdName: "", petitionerBirthCertPath: "", petitionerBirthCertName: "",
     agentName: "", agentEmployerName: "", agentAgreementType: "",

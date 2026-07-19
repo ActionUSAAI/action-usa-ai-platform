@@ -266,6 +266,8 @@ export type Module14 = {
   petitionerMiddleName: string;
   petitionerDateOfBirth: string;
   petitionerRelationship: string;
+  petitionerSSN: string;
+  petitionerITIN: string;
   petitionerAddress: string; // derivado automáticamente de petitionerStreetNumberName/AptSteFlr/AptSteFlrNumber/City/State/ZipCode — no editar directamente
   petitionerStreetNumberName: string;
   petitionerAptSteFlr: "APT" | "STE" | "FLR" | "";

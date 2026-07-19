@@ -216,6 +216,12 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
               <TextInput value={d.petitionerRelationship} onChange={v => set("petitionerRelationship", v)}
                 placeholder="Empleador, dueño del rancho, cliente..." />
             </Field>
+            <Field label="Número de Seguro Social (SSN)">
+              <TextInput value={d.petitionerSSN} onChange={v => set("petitionerSSN", v)} placeholder="XXX-XX-XXXX"/>
+            </Field>
+            <Field label="Número de Identificación Fiscal Individual (ITIN)">
+              <TextInput value={d.petitionerITIN} onChange={v => set("petitionerITIN", v)} placeholder="9XX-XX-XXXX"/>
+            </Field>
           </div>
           <Field label="Número y nombre de calle" required>
             <TextInput value={d.petitionerStreetNumberName} onChange={v => updatePetitionerAddressField("petitionerStreetNumberName", v)} placeholder="456 Oak Ave"/>
