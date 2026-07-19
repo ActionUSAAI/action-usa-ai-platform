@@ -92,3 +92,25 @@ Tras el hallazgo negativo de que ninguna herramienta estándar logra que un valo
 **Herramientas comerciales de pago** (Apryse PDF SDK, iText pdfXFA, Adobe AEM Forms) quedan anotadas como alternativa futura si el proyecto genera ingresos suficientes — no deben bloquear el desarrollo actual de ninguna de las dos prioridades anteriores.
 
 **Principio de diseño acordado:** el PDF es únicamente la capa de presentación final. La fuente de verdad del caso vive en la base de datos de AUCIS (Supabase/Postgres), no en el PDF — coherente con cómo ya funcionan los tres motores de cartas, que generan `.docx` a partir de los datos del intake, nunca al revés.
+
+## [VERIFICADO 2026-07-19] Conversión XFA→AcroForm exitosa — eliminar /XFA resuelve el problema por completo
+
+Siguiendo la Prioridad 1 del plan de siguiente fase, se probó eliminar la entrada `/XFA` del diccionario `AcroForm` del PDF original, usando `pikepdf` (más apropiado que `pypdf` para manipular estructura interna de bajo nivel):
+
+```python
+import pikepdf
+pdf = pikepdf.open('i-129-full.pdf')
+del pdf.Root.AcroForm['/XFA']
+pdf.save('i-129-no-xfa.pdf')
+```
+
+El `AcroForm` original tenía 5 claves (`/Fields`, `/DA`, `/XFA`, `/DR`, `/SigFlags`); tras la eliminación, quedan 4, sin `/XFA`. El PDF resultante pasa de 2,296,144 bytes a 912,400 bytes — el paquete XFA (el XML completo de LiveCycle con toda la lógica dinámica del formulario) representaba aproximadamente el 60% del peso del archivo original.
+
+Se rellenó el mismo campo de prueba de siempre (`Line9_EmailAddress[0]`) con `pypdf` sobre este PDF sin XFA, y se verificó en Adobe Acrobat Reader real, con confirmación explícita de Alex en los tres puntos del protocolo (aplicación correcta, valor visible, título del archivo conservado): **el valor aparece correctamente, y el nombre del archivo se conserva** (a diferencia de todas las pruebas anteriores, donde Adobe ignoraba el archivo y mostraba el título interno "Form I-129 Petition...", señal inequívoca de que estaba renderizando desde XFA).
+
+**Conclusión: la hipótesis de la Prioridad 1 queda confirmada.** Todo el trabajo ya realizado es reutilizable sin cambios — los 980 campos mapeados (`i129-field-info-2026-02-27-edition.json`), `pypdf` como herramienta de escritura, el modelo de datos completo para O-1A. Solo se agrega un paso previo obligatorio: eliminar `/XFA` del PDF antes de rellenarlo.
+
+**Pendiente de verificar antes de construir el pipeline completo:**
+1. Confirmar que eliminar `/XFA` no rompe nada visualmente en las páginas que **no** se van a rellenar — es decir, que el formulario se siga viendo correctamente en las secciones sin datos de prueba, no solo en el campo que probamos.
+2. Confirmar el mismo comportamiento en al menos 2-3 campos adicionales de tipos distintos (checkbox, choice/dropdown, no solo texto libre) — el campo de email es un `/Tx` (texto) simple; los checkboxes de clasificación (`a_O1A`, etc.) y los combos de estado podrían comportarse distinto.
+3. Confirmar que la conversión es legal/aceptable para radicación real ante USCIS — eliminar `/XFA` cambia la naturaleza del documento; vale la pena confirmar que un I-129 sin su paquete XFA sigue siendo un documento válido para USCIS y no genera problemas de procesamiento en su sistema (que podría, en teoría, esperar la estructura XFA original). No es un problema técnico sino de cumplimiento — pendiente de verificar antes de usar esto en un caso real.
