@@ -243,7 +243,13 @@ export type Module14 = {
   companyName: string;
   ein: string;
   stateOfIncorporation: string;
-  companyAddress: string;
+  companyAddress: string; // derivado automáticamente de companyStreetNumberName/AptSteFlr/AptSteFlrNumber/City/State/ZipCode — no editar directamente
+  companyStreetNumberName: string;
+  companyAptSteFlr: "APT" | "STE" | "FLR" | "";
+  companyAptSteFlrNumber: string;
+  companyCity: string;
+  companyState: string;
+  companyZipCode: string;
   representativeName: string; // derivado automáticamente de representativeFamilyName/GivenName/MiddleName — no editar directamente
   representativeFamilyName: string;
   representativeGivenName: string;
@@ -259,8 +265,14 @@ export type Module14 = {
   petitionerGivenName: string;
   petitionerMiddleName: string;
   petitionerDateOfBirth: string;
-  petitionerAddress: string;
   petitionerRelationship: string;
+  petitionerAddress: string; // derivado automáticamente de petitionerStreetNumberName/AptSteFlr/AptSteFlrNumber/City/State/ZipCode — no editar directamente
+  petitionerStreetNumberName: string;
+  petitionerAptSteFlr: "APT" | "STE" | "FLR" | "";
+  petitionerAptSteFlrNumber: string;
+  petitionerCity: string;
+  petitionerState: string;
+  petitionerZipCode: string;
   petitionerIdPath: string;
   petitionerIdName: string;
   petitionerBirthCertPath: string;

@@ -1,7 +1,8 @@
 import { Building2, User, Briefcase } from "lucide-react";
 import type { Module14, ItineraryItem } from "../types";
-import { Field, TextInput, Textarea, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
+import { Field, TextInput, Textarea, Select, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
 import { composeFullName } from "../name-utils";
+import { composeAddress } from "../address-utils";
 
 type Props = { data: Module14; onChange: (d: Module14) => void; sessionId: string; visaType: string };
 
@@ -46,6 +47,30 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
     const updated = { ...d, [field]: value };
     const petitionerFullName = composeFullName(updated.petitionerFamilyName, updated.petitionerGivenName, updated.petitionerMiddleName);
     onChange({ ...updated, petitionerFullName });
+  }
+
+  function updateCompanyAddressField(
+    field: "companyStreetNumberName" | "companyAptSteFlr" | "companyAptSteFlrNumber" | "companyCity" | "companyState" | "companyZipCode",
+    value: string
+  ) {
+    const updated = { ...d, [field]: value };
+    const companyAddress = composeAddress(
+      updated.companyStreetNumberName, updated.companyAptSteFlr, updated.companyAptSteFlrNumber,
+      updated.companyCity, updated.companyState, updated.companyZipCode
+    );
+    onChange({ ...updated, companyAddress });
+  }
+
+  function updatePetitionerAddressField(
+    field: "petitionerStreetNumberName" | "petitionerAptSteFlr" | "petitionerAptSteFlrNumber" | "petitionerCity" | "petitionerState" | "petitionerZipCode",
+    value: string
+  ) {
+    const updated = { ...d, [field]: value };
+    const petitionerAddress = composeAddress(
+      updated.petitionerStreetNumberName, updated.petitionerAptSteFlr, updated.petitionerAptSteFlrNumber,
+      updated.petitionerCity, updated.petitionerState, updated.petitionerZipCode
+    );
+    onChange({ ...updated, petitionerAddress });
   }
 
   const updItem = <K extends keyof ItineraryItem>(i: number, f: K, v: ItineraryItem[K]) => {
@@ -119,9 +144,35 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                 placeholder="CEO, Directora de Operaciones..." />
             </Field>
           </div>
-          <Field label="Dirección completa de la empresa" required>
-            <Textarea value={d.companyAddress} onChange={v => set("companyAddress", v)}
-              placeholder="123 Main St, Suite 400, Los Angeles, CA 90001" rows={2} />
+          <Field label="Número y nombre de calle" required>
+            <TextInput value={d.companyStreetNumberName} onChange={v => updateCompanyAddressField("companyStreetNumberName", v)} placeholder="123 Main St"/>
+          </Field>
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="Tipo">
+              <Select value={d.companyAptSteFlr} onChange={v => updateCompanyAddressField("companyAptSteFlr", v as "APT" | "STE" | "FLR" | "")}>
+                <option value="">—</option>
+                <option value="APT">Apt</option>
+                <option value="STE">Ste</option>
+                <option value="FLR">Flr</option>
+              </Select>
+            </Field>
+            <Field label="Número">
+              <TextInput value={d.companyAptSteFlrNumber} onChange={v => updateCompanyAddressField("companyAptSteFlrNumber", v)} placeholder="400"/>
+            </Field>
+            <Field label="ZIP" required>
+              <TextInput value={d.companyZipCode} onChange={v => updateCompanyAddressField("companyZipCode", v)} placeholder="90001"/>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Ciudad" required>
+              <TextInput value={d.companyCity} onChange={v => updateCompanyAddressField("companyCity", v)} placeholder="Los Angeles"/>
+            </Field>
+            <Field label="Estado" required>
+              <TextInput value={d.companyState} onChange={v => updateCompanyAddressField("companyState", v)} placeholder="CA"/>
+            </Field>
+          </div>
+          <Field label="Dirección completa (generada automáticamente)">
+            <TextInput value={d.companyAddress} onChange={() => {}} disabled placeholder=""/>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -166,9 +217,35 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                 placeholder="Empleador, dueño del rancho, cliente..." />
             </Field>
           </div>
-          <Field label="Dirección completa" required>
-            <Textarea value={d.petitionerAddress} onChange={v => set("petitionerAddress", v)}
-              placeholder="456 Oak Ave, Dallas, TX 75201" rows={2} />
+          <Field label="Número y nombre de calle" required>
+            <TextInput value={d.petitionerStreetNumberName} onChange={v => updatePetitionerAddressField("petitionerStreetNumberName", v)} placeholder="456 Oak Ave"/>
+          </Field>
+          <div className="grid grid-cols-3 gap-2">
+            <Field label="Tipo">
+              <Select value={d.petitionerAptSteFlr} onChange={v => updatePetitionerAddressField("petitionerAptSteFlr", v as "APT" | "STE" | "FLR" | "")}>
+                <option value="">—</option>
+                <option value="APT">Apt</option>
+                <option value="STE">Ste</option>
+                <option value="FLR">Flr</option>
+              </Select>
+            </Field>
+            <Field label="Número">
+              <TextInput value={d.petitionerAptSteFlrNumber} onChange={v => updatePetitionerAddressField("petitionerAptSteFlrNumber", v)} placeholder="12"/>
+            </Field>
+            <Field label="ZIP" required>
+              <TextInput value={d.petitionerZipCode} onChange={v => updatePetitionerAddressField("petitionerZipCode", v)} placeholder="75201"/>
+            </Field>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Ciudad" required>
+              <TextInput value={d.petitionerCity} onChange={v => updatePetitionerAddressField("petitionerCity", v)} placeholder="Dallas"/>
+            </Field>
+            <Field label="Estado" required>
+              <TextInput value={d.petitionerState} onChange={v => updatePetitionerAddressField("petitionerState", v)} placeholder="TX"/>
+            </Field>
+          </div>
+          <Field label="Dirección completa (generada automáticamente)">
+            <TextInput value={d.petitionerAddress} onChange={() => {}} disabled placeholder=""/>
           </Field>
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
