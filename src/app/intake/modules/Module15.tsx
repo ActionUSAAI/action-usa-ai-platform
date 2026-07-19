@@ -128,6 +128,32 @@ export function Module15({ data: d, onChange, sessionId, profession, industry, v
                 placeholder="Screen Actors Guild (SAG-AFTRA), IEEE, ASCAP..." />
             </Field>
 
+            <Field label="Dirección física de la organización" required>
+              <TextInput value={d.peerGroupStreetAddress} onChange={v => set("peerGroupStreetAddress", v)}
+                placeholder="1900 Broadway, New York, NY" />
+            </Field>
+
+            <div className="grid gap-3 sm:grid-cols-3">
+              <Field label="Ciudad" required>
+                <TextInput value={d.peerGroupCity} onChange={v => set("peerGroupCity", v)} placeholder="New York"/>
+              </Field>
+              <Field label="Estado" required>
+                <TextInput value={d.peerGroupState} onChange={v => set("peerGroupState", v)} placeholder="NY"/>
+              </Field>
+              <Field label="ZIP" required>
+                <TextInput value={d.peerGroupZipCode} onChange={v => set("peerGroupZipCode", v)} placeholder="10023"/>
+              </Field>
+            </div>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Fecha de envío de la consulta">
+                <TextInput type="date" value={d.peerGroupDateSent} onChange={v => set("peerGroupDateSent", v)} />
+              </Field>
+              <Field label="Teléfono diurno de contacto">
+                <TextInput value={d.peerGroupPhone} onChange={v => set("peerGroupPhone", v)} placeholder="(212) 555-0100"/>
+              </Field>
+            </div>
+
             <Field label="Tipo de carta esperada de la asociación">
               <div className="grid gap-2 sm:grid-cols-2">
                 {[

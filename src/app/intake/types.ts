@@ -320,6 +320,12 @@ export type Module15 = {
   // Section A — Consultative opinion
   hasPeerGroup: "si" | "no" | "no_se" | "";
   peerGroupName: string;
+  peerGroupStreetAddress: string;
+  peerGroupCity: string;
+  peerGroupState: string;
+  peerGroupZipCode: string;
+  peerGroupDateSent: string;
+  peerGroupPhone: string;
   peerGroupLetterType: "opinion_favorable" | "no_objecion" | "";
   peerGroupLetterPath: string;
   peerGroupLetterName: string;

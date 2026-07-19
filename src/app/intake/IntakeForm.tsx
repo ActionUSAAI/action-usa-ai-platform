@@ -139,7 +139,8 @@ const INITIAL: IntakeFormData = {
   },
   module15: {
     hasPeerGroup: "",
-    peerGroupName: "", peerGroupLetterType: "", peerGroupLetterPath: "", peerGroupLetterName: "",
+    peerGroupName: "", peerGroupStreetAddress: "", peerGroupCity: "", peerGroupState: "", peerGroupZipCode: "", peerGroupDateSent: "", peerGroupPhone: "",
+    peerGroupLetterType: "", peerGroupLetterPath: "", peerGroupLetterName: "",
     alternativeContactName: "", alternativeContactOrg: "", alternativeContactRelation: "",
     noAssociationJustification: "", consultativeNotes: "",
     hasO2Companions: null, companions: [],
