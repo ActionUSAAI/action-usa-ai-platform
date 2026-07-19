@@ -78,3 +78,17 @@ Se repitió la prueba de confiabilidad ya validada con `pypdf` (campo `Line9_Ema
 3. Mantener el llenado como un script de Python ejecutado manualmente por el staff (no automatizado desde la UI), al menos para una primera versión — el proceso ya está probado y funciona, aunque no esté integrado en el flujo del panel.
 
 Ninguna de las tres opciones ha sido decidida. Pendiente de sesión de diseño dedicada antes de escribir cualquier código de la ruta de llenado.
+
+## Plan de siguiente fase (2026-07-19) — investigar conversión XFA→AcroForm antes de construir motor de coordenadas
+
+Tras el hallazgo negativo de que ninguna herramienta estándar logra que un valor escrito en el AcroForm sea visible en Adobe Reader (ver corrección anterior), se define el siguiente orden de investigación, en vez de seguir probando más librerías de relleno de campos:
+
+**Corrección de contexto importante:** el backend real de AUCIS es Next.js/TypeScript (los tres motores de generación de cartas ya en producción lo confirman) — no Python. Python se usó únicamente para los experimentos puntuales de esta investigación del PDF, corridos manualmente en terminal. Cualquier pieza de Python que termine siendo necesaria (por ejemplo, si la única vía de conversión XFA→AcroForm requiere herramientas de ese ecosistema) sería una pieza aislada y pequeña, no el núcleo de la aplicación.
+
+**Prioridad 1 — Investigar si el I-129 XFA puede convertirse de forma automatizada y confiable a un AcroForm estándar.** Si es viable, todo el trabajo ya hecho (mapeo de 980 campos, `pypdf`/herramientas equivalentes) se reutiliza directamente — solo cambiaría el PDF de entrada, no la lógica de relleno. Vías a explorar: Adobe Acrobat Pro (conversión manual/scriptable), herramientas de línea de comandos que soporten "flatten" o "remove XFA", SDKs comerciales con función de conversión. No investigado todavía.
+
+**Prioridad 2 (si la 1 falla o no es viable/legal para uso en un SaaS) — Motor de renderizado por coordenadas.** En vez de rellenar "campos" del PDF, el sistema dibuja el texto directamente encima de una plantilla del I-129, en las coordenadas exactas donde USCIS espera cada dato — el resultado es un PDF final donde el contenido es visual, no depende de ningún mecanismo de formulario interactivo, y por tanto es inmune al problema de XFA. Más trabajo de diseño inicial (hay que determinar la posición exacta de cada uno de los ~40-50 campos relevantes de páginas 1-8/28-30), pero garantiza el resultado y es reutilizable para futuros formularios (I-140, I-765, I-539).
+
+**Herramientas comerciales de pago** (Apryse PDF SDK, iText pdfXFA, Adobe AEM Forms) quedan anotadas como alternativa futura si el proyecto genera ingresos suficientes — no deben bloquear el desarrollo actual de ninguna de las dos prioridades anteriores.
+
+**Principio de diseño acordado:** el PDF es únicamente la capa de presentación final. La fuente de verdad del caso vive en la base de datos de AUCIS (Supabase/Postgres), no en el PDF — coherente con cómo ya funcionan los tres motores de cartas, que generan `.docx` a partir de los datos del intake, nunca al revés.
