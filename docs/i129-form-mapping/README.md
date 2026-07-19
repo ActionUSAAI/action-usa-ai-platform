@@ -114,3 +114,24 @@ Se rellenó el mismo campo de prueba de siempre (`Line9_EmailAddress[0]`) con `p
 1. Confirmar que eliminar `/XFA` no rompe nada visualmente en las páginas que **no** se van a rellenar — es decir, que el formulario se siga viendo correctamente en las secciones sin datos de prueba, no solo en el campo que probamos.
 2. Confirmar el mismo comportamiento en al menos 2-3 campos adicionales de tipos distintos (checkbox, choice/dropdown, no solo texto libre) — el campo de email es un `/Tx` (texto) simple; los checkboxes de clasificación (`a_O1A`, etc.) y los combos de estado podrían comportarse distinto.
 3. Confirmar que la conversión es legal/aceptable para radicación real ante USCIS — eliminar `/XFA` cambia la naturaleza del documento; vale la pena confirmar que un I-129 sin su paquete XFA sigue siendo un documento válido para USCIS y no genera problemas de procesamiento en su sistema (que podría, en teoría, esperar la estructura XFA original). No es un problema técnico sino de cumplimiento — pendiente de verificar antes de usar esto en un caso real.
+
+## [VERIFICADO 2026-07-19] Puntos 1 y 2 cerrados — múltiples tipos de campo e integridad visual confirmados
+
+Prueba ampliada sobre el PDF sin `/XFA`, rellenando simultáneamente los tres tipos de campo presentes en el alcance del proyecto (páginas 1-8, 28-30):
+
+- **Texto** (`Line9_EmailAddress[0]`) — `PRUEBA-AMPLIADA-TEST@example.com`.
+- **Checkbox** (`a_O1A[0]`, ítem 3 de la página 28) — marcado con `/V` y `/AS` ambos en `/1`, verificado contra el único estado de apariencia real disponible en el widget (`/AP /N`), no un valor arbitrario asumido.
+- **Choice/dropdown** (`P1_Line3_State[0]`, página 1) — `CA`.
+
+Verificado en Adobe Acrobat Reader real por Alex, con confirmación explícita en los 5 puntos del protocolo: los tres campos se muestran correctamente — el checkbox de O-1A aparece marcado junto a su etiqueta completa ("O-1A Alien of extraordinary ability in sciences, education, business or athletics..."), confirmando que el mecanismo de checkbox (que depende de `/AS`, no solo de `/V`) también sobrevive la eliminación de `/XFA`.
+
+**Punto 1 (integridad visual) también confirmado:** Alex revisó páginas del documento no tocadas por el relleno y las confirmó visualmente normales, sin texto faltante ni formato dañado — la eliminación de `/XFA` (que redujo el archivo en ~60% de su peso) no afecta la renderización de las secciones sin datos de prueba.
+
+**Nota técnica para la implementación del pipeline:** el nombre del estado "activado" de un checkbox no sigue una convención universal (`/1` en este caso, no `/Yes` u `/On` como es común en otros PDFs) — el código de relleno real deberá leer el estado de apariencia correcto desde cada widget individualmente (vía `/AP /N`), no asumir un valor fijo para todos los checkboxes del formulario.
+
+**Estado de los tres pendientes originales:**
+1. ✅ Integridad visual — confirmado.
+2. ✅ Tipos de campo variados — confirmado (texto, checkbox, choice).
+3. ⏳ Aceptación de USCIS del documento sin `/XFA` — sigue pendiente, es una pregunta de cumplimiento legal, no técnica, fuera del alcance de lo que se puede verificar con pruebas de software.
+
+Con los puntos 1 y 2 cerrados, el camino técnico para construir el pipeline real de llenado (eliminar `/XFA` → rellenar con `pypdf` usando el mapeo de `i129-field-info-2026-02-27-edition.json` → entregar el PDF) queda validado. Falta solo resolver el punto 3 antes de usarlo en un caso de radicación real, y diseñar/construir la ruta de orquestación (probablemente un microservicio Python o una función serverless con runtime Python, dado que esta lógica depende de `pypdf`/`pikepdf`, no reproducible en el Node.js/TypeScript del resto de la aplicación).
