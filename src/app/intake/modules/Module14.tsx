@@ -1,6 +1,7 @@
 import { Building2, User, Briefcase } from "lucide-react";
 import type { Module14, ItineraryItem } from "../types";
 import { Field, TextInput, Textarea, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
+import { composeFullName } from "../name-utils";
 
 type Props = { data: Module14; onChange: (d: Module14) => void; sessionId: string; visaType: string };
 
@@ -34,6 +35,18 @@ const PETITIONER_TYPES = [
 
 export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
   const set = <K extends keyof Module14>(k: K, v: Module14[K]) => onChange({ ...d, [k]: v });
+
+  function updateRepresentativeNameField(field: "representativeFamilyName" | "representativeGivenName" | "representativeMiddleName", value: string) {
+    const updated = { ...d, [field]: value };
+    const representativeName = composeFullName(updated.representativeFamilyName, updated.representativeGivenName, updated.representativeMiddleName);
+    onChange({ ...updated, representativeName });
+  }
+
+  function updatePetitionerNameField(field: "petitionerFamilyName" | "petitionerGivenName" | "petitionerMiddleName", value: string) {
+    const updated = { ...d, [field]: value };
+    const petitionerFullName = composeFullName(updated.petitionerFamilyName, updated.petitionerGivenName, updated.petitionerMiddleName);
+    onChange({ ...updated, petitionerFullName });
+  }
 
   const updItem = <K extends keyof ItineraryItem>(i: number, f: K, v: ItineraryItem[K]) => {
     const arr = [...d.itineraryItems];
@@ -89,9 +102,17 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
               <TextInput value={d.stateOfIncorporation} onChange={v => set("stateOfIncorporation", v)}
                 placeholder="California, New York..." />
             </Field>
-            <Field label="Nombre del representante autorizado" required>
-              <TextInput value={d.representativeName} onChange={v => set("representativeName", v)}
-                placeholder="Jane Smith" />
+            <Field label="Apellido(s) del representante" required>
+              <TextInput value={d.representativeFamilyName} onChange={v => updateRepresentativeNameField("representativeFamilyName", v)} placeholder="Smith"/>
+            </Field>
+            <Field label="Nombre(s) del representante" required>
+              <TextInput value={d.representativeGivenName} onChange={v => updateRepresentativeNameField("representativeGivenName", v)} placeholder="Jane"/>
+            </Field>
+            <Field label="Segundo nombre">
+              <TextInput value={d.representativeMiddleName} onChange={v => updateRepresentativeNameField("representativeMiddleName", v)} placeholder="(opcional)"/>
+            </Field>
+            <Field label="Nombre completo (generado automáticamente)">
+              <TextInput value={d.representativeName} onChange={() => {}} disabled placeholder=""/>
             </Field>
             <Field label="Cargo del representante" required>
               <TextInput value={d.representativeTitle} onChange={v => set("representativeTitle", v)}
@@ -124,9 +145,17 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
         <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 p-4">
           <SectionDivider title="Información del peticionario" />
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Nombre completo del peticionario" required>
-              <TextInput value={d.petitionerFullName} onChange={v => set("petitionerFullName", v)}
-                placeholder="John A. Doe" />
+            <Field label="Apellido(s) del peticionario" required>
+              <TextInput value={d.petitionerFamilyName} onChange={v => updatePetitionerNameField("petitionerFamilyName", v)} placeholder="Doe"/>
+            </Field>
+            <Field label="Nombre(s) del peticionario" required>
+              <TextInput value={d.petitionerGivenName} onChange={v => updatePetitionerNameField("petitionerGivenName", v)} placeholder="John"/>
+            </Field>
+            <Field label="Segundo nombre">
+              <TextInput value={d.petitionerMiddleName} onChange={v => updatePetitionerNameField("petitionerMiddleName", v)} placeholder="(opcional)"/>
+            </Field>
+            <Field label="Nombre completo (generado automáticamente)">
+              <TextInput value={d.petitionerFullName} onChange={() => {}} disabled placeholder=""/>
             </Field>
             <Field label="Fecha de nacimiento" required>
               <TextInput type="date" value={d.petitionerDateOfBirth}

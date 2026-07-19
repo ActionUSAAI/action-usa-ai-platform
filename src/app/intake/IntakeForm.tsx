@@ -125,9 +125,9 @@ const INITIAL: IntakeFormData = {
   module14: {
     petitionerType: "",
     companyName: "", ein: "", stateOfIncorporation: "", companyAddress: "",
-    representativeName: "", representativeTitle: "",
+    representativeName: "", representativeFamilyName: "", representativeGivenName: "", representativeMiddleName: "", representativeTitle: "",
     companyArticlesPath: "", companyArticlesName: "", einDocPath: "", einDocName: "",
-    petitionerFullName: "", petitionerDateOfBirth: "", petitionerAddress: "", petitionerRelationship: "",
+    petitionerFullName: "", petitionerFamilyName: "", petitionerGivenName: "", petitionerMiddleName: "", petitionerDateOfBirth: "", petitionerAddress: "", petitionerRelationship: "",
     petitionerIdPath: "", petitionerIdName: "", petitionerBirthCertPath: "", petitionerBirthCertName: "",
     agentName: "", agentEmployerName: "", agentAgreementType: "",
     businessNature: "", offeredPosition: "", serviceStartDate: "", serviceEndDate: "",

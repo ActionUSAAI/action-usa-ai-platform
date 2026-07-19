@@ -1,11 +1,8 @@
 import type { Module1 } from "../types";
 import { Field, TextInput, Textarea, Select } from "../primitives";
+import { composeFullName } from "../name-utils";
 
 type Props = { data: Module1; onChange: (d: Module1) => void; errors: Record<string, string> };
-
-function composeFullName(familyName: string, givenName: string, middleName: string): string {
-  return [givenName, middleName, familyName].filter(Boolean).join(" ").trim();
-}
 
 export function Module1({ data: d, onChange, errors: err }: Props) {
   const u = (f: keyof Module1, v: string) => onChange({ ...d, [f]: v });

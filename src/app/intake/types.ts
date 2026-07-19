@@ -244,14 +244,20 @@ export type Module14 = {
   ein: string;
   stateOfIncorporation: string;
   companyAddress: string;
-  representativeName: string;
+  representativeName: string; // derivado automáticamente de representativeFamilyName/GivenName/MiddleName — no editar directamente
+  representativeFamilyName: string;
+  representativeGivenName: string;
+  representativeMiddleName: string;
   representativeTitle: string;
   companyArticlesPath: string;
   companyArticlesName: string;
   einDocPath: string;
   einDocName: string;
   // persona_natural
-  petitionerFullName: string;
+  petitionerFullName: string; // derivado automáticamente de petitionerFamilyName/GivenName/MiddleName — no editar directamente
+  petitionerFamilyName: string;
+  petitionerGivenName: string;
+  petitionerMiddleName: string;
   petitionerDateOfBirth: string;
   petitionerAddress: string;
   petitionerRelationship: string;
