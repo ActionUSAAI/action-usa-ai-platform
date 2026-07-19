@@ -286,6 +286,7 @@ export type Module14 = {
   // common
   businessNature: string;
   offeredPosition: string;
+  basisForClassification: "new" | "change" | "concurrent" | "amended" | "continuation" | "previouschange" | "";
   serviceStartDate: string;
   serviceEndDate: string;
   hasWrittenContract: boolean | null;

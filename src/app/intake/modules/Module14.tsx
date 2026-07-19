@@ -313,7 +313,17 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                 <TextInput value={d.offeredPosition} onChange={v => set("offeredPosition", v)}
                   placeholder="Científico Principal, Jugador Profesional, Director Musical..." />
               </Field>
-              <div className="col-span-1 sm:col-span-1" />
+              <Field label="Base de la clasificación solicitada" required>
+                <Select value={d.basisForClassification} onChange={v => set("basisForClassification", v as Module14["basisForClassification"])}>
+                  <option value="">Seleccionar...</option>
+                  <option value="new">Petición nueva</option>
+                  <option value="change">Cambio de estatus/empleador</option>
+                  <option value="concurrent">Empleo concurrente</option>
+                  <option value="amended">Petición enmendada</option>
+                  <option value="continuation">Continuación de empleo previamente aprobado, sin cambios</option>
+                  <option value="previouschange">Cambio de estatus previamente aprobado</option>
+                </Select>
+              </Field>
               <Field label="Fecha de inicio de servicios" required>
                 <TextInput type="date" value={d.serviceStartDate} onChange={v => set("serviceStartDate", v)} />
               </Field>
