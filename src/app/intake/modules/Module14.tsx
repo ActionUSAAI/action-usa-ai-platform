@@ -127,6 +127,15 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
               <TextInput value={d.stateOfIncorporation} onChange={v => set("stateOfIncorporation", v)}
                 placeholder="California, New York..." />
             </Field>
+            <Field label="Teléfono diurno de la empresa" required>
+              <TextInput value={d.companyDaytimePhone} onChange={v => set("companyDaytimePhone", v)} placeholder="(212) 555-0100"/>
+            </Field>
+            <Field label="Teléfono móvil">
+              <TextInput value={d.companyMobilePhone} onChange={v => set("companyMobilePhone", v)} placeholder="(opcional)"/>
+            </Field>
+            <Field label="Correo electrónico de la empresa" required>
+              <TextInput value={d.companyEmail} onChange={v => set("companyEmail", v)} placeholder="contacto@empresa.com"/>
+            </Field>
             <Field label="Apellido(s) del representante" required>
               <TextInput value={d.representativeFamilyName} onChange={v => updateRepresentativeNameField("representativeFamilyName", v)} placeholder="Smith"/>
             </Field>
@@ -221,6 +230,15 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
             </Field>
             <Field label="Número de Identificación Fiscal Individual (ITIN)">
               <TextInput value={d.petitionerITIN} onChange={v => set("petitionerITIN", v)} placeholder="9XX-XX-XXXX"/>
+            </Field>
+            <Field label="Teléfono diurno del peticionario" required>
+              <TextInput value={d.petitionerDaytimePhone} onChange={v => set("petitionerDaytimePhone", v)} placeholder="(212) 555-0100"/>
+            </Field>
+            <Field label="Teléfono móvil">
+              <TextInput value={d.petitionerMobilePhone} onChange={v => set("petitionerMobilePhone", v)} placeholder="(opcional)"/>
+            </Field>
+            <Field label="Correo electrónico del peticionario" required>
+              <TextInput value={d.petitionerEmail} onChange={v => set("petitionerEmail", v)} placeholder="correo@ejemplo.com"/>
             </Field>
           </div>
           <Field label="Número y nombre de calle" required>

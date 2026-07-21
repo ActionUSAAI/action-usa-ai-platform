@@ -243,6 +243,9 @@ export type Module14 = {
   companyName: string;
   ein: string;
   stateOfIncorporation: string;
+  companyDaytimePhone: string;
+  companyMobilePhone: string;
+  companyEmail: string;
   companyAddress: string; // derivado automáticamente de companyStreetNumberName/AptSteFlr/AptSteFlrNumber/City/State/ZipCode — no editar directamente
   companyStreetNumberName: string;
   companyAptSteFlr: "APT" | "STE" | "FLR" | "";
@@ -268,6 +271,9 @@ export type Module14 = {
   petitionerRelationship: string;
   petitionerSSN: string;
   petitionerITIN: string;
+  petitionerDaytimePhone: string;
+  petitionerMobilePhone: string;
+  petitionerEmail: string;
   petitionerAddress: string; // derivado automáticamente de petitionerStreetNumberName/AptSteFlr/AptSteFlrNumber/City/State/ZipCode — no editar directamente
   petitionerStreetNumberName: string;
   petitionerAptSteFlr: "APT" | "STE" | "FLR" | "";
