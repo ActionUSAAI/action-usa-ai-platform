@@ -194,3 +194,26 @@ Se creó la función serverless real de relleno (`api/i129_fill.py`), implementa
 **Verificación visual final en Adobe Acrobat Reader real por Alex, con confirmación explícita en ambos puntos del protocolo:** `PRUEBA-PIPELINE@example.com` aparece correctamente en el campo de email de la página 1, generado por el código real que se desplegará, no solo por scripts de prueba manuales en terminal.
 
 **Pendiente antes de desplegar a producción:** desplegar `api/i129_fill.py` a Vercel (mismo patrón ya confirmado con `api/hello-python.py`) y probar el endpoint HTTP real vía `curl`/fetch, no solo la función Python de forma aislada.
+
+## [VERIFICADO 2026-07-21] Endpoint real desplegado en producción — pipeline técnico completo
+
+Se probó `https://actionusaai.com/api/i129_fill` en producción (no localmente), vía `curl` con `POST` real:
+
+```bash
+curl -s -X POST https://actionusaai.com/api/i129_fill \
+  -H "Content-Type: application/json" \
+  -d '{"fieldValues": {"campo": "valor"}}' \
+  -o salida.pdf
+```
+
+**Resultado:** HTTP 200, PDF válido de 38 páginas (1,817,026 bytes, consistente con las pruebas anteriores), con el campo de prueba correctamente escrito a nivel de bytes.
+
+**Verificación visual final en Adobe Acrobat Reader real por Alex, con confirmación explícita:** `PRUEBA-ENDPOINT-REAL@example.com` aparece correctamente en el campo de email de la página 1 del PDF descargado del endpoint real de producción.
+
+**Estado del pipeline técnico:** completo y validado de punta a punta — desde la eliminación de `/XFA`, pasando por la función Python real, hasta el endpoint de Vercel en producción sirviendo el resultado correctamente. Los tres eslabones (lógica → función → despliegue) están confirmados con evidencia visual real, no solo con verificación de bytes.
+
+**Pendiente para continuar el pipeline completo (no bloqueante para lo ya construido):**
+1. La ruta TypeScript orquestadora que llame a este endpoint con los datos reales de un caso (hoy el endpoint recibe `fieldValues` ya armado manualmente en la prueba).
+2. Completar el mapeo campo-por-campo del resto del formulario (Part 3 en adelante) para poder construir ese `fieldValues` real a partir de `Module1`/`Module14`/`Module15`.
+3. La tabla `i129_form_drafts` y la integración con el panel de UI (botón "Generar I-129").
+4. Implementar las reglas fijas ya decididas (tipo de entidad, número de recibo, checkbox de clasificación O-1A) dentro de la lógica de construcción de `fieldValues`.
