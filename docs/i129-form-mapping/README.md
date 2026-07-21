@@ -184,3 +184,13 @@ Mapeo campo-por-campo de Part 1 (Petitioner Information, páginas 1-2) completad
 - Continuar el mapeo de Part 4 en adelante (Processing Information) y confirmar Part 5-9.
 
 **Esta sesión avanza con la construcción de la función Python real de relleno** (`api/i129_fill.py`), usando el mapeo de Part 1 ya confirmado — más valioso que seguir cerrando gaps menores con el saldo restante.
+
+## [VERIFICADO 2026-07-21] Función Python real (`api/i129_fill.py`) validada de punta a punta
+
+Se creó la función serverless real de relleno (`api/i129_fill.py`), implementando exactamente la lógica ya validada en pruebas manuales: eliminar `/XFA` del PDF base (`api/i-129-base.pdf`, copia idéntica del PDF oficial ya confirmado con Adobe Reader) y rellenar con `pypdf`.
+
+**Prueba de la lógica interna** (sin pasar por el servidor HTTP): se invocó `remove_xfa_and_fill()` directamente con un campo de prueba — generó un PDF de 1,817,013 bytes (consistente con las pruebas manuales previas, ~1,817,020 bytes), con el valor confirmado a nivel de bytes (`/V`).
+
+**Verificación visual final en Adobe Acrobat Reader real por Alex, con confirmación explícita en ambos puntos del protocolo:** `PRUEBA-PIPELINE@example.com` aparece correctamente en el campo de email de la página 1, generado por el código real que se desplegará, no solo por scripts de prueba manuales en terminal.
+
+**Pendiente antes de desplegar a producción:** desplegar `api/i129_fill.py` a Vercel (mismo patrón ya confirmado con `api/hello-python.py`) y probar el endpoint HTTP real vía `curl`/fetch, no solo la función Python de forma aislada.
