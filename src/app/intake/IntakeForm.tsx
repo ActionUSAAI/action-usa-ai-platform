@@ -132,7 +132,7 @@ const INITIAL: IntakeFormData = {
     petitionerAddress: "", petitionerStreetNumberName: "", petitionerAptSteFlr: "", petitionerAptSteFlrNumber: "", petitionerCity: "", petitionerState: "", petitionerZipCode: "",
     petitionerIdPath: "", petitionerIdName: "", petitionerBirthCertPath: "", petitionerBirthCertName: "",
     agentName: "", agentEmployerName: "", agentAgreementType: "",
-    businessNature: "", offeredPosition: "", basisForClassification: "", serviceStartDate: "", serviceEndDate: "",
+    businessNature: "", offeredPosition: "", basisForClassification: "", requestedAction: "", serviceStartDate: "", serviceEndDate: "",
     hasWrittenContract: null, contractPath: "", contractName: "", contractVerbalTerms: "",
     hasItinerary: null, itineraryItems: [],
     wantsPremiumProcessing: null, beneficiaryWorkState: "", filesI485Concurrent: null,

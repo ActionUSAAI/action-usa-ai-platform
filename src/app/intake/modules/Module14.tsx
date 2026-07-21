@@ -324,6 +324,15 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                   <option value="previouschange">Cambio de estatus previamente aprobado</option>
                 </Select>
               </Field>
+              <Field label="Acción solicitada" required>
+                <Select value={d.requestedAction} onChange={v => set("requestedAction", v as Module14["requestedAction"])}>
+                  <option value="">Seleccionar...</option>
+                  <option value="notify_office">Notificar a la oficina consular/puerto de entrada</option>
+                  <option value="change_status_extend">Cambiar estatus y extender estadía</option>
+                  <option value="extend_stay">Extender estadía (mismo estatus)</option>
+                  <option value="amend_stay">Enmendar estadía (sin tiempo adicional)</option>
+                </Select>
+              </Field>
               <Field label="Fecha de inicio de servicios" required>
                 <TextInput type="date" value={d.serviceStartDate} onChange={v => set("serviceStartDate", v)} />
               </Field>

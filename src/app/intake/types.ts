@@ -287,6 +287,7 @@ export type Module14 = {
   businessNature: string;
   offeredPosition: string;
   basisForClassification: "new" | "change" | "concurrent" | "amended" | "continuation" | "previouschange" | "";
+  requestedAction: "notify_office" | "change_status_extend" | "extend_stay" | "amend_stay" | "extend_trade_agreement" | "change_status_trade_agreement" | "";
   serviceStartDate: string;
   serviceEndDate: string;
   hasWrittenContract: boolean | null;
