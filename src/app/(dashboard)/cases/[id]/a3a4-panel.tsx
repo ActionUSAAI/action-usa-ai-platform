@@ -26,11 +26,21 @@ export interface PetitionDraft {
   created_at: string;
 }
 
+export interface I129Draft {
+  id: string;
+  case_id: string;
+  docx_path: string;
+  is_complete: boolean;
+  notes: string | null;
+  created_at: string;
+}
+
 interface A3A4PanelProps {
   caseId: string;
   submissionId: string | null;
   initialLetters: RecommendationLetter[];
   initialDrafts: PetitionDraft[];
+  initialI129Drafts: I129Draft[];
   userRole: string;
 }
 
@@ -48,9 +58,10 @@ async function handleDownload(docxPath: string | null) {
   }
 }
 
-export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts, userRole }: A3A4PanelProps) {
+export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts, initialI129Drafts, userRole }: A3A4PanelProps) {
   const [letters, setLetters] = useState<RecommendationLetter[]>(initialLetters);
   const [drafts, setDrafts] = useState<PetitionDraft[]>(initialDrafts);
+  const [i129Drafts, setI129Drafts] = useState<I129Draft[]>(initialI129Drafts);
 
   const [loadingTestimonial, setLoadingTestimonial] = useState(false);
   const [loadingInstitutional, setLoadingInstitutional] = useState(false);
@@ -65,6 +76,9 @@ export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts,
   const [firmAddress, setFirmAddress] = useState("");
   const [petitionStrategy, setPetitionStrategy] = useState<"multiCriteria" | "singleAchievement">("multiCriteria");
 
+  const [loadingI129, setLoadingI129] = useState(false);
+  const [errorI129, setErrorI129] = useState<string | null>(null);
+
   if (!ALLOWED_ROLES.has(userRole)) return null;
 
   async function refreshLetters() {
@@ -75,6 +89,11 @@ export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts,
   async function refreshDrafts() {
     const refreshed = await fetch(`/api/case-petitions?case_id=${caseId}`).then(r => r.json()).catch(() => null);
     if (refreshed?.drafts) setDrafts(refreshed.drafts);
+  }
+
+  async function refreshI129Drafts() {
+    const refreshed = await fetch(`/api/case-i129-drafts?case_id=${caseId}`).then(r => r.json()).catch(() => null);
+    if (refreshed?.drafts) setI129Drafts(refreshed.drafts);
   }
 
   async function runTestimonial() {
@@ -144,6 +163,28 @@ export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts,
       setErrorAttorney("Error de red al conectar con el Motor Abogado");
     } finally {
       setLoadingAttorney(false);
+    }
+  }
+
+  async function runI129Form() {
+    setLoadingI129(true);
+    setErrorI129(null);
+    try {
+      const res = await fetch("/api/agents/a4-i129-form", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorI129(data.error ?? "Error al generar el Formulario I-129");
+      } else {
+        await refreshI129Drafts();
+      }
+    } catch {
+      setErrorI129("Error de red al conectar con el generador de I-129");
+    } finally {
+      setLoadingI129(false);
     }
   }
 
@@ -241,6 +282,40 @@ export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts,
         {drafts.map(d => (
           <div key={d.id} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
             <span className="text-gray-700">{d.petition_type === "standard" ? "Attorney Petition Letter (Tipo 0)" : "Consultation Exception Letter (Tipo 0b)"}</span>
+            <button onClick={() => handleDownload(d.docx_path)} className="flex items-center gap-1 text-[#1B2B5E]">
+              <Download size={12} /> Descargar
+            </button>
+          </div>
+        ))}
+      </div>
+
+      {/* I-129 */}
+      <div className="space-y-2 border-t border-gray-100 pt-4">
+        <div className="flex items-center justify-between">
+          <h4 className="text-sm font-medium text-gray-800">Formulario I-129</h4>
+          <button
+            onClick={runI129Form}
+            disabled={loadingI129 || !submissionId}
+            className="flex items-center gap-1 text-xs px-3 py-1.5 rounded-md bg-[#1B2B5E] text-white disabled:opacity-40"
+          >
+            {loadingI129 ? <Loader2 size={13} className="animate-spin" /> : <ChevronRight size={13} />}
+            {i129Drafts.length > 0 ? "Regenerar" : "Generar I-129"}
+          </button>
+        </div>
+        <p className="text-xs text-amber-600">
+          ⚠️ Mapeo parcial (Part 1 + nombre del beneficiario). No es un formulario completo listo para radicar.
+        </p>
+        {loadingI129 && <p className="text-xs text-gray-400">Generando… puede tardar 15-30 segundos.</p>}
+        {errorI129 && (
+          <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+            <AlertCircle size={13} className="mt-0.5 shrink-0" /> {errorI129}
+          </div>
+        )}
+        {i129Drafts.map(d => (
+          <div key={d.id} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
+            <span className="text-gray-700">
+              I-129 — {new Date(d.created_at).toLocaleDateString()} {d.is_complete ? "" : "(parcial)"}
+            </span>
             <button onClick={() => handleDownload(d.docx_path)} className="flex items-center gap-1 text-[#1B2B5E]">
               <Download size={12} /> Descargar
             </button>

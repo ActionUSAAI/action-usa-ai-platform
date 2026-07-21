@@ -10,7 +10,7 @@ import type { IntakeAnalysis } from "./a1-panel";
 import { A2Panel } from "./a2-panel";
 import type { DocTranslation } from "./a2-panel";
 import { A3A4Panel } from "./a3a4-panel";
-import type { RecommendationLetter, PetitionDraft } from "./a3a4-panel";
+import type { RecommendationLetter, PetitionDraft, I129Draft } from "./a3a4-panel";
 import { extractTranslatableFiles } from "./extract-files";
 
 interface CasePageProps {
@@ -36,7 +36,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const caso = casoRaw as any;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }] = await Promise.all([
+  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
@@ -84,6 +84,11 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .order("created_at", { ascending: false }),
     supabase
       .from("agent_petition_drafts")
+      .select("*")
+      .eq("case_id", params.id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("i129_form_drafts")
       .select("*")
       .eq("case_id", params.id)
       .order("created_at", { ascending: false }),
@@ -197,6 +202,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             submissionId={submissionId}
             initialLetters={(recommendationLetters ?? []) as RecommendationLetter[]}
             initialDrafts={(petitionDrafts ?? []) as PetitionDraft[]}
+            initialI129Drafts={(i129Drafts ?? []) as I129Draft[]}
             userRole={userRole}
           />
 
