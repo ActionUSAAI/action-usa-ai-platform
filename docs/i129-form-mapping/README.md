@@ -217,3 +217,15 @@ curl -s -X POST https://actionusaai.com/api/i129_fill \
 2. Completar el mapeo campo-por-campo del resto del formulario (Part 3 en adelante) para poder construir ese `fieldValues` real a partir de `Module1`/`Module14`/`Module15`.
 3. La tabla `i129_form_drafts` y la integración con el panel de UI (botón "Generar I-129").
 4. Implementar las reglas fijas ya decididas (tipo de entidad, número de recibo, checkbox de clasificación O-1A) dentro de la lógica de construcción de `fieldValues`.
+
+## [VERIFICADO 2026-07-21] Ruta orquestadora TypeScript validada de punta a punta con datos reales de negocio
+
+Se construyó `src/app/api/agents/a4-i129-form/route.ts` — primera versión de prueba de arquitectura, alcance intencionalmente parcial (Part 1 completo + nombre del beneficiario + checkbox O-1A + basis for classification). Sigue el mismo patrón de las otras tres rutas de agentes (`adminDb()`, lectura de `intake_submissions`, `module1`/`module14`).
+
+**Prueba real de punta a punta:** caso sintético creado con datos de negocio completos (empresa, dirección estructurada, contacto, EIN) → `POST /api/agents/a4-i129-form` con solo `case_id` → la ruta lee los datos, construye `fieldValues`, llama al endpoint Python en producción (`actionusaai.com/api/i129_fill`), sube el PDF resultante a Storage.
+
+**Verificación visual completa en Adobe Acrobat Reader real por Alex:** confirmado que aparecen correctamente — nombre de la empresa, dirección completa (calle, número de suite, ciudad, estado, ZIP), teléfono, email, FEIN (página 1), checkbox de clasificación O-1A marcado con su etiqueta completa (página 28), y el checkbox "New employment" de Basis for Classification (página 2). A diferencia de las pruebas anteriores (un solo campo de texto aislado), esta prueba valida múltiples tipos de dato (texto, dirección estructurada, dos checkboxes distintos) generados automáticamente desde datos reales de un caso, no escritos a mano en un script.
+
+**Alcance explícito de esta versión, no bloqueante:** no genera un I-129 completo (el resto del formulario, Part 3 en adelante salvo el nombre, queda en blanco); no persiste registro en base de datos (pendiente: tabla `i129_form_drafts`); no tiene botón en el panel de UI todavía.
+
+**Estado del pipeline:** la arquitectura completa (intake → TypeScript → función Python → Storage) queda validada de punta a punta con datos reales. Las piezas pendientes (completar el mapeo de campos, tabla de registro, UI) son ahora trabajo de ampliación sobre una base ya demostrada, no de validación de diseño.
