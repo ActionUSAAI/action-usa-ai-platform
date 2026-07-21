@@ -156,10 +156,27 @@ export async function POST(req: NextRequest) {
       throw new Error(`Failed to upload I-129 PDF: ${uploadError.message}`);
     }
 
+    const { data: draftRow, error: draftError } = await db
+      .from("i129_form_drafts")
+      .insert({
+        case_id,
+        docx_path: uploadPath,
+        is_complete: false,
+        notes: "Generado con mapeo parcial: Part 1 + nombre del beneficiario + checkbox O-1A + basis for classification. No es un I-129 completo — ver docs/i129-form-mapping/README.md.",
+      })
+      .select("id")
+      .single();
+
+    if (draftError || !draftRow) {
+      throw new Error(`Failed to register I-129 draft: ${draftError?.message}`);
+    }
+
     return NextResponse.json({
       case_id,
+      draftId: draftRow.id,
       docxPath: uploadPath,
-      note: "Prueba de arquitectura — solo Part 1 + nombre del beneficiario + checkbox O-1A poblados. No es un I-129 completo. No se registró en base de datos (pendiente: tabla i129_form_drafts).",
+      isComplete: false,
+      note: "Prueba de arquitectura — solo Part 1 + nombre del beneficiario + checkbox O-1A poblados. No es un I-129 completo.",
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
