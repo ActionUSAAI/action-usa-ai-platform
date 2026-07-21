@@ -166,3 +166,19 @@ Antes de diseñar el pipeline real de generación del I-129, se verificó si Ver
 **Resultado:** desplegado exitosamente (estado "Ready" en Vercel), y verificado en el navegador real de Alex contra `https://actionusaai.com/api/hello-python` — responde correctamente el JSON de prueba.
 
 **Conclusión:** la arquitectura de pipeline puede construirse como una función Python serverless dentro del mismo proyecto/despliegue, sin infraestructura externa adicional. El archivo de prueba (`api/hello-python.py`) se elimina en este mismo commit, reemplazado más adelante por la función real de relleno del I-129.
+
+## Estado del mapeo Part 1-3 (2026-07-21) — pausa por límite de saldo
+
+Mapeo campo-por-campo de Part 1 (Petitioner Information, páginas 1-2) completado, usando las descripciones reales de USCIS (`FieldNameAlt`, extraídas vía `pdftk`) en vez de inferencia por nombre técnico.
+
+**Gaps nuevos detectados y cerrados en esta sesión:**
+- `requestedAction` (Module14) — ítem 4 de Part 2, "Requested Action" (P2Checkbox4). Commit `a5b5b6e`.
+- Contacto del peticionario: `companyDaytimePhone/MobilePhone/Email`, `petitionerDaytimePhone/MobilePhone/Email` (Module14, ambas ramas) — ítem 4 de Part 1, "Contact Information". Commit `0b38aad`.
+
+**Pendientes menores, explícitamente pausados por límite de saldo de sesión (retomar sin prisa):**
+1. **Tipo de entidad** (`P1Line6_Yes/No`, "¿Organización sin fines de lucro o de investigación gubernamental?") — sin fuente en el modelo, rama Empresa únicamente. Decisión pendiente: ¿agregar campo nuevo, o dejar sin marcar por defecto? No urgente — la mayoría de peticionarios de AUCIS probablemente no son sin fines de lucro, así que "No" podría ser un default razonable en vez de requerir input nuevo.
+2. **Número de recibo de petición previa** (`Line1_ReceiptNumber`, Part 2 ítem 3) — sin fuente. Probablemente puede quedar vacío legítimamente en la mayoría de casos (peticiones nuevas no tienen recibo previo) — candidato a regla fija ("dejar vacío salvo que se indique lo contrario") más que a campo nuevo obligatorio.
+3. **Resto de Part 3** (información completa del beneficiario, más allá del nombre ya mapeado) — no se revisó campo por campo con el mismo detalle que Part 1. Pendiente de hacer el mismo ejercicio de extracción de `FieldNameAlt` + mapeo contra `Module1`.
+4. **`Line7a_InCareofName`** ("In Care of Name") y **dirección extranjera** (`P1_Line3_Province/PostalCode/Country`) — confirmados sin fuente, pero de baja prioridad: el intake asume peticionarios con dirección en EE.UU., caso razonable para la mayoría de clientes de AUCIS. Regla fija: dejar vacío.
+
+**Prioridad para la próxima sesión (jueves 2026-07-23, tras reset de saldo):** construir la función Python real de relleno (eliminar `/XFA` + rellenar con `pypdf` usando el mapeo ya confirmado de Part 1) es más valioso que seguir cerrando gaps menores de campos — la mayoría de los pendientes de arriba son de bajo impacto y pueden resolverse con reglas fijas razonables sin bloquear la construcción del pipeline.
