@@ -259,3 +259,15 @@ Los 11 campos de Part 4 más allá de la dirección extranjera del beneficiario 
 **Estado:** el PDF generado hoy deja estos 11 campos completamente en blanco (ningún checkbox marcado). El preparador debe revisar y completar manualmente esta sección antes de radicar cualquier caso real. Pendiente de revisar en una futura sesión, posiblemente como parte de un flujo de revisión manual explícito en la UI, no como reglas fijas automáticas.
 
 **Siguiente pieza del mapeo:** Part 5 (Basic Information About the Proposed Employment and Employer).
+
+## [VERIFICADO 2026-07-22] Bug sistemático de checkboxes corregido y validado con datos reales
+
+Durante la prueba de punta a punta de Part 5, se detectó que el checkbox de itinerario (`P5Line4_Yes`) no se marcaba visualmente en Adobe Reader a pesar de `hasItinerary: true` en el caso de prueba. Diagnóstico con `pikepdf` inspeccionando `/AP /N` de cada widget reveló que la asunción de `"/1"` universal (documentada como riesgo aceptado hace varios días) era incorrecta en 15 de los 22 checkboxes mapeados hasta ese momento — solo `a_O1A` y el mapa de `basisForClassification` usaban realmente `/1`; el resto usa `/Y`, letras `/A`-`/D` (para las 4 opciones de `requestedAction`), o strings con espacios literales (`" APT "`, `" STE "`, `" FLR "` para los checkboxes de tipo de unidad).
+
+**Corrección aplicada (commit `992c5cb`):** cada uno de los 15 checkboxes corregido individualmente con su valor real, verificado con `repr()` para los casos con espacios (eliminando cualquier ambigüedad de transcripción).
+
+**Verificado en Adobe Acrobat Reader real por Alex, regenerando el mismo caso de prueba de Part 5:** el checkbox de itinerario ahora aparece correctamente marcado en "Yes", y las dos reglas fijas de Part 5 (§5 trabajo fuera de sitio, §6 exclusivo CNMI) aparecen correctamente en "No".
+
+**Lección para el resto del mapeo (Part 6 en adelante):** nunca asumir el valor "on" de un checkbox sin verificar su `/AP /N` real primero — el patrón no es consistente ni siquiera dentro del mismo formulario. Cualquier checkbox nuevo que se mapee de aquí en adelante debe pasar por esta verificación antes de escribirse en `buildI129FieldValues`.
+
+**Nota operativa:** durante el desarrollo local, si un cambio reciente no se refleja visualmente después de regenerar, limpiar el caché de Next.js (`rm -rf .next` + reinicio del servidor) — mismo patrón de incidente ya documentado el 2026-07-21.
