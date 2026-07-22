@@ -103,10 +103,15 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
   fv["form1[0].#subform[2].Part3Line4_CountryOfBirth[0]"] = m1.countryOfBirth ?? "";
   fv["form1[0].#subform[2].Part3Line4_CountryOfCitizenship[0]"] = m1.nationalities ?? "";
 
-  // NOTA: dirección extranjera del beneficiario (m1.beneficiaryForeign*) aún no
-  // conectada — el field_id real en el I-129 no está confirmado todavía
-  // (no aparece en página 3; pendiente de localizar en próxima sesión de
-  // mapeo). Los datos ya se capturan en el intake, solo falta el mapeo.
+  fv["form1[0].#subform[3].Line2b_StreetNumberName[0]"] = m1.beneficiaryForeignStreetNumberName ?? "";
+  fv["form1[0].#subform[3].Line2c_CityTown[0]"] = m1.beneficiaryForeignCity ?? "";
+  fv["form1[0].#subform[3].Line2g2_Province[1]"] = m1.beneficiaryForeignProvince ?? "";
+  fv["form1[0].#subform[3].Line3f_PostalCode[0]"] = m1.beneficiaryForeignPostalCode ?? "";
+  fv["form1[0].#subform[3].Line_Country[0]"] = m1.beneficiaryForeignCountry ?? "";
+  // NOTA: sin campo de tipo de unidad (Apt/Ste/Flr) para dirección extranjera
+  // — decisión explícita: Module1 no lo captura, poco común fuera de EE.UU.
+  // Line2g2_Province[0] ("State") queda vacío deliberadamente — [1] es
+  // "Province", el concepto correcto para direcciones no estadounidenses.
 
   if (m1.willChangeStatusInUSA === true) {
     fv["form1[0].#subform[2].Line8a_StreetNumberName[0]"] = m1.beneficiaryUSStreetNumberName ?? "";
