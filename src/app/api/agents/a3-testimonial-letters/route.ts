@@ -53,7 +53,7 @@ ESTRUCTURA OBLIGATORIA — 7 bloques (8 claves, el bloque 4 se divide en 4a/4b):
 3. Naturaleza de la relación — tipo y duración de la relación con el beneficiario
 4a. Originalidad — qué introdujo o inventó el beneficiario que no fuera replicar el trabajo de otros
 4b. Significancia — el impacto posterior y verificable de esa contribución (adopción institucional, cambios normativos, influencia en otros profesionales, resultados medibles) — NUNCA una repetición del mismo hecho de 4a sin el elemento temporal/downstream
-5. Conexión regulatoria — por qué esto satisface específicamente el criterio ${criterionCitation}
+5. Conexión regulatoria — por qué esto satisface específicamente el criterio ${criterionCitation}. CRÍTICO: el firmante NUNCA debe citar el número del CFR, usar frases como "the regulation requires" o "satisfies the standard", ni estructurar el párrafo como un argumento legal formal ("on originality... on major significance..."). El firmante no es abogado — es un colega, supervisor, o experto de campo, y debe seguir sonando como tal incluso en este bloque. En vez de citar la ley, debe describir en sus propias palabras profesionales por qué lo que presenció fue genuinamente nuevo y por qué tuvo un impacto real y medible — dejando que esos hechos, no una cita legal, sean los que demuestren el punto. Piensa en cómo ese profesional específico (dado su rol y background, ya descritos en el bloque 2) explicaría naturalmente por qué esto importa, no en cómo lo explicaría un abogado de inmigración.
 6. Declaración de apoyo — postura explícita del firmante
 7. Cierre — disponibilidad, contacto, firma (usa el nombre y título del firmante que se te proporciona)
 
