@@ -30,3 +30,23 @@ Cambiar el objetivo del sistema de **"redactar la mejor carta posible"** a **"re
 ## Evidencia de referencia
 
 Carta real del caso Neira Rincón (Andrés Ricardo Forero, testimonio real) usada como vara de medir en la evaluación de Alex — disponible en el historial de esta sesión, no adjunta a este documento por contener datos de un cliente real.
+
+---
+
+# Anexo — Mismo patrón detectado en el Motor Institucional (2026-07-22)
+
+Evaluando una carta real generada por el Motor Institucional contra el mismo caso de prueba (FEDEQUINAS, rol crítico de Andrés Neira Rincón), Alex identificó un problema equivalente pero con el signo invertido: mientras el Motor Testimonial hacía sonar a un *individuo* como abogado, el Motor Institucional hace sonar a una *institución* como su propio departamento legal en vez de como una oficina que certifica hechos con autoridad oficial.
+
+**Estructura evaluada como correcta y a preservar:** el orden de la carta (reputación de la organización → naturaleza del cargo → por qué es crítico/no duplicable → impacto medible) es el correcto y USCIS-alineado. No tocar el orden ni el contenido factual.
+
+**Tres observaciones de tono, específicas y corregibles:**
+
+1. **Lenguaje litigioso en vez de institucional.** Ejemplo real: "...binding institutional policy..." suena a argumento legal. Alternativa propuesta: "Within our federation, this position advises the Board on matters affecting national welfare standards..." — más institucional, menos litigioso.
+
+2. **Argumentación en vez de certificación.** Ejemplo real: "...critical and non-duplicable..." es una afirmación evaluativa. Alternativa propuesta: "The federation maintains only one Technical Advisor in this specialty." — mismo hecho, formato de certificado en vez de escrito de apelación.
+
+3. **Intento de convencer en vez de simplemente certificar.** Palabras a evitar identificadas: "exceptionally rare", "sector-wide outcome" — lenguaje persuasivo. Alternativa propuesta: anclar cada afirmación a una fuente de registro institucional explícita ("According to our institutional records...", "During his tenure...", "The Board assigned him responsibility...").
+
+**Principio unificador con el hallazgo del Motor Testimonial:** en ambos motores, el problema de fondo es el mismo — el sistema está optimizando por "el argumento legal más persuasivo posible" en vez de por "el documento más auténtico a la voz/naturaleza de quien lo firma" (persona individual en un caso, institución oficial en el otro). La solución de arquitectura de dos etapas (testimonio/certificación auténtica primero, validación de cobertura del criterio después, sin reintroducir lenguaje argumentativo) propuesta arriba para el Motor Testimonial aplica, con ajustes de tono específicos por tipo de firmante, también al Motor Institucional.
+
+**Hallazgo adicional de Alex sobre reutilización de evidencia:** la carta de FEDEQUINAS evaluada podría servir como evidencia principal para el criterio de rol crítico (`critical_role_4a`), y como evidencia *complementaria* (no principal) para contribuciones originales (`original_contributions`), dado que menciona la incorporación de su trabajo en la Resolución 00136 de 2020. Esto sugiere una capacidad futura no explorada: que una misma carta/evidencia pueda registrarse como respaldo secundario de más de un criterio, no solo del criterio para el que fue generada — fuera de alcance de este documento, anotado para consideración futura.
