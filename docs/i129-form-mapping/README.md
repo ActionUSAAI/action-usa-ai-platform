@@ -239,3 +239,11 @@ Se agregó la cuarta sección al panel `A3A4Panel` (Testimonial, Institucional, 
 **Con esto, los cuatro motores de generación de documentos de AUCIS (Testimonial, Institucional, Abogado, I-129) están completamente integrados en la UI del panel de caso, cada uno validado con evidencia visual real en Adobe Reader/navegador.**
 
 **Recordatorio para sesiones futuras:** si un botón del panel "no responde" sin error visible aparente, verificar primero la consola del navegador por errores `404` de chunks de Next.js antes de asumir un bug de lógica — es un patrón de incidente recurrente en este proyecto durante desarrollo local, no específico de esta pieza.
+
+## [VERIFICADO 2026-07-22] Part 3 (Beneficiario) completo — dirección extranjera y dirección en EE.UU. validadas con datos reales
+
+Prueba de punta a punta con un caso sintético que ejercita ambas ramas: `willChangeStatusInUSA: true`, con dirección extranjera (Colombia) y dirección en EE.UU. (Orlando, FL) pobladas simultáneamente.
+
+**Verificado en Adobe Acrobat Reader real por Alex:** todos los campos del PDF generado aparecen correctamente llenos, incluyendo página 3 (fecha de nacimiento, país de nacimiento, dirección en EE.UU. — calle, apartamento, ciudad, estado, ZIP) y página 4 (dirección extranjera completa — calle, ciudad, provincia, código postal, país).
+
+**Con esto, el mapeo de Part 3 completo (nombre, fecha de nacimiento, país de nacimiento/ciudadanía, dirección extranjera siempre, dirección en EE.UU. condicional) queda validado de punta a punta: intake → base de datos → ruta orquestadora → función Python → PDF → confirmación visual real.**
