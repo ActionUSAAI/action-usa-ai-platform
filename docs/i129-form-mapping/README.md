@@ -247,3 +247,15 @@ Prueba de punta a punta con un caso sintético que ejercita ambas ramas: `willCh
 **Verificado en Adobe Acrobat Reader real por Alex:** todos los campos del PDF generado aparecen correctamente llenos, incluyendo página 3 (fecha de nacimiento, país de nacimiento, dirección en EE.UU. — calle, apartamento, ciudad, estado, ZIP) y página 4 (dirección extranjera completa — calle, ciudad, provincia, código postal, país).
 
 **Con esto, el mapeo de Part 3 completo (nombre, fecha de nacimiento, país de nacimiento/ciudadanía, dirección extranjera siempre, dirección en EE.UU. condicional) queda validado de punta a punta: intake → base de datos → ruta orquestadora → función Python → PDF → confirmación visual real.**
+
+## Decisión — Part 4 §2-§11 quedan sin mapear (2026-07-22)
+
+Los 11 campos de Part 4 más allá de la dirección extranjera del beneficiario (§2 pasaporte válido, §3 otras peticiones, §4 I-94 de reemplazo, §5 dependientes, §6 removal proceedings, §7 petición de inmigrante previa, §8A/§8B clasificación previa otorgada/denegada, §9 petición no inmigrante previa, §10 grupos de entretenimiento, §11A/§11B historial J-1/J-2) quedan explícitamente sin mapear en `buildI129FieldValues`, por decisión de Alex.
+
+**Razón:** son preguntas de naturaleza legal delicada (antecedentes migratorios, procesos de remoción, historial de peticiones previas) — automatizarlas con una regla fija tipo "asumir No" sería riesgoso si algún caso real tiene una respuesta "Sí" que el sistema omitiera silenciosamente. Ninguna tiene fuente en el intake actual.
+
+**Patrón notable:** casi todas las preguntas que podrían responderse "Sí" enrutan a una explicación de texto libre en Part 9 (no mapeado todavía) — no son solo un checkbox aislado, sino que implican contenido narrativo adicional si aplican.
+
+**Estado:** el PDF generado hoy deja estos 11 campos completamente en blanco (ningún checkbox marcado). El preparador debe revisar y completar manualmente esta sección antes de radicar cualquier caso real. Pendiente de revisar en una futura sesión, posiblemente como parte de un flujo de revisión manual explícito en la UI, no como reglas fijas automáticas.
+
+**Siguiente pieza del mapeo:** Part 5 (Basic Information About the Proposed Employment and Employer).
