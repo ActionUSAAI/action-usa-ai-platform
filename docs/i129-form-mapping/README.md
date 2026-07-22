@@ -271,3 +271,24 @@ Durante la prueba de punta a punta de Part 5, se detectó que el checkbox de iti
 **Lección para el resto del mapeo (Part 6 en adelante):** nunca asumir el valor "on" de un checkbox sin verificar su `/AP /N` real primero — el patrón no es consistente ni siquiera dentro del mismo formulario. Cualquier checkbox nuevo que se mapee de aquí en adelante debe pasar por esta verificación antes de escribirse en `buildI129FieldValues`.
 
 **Nota operativa:** durante el desarrollo local, si un cambio reciente no se refleja visualmente después de regenerar, limpiar el caché de Next.js (`rm -rf .next` + reinicio del servidor) — mismo patrón de incidente ya documentado el 2026-07-21.
+
+## Alcance final del mapeo automático — decisión de Alex (2026-07-22)
+
+Se decide cerrar el alcance del mapeo automático de `buildI129FieldValues` en lo ya construido. El resto del formulario (Part 4 §2-§11, Part 6 en adelante) se completa manualmente por el preparador antes de radicar.
+
+**Cubierto automáticamente (verificado con datos reales en Adobe Reader):**
+- Part 1 — Petitioner Information (completo)
+- Part 2 — Information About This Petition (completo: clasificación, basis, requested action, total de trabajadores)
+- Part 3 — Beneficiary Information (nombre, fecha de nacimiento, país de nacimiento/ciudadanía, dirección extranjera, dirección en EE.UU. condicional)
+- Part 5 — Employment (parcial, por decisión explícita: título del puesto, itinerario, fechas de empleo, tipo de negocio — sin salario, tiempo completo/parcial, ni datos financieros de la empresa)
+- O/P Supplement — checkbox de clasificación O-1A
+
+**Queda para completar manualmente por el preparador:**
+- Part 4 §2-§11 — preguntas de antecedentes migratorios y peticiones previas (naturaleza legal delicada, decisión ya documentada arriba)
+- Part 5 — campos financieros/operativos no mapeados (salario, tiempo completo/parcial, año de establecimiento, # empleados, ingresos)
+- Part 6 — Certificación de tecnología controlada (EAR/ITAR) — aplica a O-1A, requiere juicio legal caso por caso
+- Part 7-9 — Declaraciones, firmas, y espacio adicional
+
+**Justificación:** el valor real del PDF pre-llenado está en las secciones de datos estructurados y objetivos (identidad, dirección, empleo básico) — donde la automatización reduce trabajo repetitivo sin riesgo. Las secciones restantes son declaraciones legales, certificaciones bajo pena de perjurio, y preguntas de antecedentes donde la revisión humana caso por caso es apropiada y necesaria, no un obstáculo a eliminar.
+
+**Estado del proyecto I-129:** el pipeline técnico (eliminación de XFA, función Python, ruta orquestadora, tabla de registro, botón en el panel) está completo y en producción. El mapeo de campos está completo según el alcance aquí definido. No quedan tareas de desarrollo activas para el I-129 salvo bugs que surjan en uso real.
