@@ -46,9 +46,9 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
     fv["form1[0].#subform[0].Line2_DaytimePhoneNumber1_Part8[0]"] = m14.companyDaytimePhone ?? "";
     fv["form1[0].#subform[0].Line3_MobilePhoneNumber1_Part8[0]"] = m14.companyMobilePhone ?? "";
     fv["form1[0].#subform[0].Line9_EmailAddress[0]"] = m14.companyEmail ?? "";
-    if (m14.companyAptSteFlr === "STE") fv["form1[0].#subform[0].Line3_Unit[0]"] = "/1";
-    if (m14.companyAptSteFlr === "APT") fv["form1[0].#subform[0].Line3_Unit[1]"] = "/1";
-    if (m14.companyAptSteFlr === "FLR") fv["form1[0].#subform[0].Line3_Unit[2]"] = "/1";
+    if (m14.companyAptSteFlr === "STE") fv["form1[0].#subform[0].Line3_Unit[0]"] = " STE ";
+    if (m14.companyAptSteFlr === "APT") fv["form1[0].#subform[0].Line3_Unit[1]"] = " APT ";
+    if (m14.companyAptSteFlr === "FLR") fv["form1[0].#subform[0].Line3_Unit[2]"] = " FLR ";
   } else if (m14.petitionerType === "persona_natural") {
     fv["form1[0].#subform[0].Line1_FamilyName[0]"] = m14.petitionerFamilyName ?? "";
     fv["form1[0].#subform[0].Line1_GivenName[0]"] = m14.petitionerGivenName ?? "";
@@ -61,12 +61,12 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
     fv["form1[0].#subform[0].Line2_DaytimePhoneNumber1_Part8[0]"] = m14.petitionerDaytimePhone ?? "";
     fv["form1[0].#subform[0].Line3_MobilePhoneNumber1_Part8[0]"] = m14.petitionerMobilePhone ?? "";
     fv["form1[0].#subform[0].Line9_EmailAddress[0]"] = m14.petitionerEmail ?? "";
-    if (m14.petitionerAptSteFlr === "STE") fv["form1[0].#subform[0].Line3_Unit[0]"] = "/1";
-    if (m14.petitionerAptSteFlr === "APT") fv["form1[0].#subform[0].Line3_Unit[1]"] = "/1";
-    if (m14.petitionerAptSteFlr === "FLR") fv["form1[0].#subform[0].Line3_Unit[2]"] = "/1";
+    if (m14.petitionerAptSteFlr === "STE") fv["form1[0].#subform[0].Line3_Unit[0]"] = " STE ";
+    if (m14.petitionerAptSteFlr === "APT") fv["form1[0].#subform[0].Line3_Unit[1]"] = " APT ";
+    if (m14.petitionerAptSteFlr === "FLR") fv["form1[0].#subform[0].Line3_Unit[2]"] = " FLR ";
   }
 
-  fv["form1[0].#subform[0].P1Line6_No[0]"] = "/1";
+  fv["form1[0].#subform[0].P1Line6_No[0]"] = "/Y";
   fv["form1[0].#subform[1].Line4_SSN[0]"] = m14.petitionerSSN ?? "";
   fv["form1[0].#subform[1].Line3_TaxNumber[0]"] = m14.petitionerITIN ?? "";
   fv["form1[0].#subform[1].Part2_ClassificationSymbol[0]"] = "O-1A";
@@ -89,12 +89,18 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
     extend_stay: "form1[0].#subform[1].P2Checkbox4[2]",
     amend_stay: "form1[0].#subform[1].P2Checkbox4[3]",
   };
+  const actionValueMap: Record<string, string> = {
+    notify_office: "/A",
+    change_status_extend: "/B",
+    extend_stay: "/C",
+    amend_stay: "/D",
+  };
   if (m14.requestedAction && actionMap[m14.requestedAction]) {
-    fv[actionMap[m14.requestedAction]] = "/1";
+    fv[actionMap[m14.requestedAction]] = actionValueMap[m14.requestedAction];
   }
 
   fv["form1[0].#subform[1].TtlNumbersofWorker[0]"] = "1";
-  fv["form1[0].#subform[1].P3Line1_Checkbox[1]"] = "/1";
+  fv["form1[0].#subform[1].P3Line1_Checkbox[1]"] = "/Y";
   fv["form1[0].#subform[1].Part3_Line2_FamilyName[0]"] = m1.familyName ?? "";
   fv["form1[0].#subform[1].Part3_Line2_GivenName[0]"] = m1.givenName ?? "";
   fv["form1[0].#subform[1].Part3_Line2_MiddleName[0]"] = m1.middleName ?? "";
@@ -120,22 +126,22 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
     fv["form1[0].#subform[2].Line8e_State[0]"] = m1.beneficiaryUSState ?? "";
     fv["form1[0].#subform[2].Line8f_ZipCode[0]"] = m1.beneficiaryUSZipCode ?? "";
 
-    if (m1.beneficiaryUSAptSteFlr === "APT") fv["form1[0].#subform[2].Line6_Unit[0]"] = "/1";
-    if (m1.beneficiaryUSAptSteFlr === "FLR") fv["form1[0].#subform[2].Line6_Unit[1]"] = "/1";
-    if (m1.beneficiaryUSAptSteFlr === "STE") fv["form1[0].#subform[2].Line6_Unit[2]"] = "/1";
+    if (m1.beneficiaryUSAptSteFlr === "APT") fv["form1[0].#subform[2].Line6_Unit[0]"] = " APT ";
+    if (m1.beneficiaryUSAptSteFlr === "FLR") fv["form1[0].#subform[2].Line6_Unit[1]"] = " FLR ";
+    if (m1.beneficiaryUSAptSteFlr === "STE") fv["form1[0].#subform[2].Line6_Unit[2]"] = " STE ";
   }
 
   // --- Part 5: Basic Information About the Proposed Employment and Employer ---
   fv["form1[0].#subform[4].Part5_Q1_JobTitle[0]"] = m14.offeredPosition ?? "";
 
   if (m14.hasItinerary === true) {
-    fv["form1[0].#subform[4].P5Line4_Yes[0]"] = "/1";
+    fv["form1[0].#subform[4].P5Line4_Yes[0]"] = "/Y";
   } else if (m14.hasItinerary === false) {
-    fv["form1[0].#subform[4].P5Line4_No[0]"] = "/1";
+    fv["form1[0].#subform[4].P5Line4_No[0]"] = "/Y";
   }
 
-  fv["form1[0].#subform[4].P5Line5_No[0]"] = "/1"; // regla fija: no trabaja fuera de sitio
-  fv["form1[0].#subform[4].P5Line6_No[0]"] = "/1"; // regla fija: no exclusivo CNMI
+  fv["form1[0].#subform[4].P5Line5_No[0]"] = "/Y"; // regla fija: no trabaja fuera de sitio
+  fv["form1[0].#subform[4].P5Line6_No[0]"] = "/Y"; // regla fija: no exclusivo CNMI
 
   fv["form1[0].#subform[4].Part5_Q10_DateFrom[0]"] = m14.serviceStartDate ?? "";
   fv["form1[0].#subform[4].Part5_Q10_DateTo[0]"] = m14.serviceEndDate ?? "";
