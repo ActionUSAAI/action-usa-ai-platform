@@ -125,6 +125,29 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
     if (m1.beneficiaryUSAptSteFlr === "STE") fv["form1[0].#subform[2].Line6_Unit[2]"] = "/1";
   }
 
+  // --- Part 5: Basic Information About the Proposed Employment and Employer ---
+  fv["form1[0].#subform[4].Part5_Q1_JobTitle[0]"] = m14.offeredPosition ?? "";
+
+  if (m14.hasItinerary === true) {
+    fv["form1[0].#subform[4].P5Line4_Yes[0]"] = "/1";
+  } else if (m14.hasItinerary === false) {
+    fv["form1[0].#subform[4].P5Line4_No[0]"] = "/1";
+  }
+
+  fv["form1[0].#subform[4].P5Line5_No[0]"] = "/1"; // regla fija: no trabaja fuera de sitio
+  fv["form1[0].#subform[4].P5Line6_No[0]"] = "/1"; // regla fija: no exclusivo CNMI
+
+  fv["form1[0].#subform[4].Part5_Q10_DateFrom[0]"] = m14.serviceStartDate ?? "";
+  fv["form1[0].#subform[4].Part5_Q10_DateTo[0]"] = m14.serviceEndDate ?? "";
+  fv["form1[0].#subform[5].Part5Line12_TypeofBusiness[0]"] = m14.businessNature ?? "";
+
+  // NOTA: campos sin mapear por decisión explícita (ver README) — LCA/ETA
+  // case number (no aplica a O-1A), third-party location, dirección de
+  // trabajo si distinta de Part 1, tiempo completo/parcial, salario, otra
+  // compensación, año de establecimiento, # empleados, ingresos brutos/netos.
+  // Ninguno tiene fuente en el intake actual; decisión de Alex de no
+  // agregar campos nuevos por ahora.
+
   fv["form1[0].#subform[33].a_O1A[0]"] = "/1";
 
   return fv;
