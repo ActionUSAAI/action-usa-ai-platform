@@ -26,7 +26,16 @@ export function Module4({ data: d, onChange }: Props) {
       {/* USA visits */}
       <div className="space-y-4">
         <Field label="¿Ha estado alguna vez en Estados Unidos?" required>
-          <YesNo value={d.hasBeenInUSA} onChange={v => u("hasBeenInUSA", v)} yesLabel="Sí, he estado" noLabel="Nunca"/>
+          <YesNo
+            value={d.hasBeenInUSA}
+            onChange={v => {
+              u("hasBeenInUSA", v);
+              if (v === true && d.usaVisits.length === 0) {
+                u("usaVisits", [emptyVisit()]);
+              }
+            }}
+            yesLabel="Sí, he estado" noLabel="Nunca"
+          />
         </Field>
         {d.hasBeenInUSA === true && (
           <div className="space-y-3">
