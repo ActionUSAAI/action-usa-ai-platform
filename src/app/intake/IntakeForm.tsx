@@ -61,6 +61,11 @@ const INITIAL: IntakeFormData = {
     fullName:"", familyName:"", givenName:"", middleName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"",
     countryOfResidence:"", cityOfResidence:"", email:"", whatsapp:"",
     profession:"", industry:"", yearsExperience:"", usaObjective:"", visaType:"",
+    willChangeStatusInUSA:null,
+    beneficiaryForeignStreetNumberName:"", beneficiaryForeignCity:"", beneficiaryForeignProvince:"",
+    beneficiaryForeignPostalCode:"", beneficiaryForeignCountry:"",
+    beneficiaryUSStreetNumberName:"", beneficiaryUSAptSteFlr:"", beneficiaryUSAptSteFlrNumber:"",
+    beneficiaryUSCity:"", beneficiaryUSState:"", beneficiaryUSZipCode:"",
   },
   module2: {
     passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(), i797:emptyDoc(),

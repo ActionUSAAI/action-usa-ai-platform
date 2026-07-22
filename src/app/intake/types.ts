@@ -9,6 +9,18 @@ export type Module1 = {
   nationalities: string;
   countryOfResidence: string;
   cityOfResidence: string;
+  willChangeStatusInUSA: boolean | null;
+  beneficiaryForeignStreetNumberName: string;
+  beneficiaryForeignCity: string;
+  beneficiaryForeignProvince: string;
+  beneficiaryForeignPostalCode: string;
+  beneficiaryForeignCountry: string;
+  beneficiaryUSStreetNumberName: string;
+  beneficiaryUSAptSteFlr: "APT" | "STE" | "FLR" | "";
+  beneficiaryUSAptSteFlrNumber: string;
+  beneficiaryUSCity: string;
+  beneficiaryUSState: string;
+  beneficiaryUSZipCode: string;
   email: string;
   whatsapp: string;
   profession: string;

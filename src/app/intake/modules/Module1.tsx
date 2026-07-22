@@ -1,11 +1,11 @@
 import type { Module1 } from "../types";
-import { Field, TextInput, Textarea, Select } from "../primitives";
+import { Field, TextInput, Textarea, Select, YesNo } from "../primitives";
 import { composeFullName } from "../name-utils";
 
 type Props = { data: Module1; onChange: (d: Module1) => void; errors: Record<string, string> };
 
 export function Module1({ data: d, onChange, errors: err }: Props) {
-  const u = (f: keyof Module1, v: string) => onChange({ ...d, [f]: v });
+  const u = <K extends keyof Module1>(f: K, v: Module1[K]) => onChange({ ...d, [f]: v });
 
   function updateNameField(field: "familyName" | "givenName" | "middleName", value: string) {
     const updated = { ...d, [field]: value };
@@ -43,6 +43,59 @@ export function Module1({ data: d, onChange, errors: err }: Props) {
         <Field label="Ciudad de residencia actual" required error={err.cityOfResidence}>
           <TextInput value={d.cityOfResidence} onChange={v => u("cityOfResidence", v)} placeholder="Ciudad de México"/>
         </Field>
+
+        <Field label="¿Quiere hacer cambio de estatus dentro de EE.UU.?" required>
+          <YesNo value={d.willChangeStatusInUSA} onChange={v => u("willChangeStatusInUSA", v)} yesLabel="Sí" noLabel="No"/>
+        </Field>
+
+        <Field label="Dirección extranjera — Calle y número" required>
+          <TextInput value={d.beneficiaryForeignStreetNumberName} onChange={v => u("beneficiaryForeignStreetNumberName", v)} placeholder="Calle 10 # 20-30"/>
+        </Field>
+        <Field label="Ciudad (extranjero)" required>
+          <TextInput value={d.beneficiaryForeignCity} onChange={v => u("beneficiaryForeignCity", v)} placeholder="Cali"/>
+        </Field>
+        <Field label="Provincia/Departamento (extranjero)">
+          <TextInput value={d.beneficiaryForeignProvince} onChange={v => u("beneficiaryForeignProvince", v)} placeholder="Valle del Cauca"/>
+        </Field>
+        <Field label="Código postal (extranjero)">
+          <TextInput value={d.beneficiaryForeignPostalCode} onChange={v => u("beneficiaryForeignPostalCode", v)} placeholder="760001"/>
+        </Field>
+        <Field label="País (extranjero)" required>
+          <TextInput value={d.beneficiaryForeignCountry} onChange={v => u("beneficiaryForeignCountry", v)} placeholder="Colombia"/>
+        </Field>
+
+        {d.willChangeStatusInUSA === true && (
+          <>
+            <Field label="Dirección en EE.UU. — Calle y número" required>
+              <TextInput value={d.beneficiaryUSStreetNumberName} onChange={v => u("beneficiaryUSStreetNumberName", v)} placeholder="123 Main St"/>
+            </Field>
+            <div className="grid grid-cols-3 gap-2">
+              <Field label="Tipo">
+                <Select value={d.beneficiaryUSAptSteFlr} onChange={v => u("beneficiaryUSAptSteFlr", v as "APT" | "STE" | "FLR" | "")}>
+                  <option value="">—</option>
+                  <option value="APT">Apt</option>
+                  <option value="STE">Ste</option>
+                  <option value="FLR">Flr</option>
+                </Select>
+              </Field>
+              <Field label="Número">
+                <TextInput value={d.beneficiaryUSAptSteFlrNumber} onChange={v => u("beneficiaryUSAptSteFlrNumber", v)} placeholder="400"/>
+              </Field>
+              <Field label="ZIP" required>
+                <TextInput value={d.beneficiaryUSZipCode} onChange={v => u("beneficiaryUSZipCode", v)} placeholder="90001"/>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Ciudad (EE.UU.)" required>
+                <TextInput value={d.beneficiaryUSCity} onChange={v => u("beneficiaryUSCity", v)} placeholder="Los Angeles"/>
+              </Field>
+              <Field label="Estado (EE.UU.)" required>
+                <TextInput value={d.beneficiaryUSState} onChange={v => u("beneficiaryUSState", v)} placeholder="CA"/>
+              </Field>
+            </div>
+          </>
+        )}
+
         <Field label="Email" required error={err.email}>
           <TextInput type="email" value={d.email} onChange={v => u("email", v)} placeholder="juan@ejemplo.com"/>
         </Field>
