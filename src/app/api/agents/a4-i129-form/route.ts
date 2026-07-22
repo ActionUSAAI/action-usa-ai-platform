@@ -98,6 +98,28 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
   fv["form1[0].#subform[1].Part3_Line2_FamilyName[0]"] = m1.familyName ?? "";
   fv["form1[0].#subform[1].Part3_Line2_GivenName[0]"] = m1.givenName ?? "";
   fv["form1[0].#subform[1].Part3_Line2_MiddleName[0]"] = m1.middleName ?? "";
+
+  fv["form1[0].#subform[2].Line6_DateOfBirth[0]"] = m1.dateOfBirth ?? "";
+  fv["form1[0].#subform[2].Part3Line4_CountryOfBirth[0]"] = m1.countryOfBirth ?? "";
+  fv["form1[0].#subform[2].Part3Line4_CountryOfCitizenship[0]"] = m1.nationalities ?? "";
+
+  // NOTA: dirección extranjera del beneficiario (m1.beneficiaryForeign*) aún no
+  // conectada — el field_id real en el I-129 no está confirmado todavía
+  // (no aparece en página 3; pendiente de localizar en próxima sesión de
+  // mapeo). Los datos ya se capturan en el intake, solo falta el mapeo.
+
+  if (m1.willChangeStatusInUSA === true) {
+    fv["form1[0].#subform[2].Line8a_StreetNumberName[0]"] = m1.beneficiaryUSStreetNumberName ?? "";
+    fv["form1[0].#subform[2].Line6_AptSteFlrNumber[0]"] = m1.beneficiaryUSAptSteFlrNumber ?? "";
+    fv["form1[0].#subform[2].Line8d_CityTown[0]"] = m1.beneficiaryUSCity ?? "";
+    fv["form1[0].#subform[2].Line8e_State[0]"] = m1.beneficiaryUSState ?? "";
+    fv["form1[0].#subform[2].Line8f_ZipCode[0]"] = m1.beneficiaryUSZipCode ?? "";
+
+    if (m1.beneficiaryUSAptSteFlr === "APT") fv["form1[0].#subform[2].Line6_Unit[0]"] = "/1";
+    if (m1.beneficiaryUSAptSteFlr === "FLR") fv["form1[0].#subform[2].Line6_Unit[1]"] = "/1";
+    if (m1.beneficiaryUSAptSteFlr === "STE") fv["form1[0].#subform[2].Line6_Unit[2]"] = "/1";
+  }
+
   fv["form1[0].#subform[33].a_O1A[0]"] = "/1";
 
   return fv;
