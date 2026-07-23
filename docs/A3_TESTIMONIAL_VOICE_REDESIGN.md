@@ -80,3 +80,21 @@ Evaluando la Consultation Exception Letter generada contra el caso Neira Rincón
 **4. Validación positiva de la estructura general.** Alex confirmó que la lógica de tres pasos de la carta (declarar ausencia de peer group → justificar por qué el campo es demasiado especializado → proponer evidencia sustituta) es la correcta y no requiere cambios — el problema es de matiz y refuerzo argumental dentro de esa estructura, no de estructura en sí. También validó positivamente la investigación de organizaciones específicas mencionadas (American Horse Council, PATH Intl., Certified Horsemanship Association, Equine Science Society) como fortalecedora del argumento, en vez de solo afirmar la ausencia sin evidencia de búsqueda.
 
 **Relación con el principio unificador de este documento:** estas observaciones refuerzan el mismo patrón de fondo ya documentado para los Motores Testimonial e Institucional — el sistema optimiza por argumento persuasivo genérico en vez de por precisión factual, matización legal apropiada, y conexión explícita con la decisión regulatoria solicitada. La corrección del riesgo de cita no verificada (fix separado, mismo día) es el ejemplo más concreto de este patrón: una afirmación con apariencia de autoridad, generada sin verificación real.
+
+---
+
+# Evaluación final del fix — Consultation Exception Letter post-corrección (2026-07-22)
+
+Tras el fix de la cita no verificada (commit `826e269`), Alex evaluó la versión regenerada como una mejora real, no solo la eliminación de un riesgo: el argumento ahora descansa exclusivamente en el texto del reglamento, los hechos del caso, y la evidencia — lo cual, según Alex, hace el argumento *más* sólido, no más débil, al eliminar un punto de vulnerabilidad (una cita potencialmente cuestionable que un oficial podría usar para restar credibilidad a toda la petición).
+
+**Estructura confirmada como correcta** (sin cambios necesarios): base reglamentaria → qué buscó el peticionario → por qué no existe un peer group adecuado → naturaleza especializada del campo → evidencia sustituta → solicitud de exención.
+
+**Tres ajustes finales identificados, pendientes de implementación futura:**
+
+1. **Suavizar afirmaciones absolutas ("no exists").** La carta repite variantes de "no appropriate peer group exists" — una afirmación categórica arriesgada en derecho migratorio. Propuesta: "...Petitioner has been unable to identify any U.S.-based peer group or labor organization whose scope, membership, and technical expertise specifically encompass the Beneficiary's highly specialized field..." — mismo mensaje, sin afirmación absoluta.
+
+2. **Condensar el segundo párrafo (~20%).** Se identifica repetición conceptual entre "highly singular", "interdisciplinary", "specialized", "relatively nascent", "no peer group", "no qualifying entity" — varios términos comunican la misma idea. Un argumento más directo ganaría fuerza.
+
+3. **Fortalecer la justificación de FEDEQUINAS con datos objetivos.** En vez de solo "the national governing body...", agregar 2-3 datos concretos: año de fundación, número de asociaciones agrupadas (24), autoridad técnica nacional, participación en regulación de bienestar animal — para que USCIS entienda de inmediato por qué es el sustituto más apropiado, sin asumir ese conocimiento previo.
+
+**Frase destacada positivamente por Alex, a preservar en futuras iteraciones:** "The absence of such a peer group is therefore not a procedural gap but rather a structural reality of the field itself." — valorada como la mejor frase de la carta por reencuadrar la narrativa: no es "no encontramos quién firme", sino "la disciplina es tan especializada que el propio reglamento contempla esta situación exacta". Este reencuadre es el tipo de razonamiento legal genuino que el rediseño de "certificar/narrar en vez de argumentar" (documento principal, arriba) debería preservar y replicar en otros bloques.
