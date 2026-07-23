@@ -66,6 +66,12 @@ export type Module2 = {
   passport: DocField;
   usVisa: DocField;
   i94: DocField;
+  isCurrentlyInUSA: boolean | null;
+  i94EntryPassportNumber: string;
+  i94EntryCountryOfIssuance: string;
+  i94DateOfEntry: string;
+  i94ClassOfAdmission: string;
+  i94CurrentStatus: string;
   i797: DocField;
   ead: DocField;
   i20: DocField;

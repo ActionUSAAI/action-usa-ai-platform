@@ -68,7 +68,11 @@ const INITIAL: IntakeFormData = {
     beneficiaryUSCity:"", beneficiaryUSState:"", beneficiaryUSZipCode:"",
   },
   module2: {
-    passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(), i797:emptyDoc(),
+    passport:emptyDoc(), usVisa:emptyDoc(), i94:emptyDoc(),
+    isCurrentlyInUSA:null,
+    i94EntryPassportNumber:"", i94EntryCountryOfIssuance:"", i94DateOfEntry:"",
+    i94ClassOfAdmission:"", i94CurrentStatus:"",
+    i797:emptyDoc(),
     ead:emptyDoc(), i20:emptyDoc(), ds2019:emptyDoc(),
     maritalStatus:"",
     spouse:{ name:"", nationality:"", countryOfResidence:"", profession:"" },

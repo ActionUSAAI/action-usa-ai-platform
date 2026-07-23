@@ -169,6 +169,30 @@ export function Module2({ data: d, onChange, sessionId }: Props) {
           sessionId={sessionId} storagePath="module2/ds2019"/>
       </div>
 
+      <Field label="¿Está actualmente en Estados Unidos?" required>
+        <YesNo value={d.isCurrentlyInUSA} onChange={v => u("isCurrentlyInUSA", v)} yesLabel="Sí" noLabel="No"/>
+      </Field>
+
+      {d.isCurrentlyInUSA === true && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Número de pasaporte con el que entró">
+            <TextInput value={d.i94EntryPassportNumber} onChange={v => u("i94EntryPassportNumber", v)} placeholder="AB1234567"/>
+          </Field>
+          <Field label="País de expedición del pasaporte">
+            <TextInput value={d.i94EntryCountryOfIssuance} onChange={v => u("i94EntryCountryOfIssuance", v)} placeholder="Colombia"/>
+          </Field>
+          <Field label="Día de entrada a EE.UU.">
+            <TextInput type="date" value={d.i94DateOfEntry} onChange={v => u("i94DateOfEntry", v)}/>
+          </Field>
+          <Field label="Clase de admisión">
+            <TextInput value={d.i94ClassOfAdmission} onChange={v => u("i94ClassOfAdmission", v)} placeholder="B-2, F-1, etc."/>
+          </Field>
+          <Field label="Estatus actual en EE.UU.">
+            <TextInput value={d.i94CurrentStatus} onChange={v => u("i94CurrentStatus", v)} placeholder="B-2, F-1, etc."/>
+          </Field>
+        </div>
+      )}
+
       {/* ── Marital status ── */}
       <SectionDivider title="Estado civil"/>
       <Field label="Estado civil">
