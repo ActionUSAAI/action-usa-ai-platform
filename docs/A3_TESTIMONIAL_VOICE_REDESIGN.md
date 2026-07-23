@@ -50,3 +50,17 @@ Evaluando una carta real generada por el Motor Institucional contra el mismo cas
 **Principio unificador con el hallazgo del Motor Testimonial:** en ambos motores, el problema de fondo es el mismo — el sistema está optimizando por "el argumento legal más persuasivo posible" en vez de por "el documento más auténtico a la voz/naturaleza de quien lo firma" (persona individual en un caso, institución oficial en el otro). La solución de arquitectura de dos etapas (testimonio/certificación auténtica primero, validación de cobertura del criterio después, sin reintroducir lenguaje argumentativo) propuesta arriba para el Motor Testimonial aplica, con ajustes de tono específicos por tipo de firmante, también al Motor Institucional.
 
 **Hallazgo adicional de Alex sobre reutilización de evidencia:** la carta de FEDEQUINAS evaluada podría servir como evidencia principal para el criterio de rol crítico (`critical_role_4a`), y como evidencia *complementaria* (no principal) para contribuciones originales (`original_contributions`), dado que menciona la incorporación de su trabajo en la Resolución 00136 de 2020. Esto sugiere una capacidad futura no explorada: que una misma carta/evidencia pueda registrarse como respaldo secundario de más de un criterio, no solo del criterio para el que fue generada — fuera de alcance de este documento, anotado para consideración futura.
+
+---
+
+# Bug real corregido — encabezados de criterio en español dentro de documentos en inglés (2026-07-22)
+
+Durante la evaluación de la Attorney Petition Letter contra el caso Neira Rincón, Alex detectó que los cinco encabezados de sección ("Material publicado sobre el solicitante...", etc.) aparecían en español dentro de un documento legal completamente en inglés — un bug objetivo, no una cuestión de tono.
+
+**Causa raíz:** `canonical-criteria.ts` fue diseñado originalmente solo para consumo interno (UI de staff, prompts de A1) con labels únicamente en español. Ese mismo campo se propagaba, sin traducción, hacia `case_exhibits.criterion_label` (vía `assembleExhibits`) y hacia los prompts del Motor Testimonial — ambos terminando, directa o indirectamente, en texto visible dentro de documentos legales en inglés.
+
+**Fix aplicado (commit `43afdff`):** se agregó `labelEn` a las 26 entradas de `CriterionDef` (O-1A, EB-1A, O-1B). Se conectó en dos puntos verificados como reales (Motor Abogado vía `assembleExhibits`, Motor Testimonial vía sus dos prompts), preservando explícitamente el label en español donde sí es necesario (metadata `criterion_covered`, mostrada en la UI de staff — `a3a4-panel.tsx`). El Motor Institucional se confirmó sin el mismo problema — su prompt nunca recibe el label en absoluto.
+
+**Verificado con evidencia real:** se borraron los `case_exhibits` existentes del caso Neira Rincón (generados antes del fix, con labels en español ya persistidos) para forzar el re-ensamblaje, y se regeneró la Attorney Petition Letter. Confirmado por Alex: los cinco encabezados de criterio aparecen ahora completamente en inglés.
+
+**Nota operativa importante para cualquier caso ya existente:** `assembleExhibits` solo se ejecuta automáticamente si `case_exhibits` no tiene filas para el caso — si un caso real ya tiene Exhibits ensamblados de antes del 2026-07-22, seguirá sirviendo labels en español hasta que esas filas se borren manualmente y se regeneren. No hay hoy un mecanismo de re-ensamblaje automático para casos ya existentes (mismo pendiente ya documentado: "re-assembly path... not-yet-implemented").
