@@ -32,7 +32,7 @@ function adminDb() {
 // ============================================================
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>): Record<string, string> {
+function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>, m2: Record<string, any>): Record<string, string> {
   const fv: Record<string, string> = {};
 
   if (m14.petitionerType === "empresa") {
@@ -154,6 +154,20 @@ function buildI129FieldValues(m1: Record<string, any>, m14: Record<string, any>)
   // Ninguno tiene fuente en el intake actual; decisión de Alex de no
   // agregar campos nuevos por ahora.
 
+  // --- Part 3 §6: Current Immigration Status (si está actualmente en EE.UU.) ---
+  if (m2.isCurrentlyInUSA === true) {
+    fv["form1[0].#subform[2].Line11g_CurrentNon[0]"] = m2.i94CurrentStatus ?? "";
+    fv["form1[0].#subform[2].Part3Line5_PassportorTravDoc[0]"] = m2.i94EntryPassportNumber ?? "";
+    fv["form1[0].#subform[2].Line_CountryOfIssuance[0]"] = m2.i94EntryCountryOfIssuance ?? "";
+    fv["form1[0].#subform[2].Part3Line5_DateofArrival[0]"] = m2.i94DateOfEntry ?? "";
+    fv["form1[0].#subform[2].Part3Line5_ArrivalDeparture[0]"] = m2.i94?.documentNumber ?? "";
+    fv["form1[0].#subform[2].Line11h_DateStatusExpires[0]"] = m2.i94?.expiryDate ?? "";
+    fv["form1[0].#subform[2].Line5_EAD[0]"] = m2.ead?.documentNumber ?? "";
+    // NOTA: Line5_SEVIS sin fuente confirmada — DocField no tiene campo dedicado
+    // a número SEVIS; i20/ds2019.documentNumber son la aproximación más cercana
+    // pero no verificada como equivalente semántico exacto. Queda sin mapear.
+  }
+
   fv["form1[0].#subform[33].a_O1A[0]"] = "/1";
 
   return fv;
@@ -184,8 +198,9 @@ export async function POST(req: NextRequest) {
     const sub = submission as Record<string, any>;
     const m1 = sub.module1 ?? {};
     const m14 = sub.module14 ?? {};
+    const m2 = sub.module2 ?? {};
 
-    const fieldValues = buildI129FieldValues(m1, m14);
+    const fieldValues = buildI129FieldValues(m1, m14, m2);
 
     const fillRes = await fetch(I129_FILL_ENDPOINT, {
       method: "POST",
