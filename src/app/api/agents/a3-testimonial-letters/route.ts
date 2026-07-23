@@ -244,16 +244,17 @@ export async function POST(req: NextRequest) {
 
     for (const [criterionKey, group] of Array.from(grouped)) {
       const criterionDef = criteriaSet.find((c) => c.key === criterionKey);
-      const criterionLabel = criterionDef?.label ?? criterionKey;
+      const criterionLabel = criterionDef?.label ?? criterionKey; // español — usado solo para criterion_covered (UI de staff)
+      const criterionLabelEn = criterionDef?.labelEn ?? criterionKey; // inglés — usado en los prompts al modelo
       const criterionCitation = criterionDef?.citation ?? criterionKey;
 
-      const systemPrompt = buildSystemPrompt(criterionLabel, criterionCitation);
+      const systemPrompt = buildSystemPrompt(criterionLabelEn, criterionCitation);
       const userPrompt = buildUserPrompt(
         beneficiaryFullName,
         visaType,
         profession,
         industry,
-        criterionLabel,
+        criterionLabelEn,
         criterionCitation,
         group
       );

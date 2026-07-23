@@ -111,7 +111,7 @@ export async function assembleExhibits(caseId: string): Promise<ExhibitAssemblyR
       case_id: caseId,
       exhibit_number: exhibitNumber,
       criterion_citation: criterionDef?.citation ?? criterionKey,
-      criterion_label: criterionDef?.label ?? criterionKey,
+      criterion_label: criterionDef?.labelEn ?? criterionKey,
       document_refs: documentRefs,
       manually_reordered: false,
     });
