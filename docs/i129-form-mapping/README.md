@@ -292,3 +292,15 @@ Se decide cerrar el alcance del mapeo automático de `buildI129FieldValues` en l
 **Justificación:** el valor real del PDF pre-llenado está en las secciones de datos estructurados y objetivos (identidad, dirección, empleo básico) — donde la automatización reduce trabajo repetitivo sin riesgo. Las secciones restantes son declaraciones legales, certificaciones bajo pena de perjurio, y preguntas de antecedentes donde la revisión humana caso por caso es apropiada y necesaria, no un obstáculo a eliminar.
 
 **Estado del proyecto I-129:** el pipeline técnico (eliminación de XFA, función Python, ruta orquestadora, tabla de registro, botón en el panel) está completo y en producción. El mapeo de campos está completo según el alcance aquí definido. No quedan tareas de desarrollo activas para el I-129 salvo bugs que surjan en uso real.
+
+## [VERIFICADO 2026-07-23] Part 3 §6 (estatus migratorio actual) completo — intake real confirmado
+
+Se cerraron los tres gaps de Part 3 §6 identificados el día anterior (Current Nonimmigrant Status, Date of Last Arrival, datos del pasaporte de entrada) — ninguno tenía fuente en el intake, ni siquiera como campo oculto (`DocField.docType="generic"`, usado por `i94`, solo expone `documentNumber`/`expiryDate` en la UI, confirmado revisando `DocRow` directamente antes de diseñar).
+
+**Campos nuevos en `Module2`** (commit `39684e2`): `isCurrentlyInUSA` (pregunta Sí/No) despliega condicionalmente `i94EntryPassportNumber`, `i94EntryCountryOfIssuance`, `i94DateOfEntry`, `i94ClassOfAdmission`, `i94CurrentStatus`.
+
+**Conectado a `buildI129FieldValues`** (commit `136028f`): 7 campos mapeados (estatus actual, pasaporte de entrada, país de expedición, fecha de llegada, número I-94 reutilizando `i94.documentNumber`, fecha de expiración vía `i94.expiryDate`, número EAD). Número SEVIS queda explícitamente sin mapear — sin fuente clara en el modelo de datos.
+
+**Verificado de punta a punta por Alex:** (1) el formulario de intake real (URL con token, no el panel de staff) muestra correctamente la pregunta condicional y los cinco campos nuevos en el paso "Documentos y Grupo Familiar"; (2) el PDF generado contra el caso Neira Rincón (con `module2` actualizado vía script para simular datos reales) muestra correctamente en página 3: estatus B-2, pasaporte de entrada CO1234567, país de expedición Colombia, fecha de entrada 15/06/2026, número I-94 (I94-9988776655), y fecha de expiración 31/12/2026.
+
+Con esto, Part 3 (Beneficiario) queda completo en su totalidad — nombre, fecha de nacimiento, país de nacimiento/ciudadanía, dirección extranjera, dirección en EE.UU. condicional, y ahora estatus migratorio actual condicional.
