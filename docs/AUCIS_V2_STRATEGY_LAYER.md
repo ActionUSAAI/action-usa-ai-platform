@@ -31,3 +31,7 @@ Este documento es la extensión lógica de dos hallazgos de la sesión 2026-07-2
 ## Alcance y prioridad
 
 No se ha decidido el orden de implementación de los cuatro módulos, ni si deben construirse antes o después de completar el rediseño de voz del Motor Testimonial/Institucional (documentos separados). Pendiente de decisión en una sesión de planificación dedicada.
+
+## Requisito concreto añadido al Case Strategy Engine (2026-07-24)
+
+Durante el diseño de A6 (Salary Research), se descubrió que el Motor Abogado (estrategia multi-criterio) redacta sin acceso al contenido real de evidencia por criterio — ver `docs/A4_ATTORNEY_EVIDENCE_GAP.md` para el hallazgo completo. El Case Strategy Engine debe resolver esto como parte de su diseño: decidir no solo la narrativa y el peso relativo de cada criterio, sino también qué evidencia específica respalda cada argumento y cómo se le entrega al Document Generation Engine — hoy ese último paso solo recibe cita legal + label + número de Exhibit, sin contenido real.
