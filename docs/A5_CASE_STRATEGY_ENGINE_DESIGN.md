@@ -91,3 +91,18 @@ Nueva sección en el panel de caso, después de A1 y antes de "Generación de Ca
 - Resuelve el hallazgo de `docs/A4_ATTORNEY_EVIDENCE_GAP.md`.
 - Desbloquea la integración completa de `docs/A6_SALARY_RESEARCH_DESIGN.md` (ahora parte del futuro Market Intelligence Engine) con la Attorney Letter.
 - Es la Capa 2 completa de `docs/AUCIS_V2_STRATEGY_LAYER.md`.
+
+---
+
+## [VERIFICADO 2026-07-28] Cadena A1→A5 funcional de punta a punta en producción
+
+Primera prueba real contra un caso sintético (`[SYNTHETIC TEST] A5 Case Strategy Engine Check`, evidencia deliberadamente limitada en tres criterios: awards, memberships, scholarly_articles, más una referencia rica apuntando a original_contributions).
+
+**Bug real encontrado y corregido en el camino (commit `30f3e52`):** `agent_name_enum` nunca incluyó el valor `'case_strategy'` — cada intento de A5 fallaba de inmediato en su primer paso (insert de `agent_runs`), sin siquiera llegar a leer la evidencia o llamar a Claude. Confirmado con el log literal de Vercel: `invalid input value for enum agent_name_enum: "case_strategy"`. Corregido con `ALTER TYPE agent_name_enum ADD VALUE`, aplicado y verificado en producción.
+
+**Tras el fix, segunda ejecución exitosa de punta a punta:** A1 completó su análisis (marcando el caso correctamente como "Perfil Débil", solo `awards` realmente satisfecho — comportamiento correcto y honesto de A1 dado la evidencia limitada del caso de prueba), disparó A5 vía `waitUntil()`, y A5 generó un Case Blueprint completo y coherente:
+- Teoría del caso y narrativas ancladas en hechos reales del caso (el artículo de 34 citas, la carta de Dr. Restrepo, el premio).
+- Priorización razonable: `awards` como criterio dominante, `scholarly_articles`/`memberships` como apoyo.
+- `criteria_cross_references` conectando explícitamente los criterios entre sí — exactamente el comportamiento narrativo que A5 fue diseñado a producir, y que el Motor Abogado nunca tuvo antes.
+
+**Pendiente de esta verificación:** probar A5 contra un caso rico y multi-criterio (ej. reutilizar el patrón del caso Neira Rincón) para evaluar la calidad del Blueprint con evidencia abundante, no solo limitada. También pendiente: la UI de revisión/aprobación en el panel, y la conexión del Blueprint aprobado al Motor Abogado.
