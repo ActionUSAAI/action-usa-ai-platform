@@ -11,6 +11,8 @@ import { A2Panel } from "./a2-panel";
 import type { DocTranslation } from "./a2-panel";
 import { A3A4Panel } from "./a3a4-panel";
 import type { RecommendationLetter, PetitionDraft, I129Draft } from "./a3a4-panel";
+import { A5Panel } from "./a5-panel";
+import type { CaseStrategy } from "./a5-panel";
 import { extractTranslatableFiles } from "./extract-files";
 
 interface CasePageProps {
@@ -36,7 +38,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const caso = casoRaw as any;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }] = await Promise.all([
+  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }, { data: latestStrategy }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
@@ -92,6 +94,13 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .select("*")
       .eq("case_id", params.id)
       .order("created_at", { ascending: false }),
+    supabase
+      .from("case_strategy")
+      .select("*")
+      .eq("case_id", params.id)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
 
   const userRole    = userProfile?.role ?? "";
@@ -193,6 +202,17 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             caseId={params.id}
             documentFiles={documentFiles}
             initialTranslations={(existingTranslations ?? []) as DocTranslation[]}
+            userRole={userRole}
+          />
+
+          {/* A5 Case Strategy Engine */}
+          <A5Panel
+            caseId={params.id}
+            submissionId={submissionId}
+            initialStrategy={(latestStrategy ?? null) as CaseStrategy | null}
+            criteriaMet={latestAnalysis?.criteria_met ?? null}
+            criteriaScores={latestAnalysis?.criteria_scores ?? null}
+            classificationUsed={latestAnalysis?.classification_used ?? null}
             userRole={userRole}
           />
 
