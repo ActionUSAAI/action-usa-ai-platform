@@ -29,7 +29,7 @@ interface A1PanelProps {
   userRole: string;
 }
 
-const SHORT_LABEL_OVERRIDES: Record<string, string> = {
+export const SHORT_LABEL_OVERRIDES: Record<string, string> = {
   awards: "Premios y reconocimientos",
   memberships: "Membresías en asociaciones",
   media_coverage: "Cobertura mediática",
@@ -48,7 +48,7 @@ const SHORT_LABEL_OVERRIDES: Record<string, string> = {
   significant_recognition: "Reconocimiento de expertos/organizaciones",
 };
 
-function resolveCriteriaLabels(classificationUsed: string | null): Record<string, string> {
+export function resolveCriteriaLabels(classificationUsed: string | null): Record<string, string> {
   const set = classificationUsed === "O-1B" ? CRITERIA_O1B
     : classificationUsed === "EB-1A" ? CRITERIA_EB1A
     : CRITERIA_O1A;
