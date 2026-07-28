@@ -227,3 +227,66 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+
+export async function PATCH(request: NextRequest) {
+  const db = adminDb();
+  let body: {
+    strategy_id: string;
+    updates?: Partial<{
+      theory_of_case: string;
+      primary_narrative: string;
+      secondary_narrative: string | null;
+      dominant_criteria: string[];
+      supporting_criteria: string[];
+      corroborative_criteria: string[];
+      evidence_dependencies: Record<string, string[]>;
+      suggested_reinforcements: string[];
+      recommended_document_order: string[];
+      attorney_letter_outline: string[];
+      recommended_exhibit_order: string[];
+      criteria_cross_references: string[];
+    }>;
+    approve?: boolean;
+  };
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { strategy_id, updates, approve } = body;
+  if (!strategy_id) {
+    return NextResponse.json({ error: "Missing required field: strategy_id" }, { status: 400 });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const patch: Record<string, any> = {};
+  if (updates) {
+    Object.assign(patch, updates);
+    patch.edited_at = new Date().toISOString();
+  }
+  if (approve === true) {
+    patch.status = "approved";
+    patch.approved_at = new Date().toISOString();
+    // NOTA: approved_by (auth.users.id) requiere el usuario autenticado
+    // desde el cliente — pendiente de conectar con el sistema de auth
+    // real al integrar esta ruta con el panel.
+  }
+
+  if (Object.keys(patch).length === 0) {
+    return NextResponse.json({ error: "No updates or approve flag provided" }, { status: 400 });
+  }
+
+  const { data: strategy, error: updateErr } = await db
+    .from("case_strategy")
+    .update(patch)
+    .eq("id", strategy_id)
+    .select("*")
+    .single();
+
+  if (updateErr || !strategy) {
+    return NextResponse.json({ error: `Failed to update case strategy: ${updateErr?.message}` }, { status: 500 });
+  }
+
+  return NextResponse.json({ success: true, strategy });
+}
