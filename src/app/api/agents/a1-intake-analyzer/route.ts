@@ -207,7 +207,10 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A1R
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 2048,
+      max_tokens: 8192, // aumentado de 2048 tras truncamiento real detectado
+      // con un caso de cliente rico en evidencia (O-1B, criteria_gaps extensos +
+      // strengths/weaknesses + recommended_actions) — la respuesta se cortó a
+      // mitad de generación, produciendo JSON incompleto, no malformado.
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     }),
