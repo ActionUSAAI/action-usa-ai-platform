@@ -262,25 +262,21 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
               <FileText size={16} />
               Documentos
               <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
-                {documents?.length ?? 0}
+                {documentFiles?.length ?? 0}
               </span>
             </h3>
-            {!documents || documents.length === 0 ? (
+            {!documentFiles || documentFiles.length === 0 ? (
               <p className="text-sm text-gray-500 text-center py-6">No hay documentos cargados.</p>
             ) : (
               <div className="space-y-2">
-                {documents.map((doc: any) => (
-                  <div key={doc.id} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
+                {documentFiles.map((doc) => (
+                  <div key={doc.filePath} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">{doc.name}</p>
-                      {doc.description && <p className="text-xs text-gray-500">{doc.description}</p>}
+                      <p className="text-sm font-medium text-gray-900">{doc.label}</p>
+                      <p className="text-xs text-gray-500">{doc.fileName}</p>
                     </div>
-                    <Badge variant={
-                      doc.status === "verificado" ? "success" :
-                      doc.status === "rechazado" ? "danger" :
-                      doc.status === "recibido" ? "info" : "gray"
-                    }>
-                      {doc.status}
+                    <Badge variant={doc.isExcluded ? "gray" : "success"}>
+                      {doc.isExcluded ? "Excluido de traducción" : "Incluido"}
                     </Badge>
                   </div>
                 ))}
