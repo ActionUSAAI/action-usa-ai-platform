@@ -223,10 +223,18 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A1R
 
   try {
     return JSON.parse(raw) as A1Response;
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]) as A1Response;
-    throw new Error("Claude response was not valid JSON: " + raw.slice(0, 300));
+  } catch (firstErr) {
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]) as A1Response;
+      throw firstErr;
+    } catch (secondErr) {
+      const msg = secondErr instanceof Error ? secondErr.message : String(secondErr);
+      // Guardamos el raw completo (no truncado) para poder diagnosticar
+      // exactamente qué generó Claude cuando ambos intentos de parseo
+      // fallan — antes se perdía por completo en este escenario.
+      throw new Error(`Claude response was not valid JSON (${msg}). RAW: ${raw}`);
+    }
   }
 }
 
