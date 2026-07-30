@@ -103,7 +103,7 @@ Todo corre sobre **Infrastructure Layer** (Vercel, Supabase, Anthropic API) — 
 **Los componentes sin los cuales AUCIS deja de ser una plataforma de inteligencia jurídica y se convierte en un generador de documentos con plantillas.**
 - **Objetivo:** única fuente de razonamiento jurídico de toda la plataforma.
 - **Responsabilidad:** evaluar objetivamente (Criterion Assessment) y decidir estratégicamente (Case Blueprint).
-- **Componentes:** **A1 (Criterion Assessment) y A5 (Case Strategy Engine) — únicamente estos dos.** "A1 mide. A5 decide."
+- **Componentes:** **Criterion Assessment Engine (A1) y Case Strategy Engine (A5) — únicamente estos dos.** "A1 mide. A5 decide."
 - **Consume:** Evidence Item; en el futuro, Knowledge Layer (vía Reasoning Provenance).
 - **Produce:** Criterion Assessment (versión vigente), Case Blueprint (versionado).
 - **Dependencias:** Evidence Layer. Ninguna dependencia hacia capas de generación o presentación.
@@ -192,13 +192,13 @@ Todo corre sobre **Infrastructure Layer** (Vercel, Supabase, Anthropic API) — 
 | Client Portal, Staff Console | Data Plane — Presentation Layer | Existe |
 | Rutas API (a1, a3×2, a4×2, a5, a8) | Data Plane — Application Layer | Existe |
 | A8 — Concierge | Data Plane — Application Layer | Existe |
-| A0 — CV Extractor | Data Plane — Evidence Layer | Diseñado, no implementado |
-| A2 — Document Processor | Data Plane — Evidence Layer | Existe |
+| CV Extractor (A0) | Data Plane — Evidence Layer | Diseñado, no implementado |
+| Document Processor (A2) | Data Plane — Evidence Layer | Existe |
 | Evidence Item (tipada) | Data Plane — Evidence Layer | No implementada (Brecha Técnica #1) |
-| **A1 — Criterion Assessment** | **Data Plane — Core Legal Engine** | Existe |
-| **A5 — Case Strategy Engine** | **Data Plane — Core Legal Engine** | Existe (pendiente de actualizar al nuevo Blueprint Spec) |
-| A3 — Letter Generator | Data Plane — Document Generation Layer | Existe |
-| A4 — Petition Builder | Data Plane — Document Generation Layer | Existe |
+| **Criterion Assessment Engine (A1)** | **Data Plane — Core Legal Engine** | Existe |
+| **Case Strategy Engine (A5)** | **Data Plane — Core Legal Engine** | Existe (pendiente de actualizar al nuevo Blueprint Spec) |
+| Testimonial / Institutional Letter Generator (A3) | Data Plane — Document Generation Layer | Existe |
+| Attorney Document Generator (A4) | Data Plane — Document Generation Layer | Existe |
 | Document Template | Data Plane — Document Generation Layer | No implementada |
 | QA Engine | Data Plane — Validation Layer | No implementado |
 | RFE Prediction Engine | Data Plane — Prediction Layer | No implementado |
@@ -234,3 +234,11 @@ Estas reglas no deben romperse salvo aprobación explícita mediante un ADR nuev
 | 9 | Toda decisión jurídica relevante debe ser explicable — qué información usó, qué la influenció, qué razonamiento siguió. | Principio 4 (Explainable AI), `AUCIS_ARCHITECTURE_PRINCIPLES.md` |
 | 10 | Toda modificación relevante de una entidad estratégica queda auditada — quién, cuándo, por qué. | Principio 8 (Auditability by Design), `AUCIS_ARCHITECTURE_PRINCIPLES.md` |
 | 11 | Ningún componente fuera del Core Legal Engine puede alterar, reinterpretar, sustituir o reconstruir una decisión jurídica previamente aprobada. La única excepción es la emisión de una nueva versión producida por el propio Core Legal Engine y gestionada conforme al Workflow Orchestration Service y las reglas de versionado de la plataforma. | `AUCIS_BLUEPRINT_CONTRACT_V1.md`, generalizado 2026-07-29 a partir de la regla "ningún consumidor reinterpreta el Blueprint" |
+
+---
+
+## Architectural Observation — Scope como dimensión combinada (registrada 2026-07-29)
+
+Durante la validación cruzada de los contratos de Stage 0 (`AUCIS_CONTRACT_CATALOG.md`), se identificó que el concepto de `Scope` (Case-scoped / Organization-scoped / Platform-scoped), usado en el Contract Metadata de cada contrato, combina dos dimensiones potencialmente distintas: **persistencia** (a qué nivel de la jerarquía de datos pertenece la información) y **gobernanza** (a qué nivel se aplican las reglas del contrato). El Workflow State Machine Contract expone esta ambigüedad: sus reglas son Platform-scoped (aplican igual a todo Case), pero su ejecución concreta siempre ocurre Case-scoped.
+
+**No se modifica el modelo de Scope en esta fase.** Se registra como observación arquitectónica para una futura evolución de la arquitectura. No bloquea Stage 0 ni la implementación de la Fase 2. Si en el futuro aparecen más contratos con esta misma ambigüedad, valdrá la pena evaluar si Scope debe separarse en dos dimensiones independientes.
