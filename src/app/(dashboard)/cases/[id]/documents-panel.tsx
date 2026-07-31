@@ -26,7 +26,16 @@ export function DocumentsPanel({ documentFiles, translations }: DocumentsPanelPr
     if (doc.isExcluded) return { variant: "gray" as const, label: "Excluido de traducción" };
     const t = translationFor(doc.filePath);
     if (!t) return { variant: "gray" as const, label: "Pendiente de traducción" };
-    if (t.status === "completed") return { variant: "success" as const, label: "Traducido" };
+    if (t.status === "completed") {
+      // completed no siempre significa que se generó un .docx — A2 marca
+      // completed también cuando determina que el documento ya está en
+      // inglés y no requiere traducción (translation_docx_path queda null
+      // en ese caso). Distinguir ambos evita el mensaje engañoso "Traducido"
+      // en documentos que nunca se tradujeron porque no lo necesitaban.
+      return t.translation_docx_path
+        ? { variant: "success" as const, label: "Traducido" }
+        : { variant: "gray" as const, label: "Ya en inglés" };
+    }
     if (t.status === "processing") return { variant: "info" as const, label: "Traduciendo..." };
     return { variant: "danger" as const, label: "Error de traducción" };
   }
