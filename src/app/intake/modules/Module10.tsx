@@ -36,6 +36,12 @@ function EvidenceSection<T extends { id: string }>({
   const updItem = <K extends keyof T>(i: number, f: K, v: T[K]) => {
     const arr = [...items]; arr[i] = { ...arr[i], [f]: v }; onItems(arr);
   };
+  // Ver nota de updDegreeFields en Module5.tsx — mismo bug, mismo fix.
+  // Componente genérico: este único fix corrige automáticamente todas las
+  // secciones de evidencia de Module10 que reutilizan EvidenceSection<T>.
+  const updItemFields = (i: number, fields: Partial<T>) => {
+    const arr = [...items]; arr[i] = { ...arr[i], ...fields }; onItems(arr);
+  };
 
   return (
     <div className="rounded-xl border border-gray-200 p-4 space-y-4">
@@ -60,10 +66,9 @@ function EvidenceSection<T extends { id: string }>({
                   storagePath={`module10/${sectionKey}/${item.id}`}
                   filePath={(item as { filePath?: string }).filePath ?? ""}
                   fileName={(item as { fileName?: string }).fileName ?? ""}
-                  onChange={({ filePath, fileName }) => {
-                    updItem(i, "filePath" as keyof T, filePath as T[keyof T]);
-                    updItem(i, "fileName" as keyof T, fileName as T[keyof T]);
-                  }}
+                  onChange={({ filePath, fileName }) =>
+                    updItemFields(i, { filePath, fileName } as unknown as Partial<T>)
+                  }
                 />
               </div>
             </Card>

@@ -15,6 +15,10 @@ export function Module6({ data: d, onChange, sessionId }: Props) {
   const updCert = <K extends keyof CertEntry>(i: number, f: K, v: CertEntry[K]) => {
     const arr = [...d.certifications]; arr[i] = { ...arr[i], [f]: v }; onChange({ certifications: arr });
   };
+  // Ver nota de updDegreeFields en Module5.tsx — mismo bug, mismo fix.
+  const updCertFields = (i: number, fields: Partial<CertEntry>) => {
+    const arr = [...d.certifications]; arr[i] = { ...arr[i], ...fields }; onChange({ certifications: arr });
+  };
 
   return (
     <div className="space-y-4">
@@ -56,7 +60,7 @@ export function Module6({ data: d, onChange, sessionId }: Props) {
               storagePath={`module6/${c.id}`}
               filePath={c.filePath}
               fileName={c.fileName}
-              onChange={({ filePath, fileName }) => { updCert(i,"filePath",filePath); updCert(i,"fileName",fileName); }}
+              onChange={({ filePath, fileName }) => updCertFields(i, { filePath, fileName })}
             />
           </div>
         </Card>

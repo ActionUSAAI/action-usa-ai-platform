@@ -16,6 +16,14 @@ export function Module5({ data: d, onChange, sessionId }: Props) {
   const updDegree = <K extends keyof DegreeEntry>(i: number, f: K, v: DegreeEntry[K]) => {
     const arr = [...d.degrees]; arr[i] = { ...arr[i], [f]: v }; onChange({ degrees: arr });
   };
+  // Actualiza múltiples campos en una sola operación — evita la condición de
+  // carrera de dos llamadas síncronas separadas pisándose sobre el mismo
+  // closure obsoleto (bug real encontrado 2026-07-31: filePath se perdía
+  // porque la llamada de fileName sobrescribía el estado con el filePath
+  // vacío del render anterior).
+  const updDegreeFields = (i: number, fields: Partial<DegreeEntry>) => {
+    const arr = [...d.degrees]; arr[i] = { ...arr[i], ...fields }; onChange({ degrees: arr });
+  };
 
   return (
     <div className="space-y-4">
@@ -63,7 +71,7 @@ export function Module5({ data: d, onChange, sessionId }: Props) {
               storagePath={`module5/${deg.id}`}
               filePath={deg.filePath}
               fileName={deg.fileName}
-              onChange={({ filePath, fileName }) => { updDegree(i,"filePath",filePath); updDegree(i,"fileName",fileName); }}
+              onChange={({ filePath, fileName }) => updDegreeFields(i, { filePath, fileName })}
             />
           </div>
         </Card>
