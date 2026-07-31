@@ -167,7 +167,11 @@ export async function POST(request: NextRequest) {
       agent_name: "case_strategy",
       status: "running",
       started_at: new Date().toISOString(),
-      input_snapshot: { case_id, submission_id: submission_id ?? null },
+      // criteria_met/criteria_scores incluidos para poder auditar exactamente
+      // qué evaluó A1 y qué recibió A5 — antes solo se guardaba case_id/
+      // submission_id, imposibilitando diagnosticar discrepancias entre
+      // ambos motores (hallazgo real, caso María Alejandra Barco Tabares).
+      input_snapshot: { case_id, submission_id: submission_id ?? null, criteria_met, criteria_scores },
     })
     .select("id")
     .single();
