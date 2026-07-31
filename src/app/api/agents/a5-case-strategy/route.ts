@@ -64,6 +64,10 @@ Con eso, construye:
 9. **Recommended Exhibit Order** — orden sugerido de Exhibits.
 10. **Cross-References Between Criteria** — conexiones narrativas explícitas entre criterios (ej. "el criterio X se corrobora con el criterio Y porque...").
 
+PROHIBICIÓN CRÍTICA — CRITERION_KEY: los valores de "criterion_key" en dominant_criteria, supporting_criteria, corroborative_criteria, y evidence_dependencies DEBEN ser exclusivamente los que aparecen en la lista "EVALUACIÓN COMPLETA DE A1" que recibirás en el mensaje del usuario. NUNCA generes un criterion_key basado en nombres de campos que veas en la evidencia cruda (ej. nunca uses "artistic_exhibitions", "critical_role_org", "lead_starring_role", "performing_arts_commercial_success" u otros nombres de criterios de categorías de visa distintas — esos pueden aparecer en los datos de evidencia por razones históricas del formulario, pero NO son válidos para la clasificación de este caso). Si un campo de evidencia no corresponde a ningún criterion_key de la lista recibida, ignóralo para efectos de clasificación de criterios, aunque puedas usar su contenido narrativo dentro de foundational_evidence o evidence_dependencies de un criterion_key que sí sea válido.
+
+PROHIBICIÓN CRÍTICA — CRITERIOS NO CONFIRMADOS: nunca incluyas en dominant_criteria ni en supporting_criteria ningún criterion_key marcado como "NO confirmado" por A1. Un criterio no confirmado solo puede aparecer en missing_evidence_links o en reinforcement_opportunities, nunca como si ya estuviera satisfecho.
+
 PROHIBICIÓN CRÍTICA: nunca evalúes riesgo de RFE ni preocupaciones probables de USCIS — eso pertenece a un motor futuro distinto. Tampoco inventes evidencia que no se te haya proporcionado — si algo no está en los datos que recibiste, no lo menciones como si existiera.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
@@ -91,13 +95,17 @@ function buildUserPrompt(
 ): string {
   const lines: string[] = [];
 
-  lines.push("=== CRITERIOS CONFIRMADOS POR A1 (no los re-evalúes) ===");
-  Object.entries(criteriaMet)
-    .filter(([, met]) => met === true)
-    .forEach(([key]) => {
-      lines.push(`- ${key}: puntaje A1 = ${criteriaScores[key] ?? "N/A"}`);
-    });
-
+  lines.push("=== EVALUACIÓN COMPLETA DE A1 — ÚNICOS criterion_key VÁLIDOS PARA ESTE CASO (no los re-evalúes) ===");
+  lines.push("IMPORTANTE: estos son los ÚNICOS criterios que existen para esta clasificación. No uses ningún otro nombre de criterio bajo ninguna circunstancia, sin importar qué campos veas en la evidencia cruda más abajo.");
+  Object.entries(criteriaMet).forEach(([key, met]) => {
+    lines.push(`- ${key}: ${met ? "CONFIRMADO" : "NO confirmado"} (puntaje A1 = ${criteriaScores[key] ?? "N/A"})`);
+  });
+  const noneConfirmed = Object.values(criteriaMet).every((met) => met === false);
+  if (noneConfirmed) {
+    lines.push("");
+    lines.push("ATENCIÓN: A1 no confirmó NINGÚN criterio como satisfecho en este caso. dominant_criteria y supporting_criteria deben reflejar esta realidad — no inventes criterios confirmados que no existen. Puedes identificar cuáles criterios están MÁS CERCA de cumplirse (mayor puntaje) como foco de desarrollo futuro, pero NUNCA los presentes como si ya estuvieran satisfechos.");
+  }
+  lines.push("");
   lines.push(formatEvidenceForPrompt(m9, m10));
 
   return lines.join("\n");
