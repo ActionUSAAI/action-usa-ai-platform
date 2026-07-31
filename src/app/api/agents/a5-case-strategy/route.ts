@@ -113,7 +113,11 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A5R
     },
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
-      max_tokens: 4096,
+      max_tokens: 8192, // aumentado de 4096 — mismo truncamiento real detectado
+      // que en A1 (commit c807d99), esta vez en el Case Blueprint, que tiene
+      // más secciones (narrativas, evidence_dependencies por criterio,
+      // cross_references, document/exhibit order) y por tanto necesita más
+      // margen para casos ricos en evidencia.
       system: systemPrompt,
       messages: [{ role: "user", content: userPrompt }],
     }),
@@ -127,10 +131,18 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A5R
   const raw: string = data.content?.[0]?.text ?? "";
   try {
     return JSON.parse(raw) as A5Response;
-  } catch {
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (match) return JSON.parse(match[0]) as A5Response;
-    throw new Error("Claude response was not valid JSON: " + raw.slice(0, 300));
+  } catch (firstErr) {
+    try {
+      const match = raw.match(/\{[\s\S]*\}/);
+      if (match) return JSON.parse(match[0]) as A5Response;
+      throw firstErr;
+    } catch (secondErr) {
+      const msg = secondErr instanceof Error ? secondErr.message : String(secondErr);
+      // Guardamos el raw completo (no truncado) para poder diagnosticar
+      // exactamente qué generó Claude cuando ambos intentos de parseo
+      // fallan — mismo patrón de fix que A1 (commit c12baa2).
+      throw new Error(`Claude response was not valid JSON (${msg}). RAW: ${raw}`);
+    }
   }
 }
 
