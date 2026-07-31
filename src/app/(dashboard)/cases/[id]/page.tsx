@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, FileText, Calendar, DollarSign, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, DollarSign, Clock } from "lucide-react";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
@@ -9,6 +9,7 @@ import { A1Panel } from "./a1-panel";
 import type { IntakeAnalysis } from "./a1-panel";
 import { A2Panel } from "./a2-panel";
 import type { DocTranslation } from "./a2-panel";
+import { DocumentsPanel } from "./documents-panel";
 import { A3A4Panel } from "./a3a4-panel";
 import type { RecommendationLetter, PetitionDraft, I129Draft } from "./a3a4-panel";
 import { A5Panel } from "./a5-panel";
@@ -38,16 +39,11 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const caso = casoRaw as any;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: userProfile }, { data: notes }, { data: documents }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }, { data: latestStrategy }] = await Promise.all([
+  const [{ data: userProfile }, { data: notes }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }, { data: latestStrategy }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
       .select(`*, profiles(full_name)`)
-      .eq("case_id", params.id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("documents")
-      .select("*")
       .eq("case_id", params.id)
       .order("created_at", { ascending: false }),
     supabase
@@ -256,33 +252,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             )}
           </div>
 
-          {/* Documentos */}
-          <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
-            <h3 className="font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <FileText size={16} />
-              Documentos
-              <span className="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
-                {documentFiles?.length ?? 0}
-              </span>
-            </h3>
-            {!documentFiles || documentFiles.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">No hay documentos cargados.</p>
-            ) : (
-              <div className="space-y-2">
-                {documentFiles.map((doc) => (
-                  <div key={doc.filePath} className="flex items-center justify-between rounded-lg border border-gray-100 p-3">
-                    <div>
-                      <p className="text-sm font-medium text-gray-900">{doc.label}</p>
-                      <p className="text-xs text-gray-500">{doc.fileName}</p>
-                    </div>
-                    <Badge variant={doc.isExcluded ? "gray" : "success"}>
-                      {doc.isExcluded ? "Excluido de traducción" : "Incluido"}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <DocumentsPanel documentFiles={documentFiles} translations={existingTranslations ?? []} />
         </div>
 
         {/* Sidebar derecho */}
