@@ -303,7 +303,7 @@ export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts,
           </button>
         </div>
         <p className="text-xs text-amber-600">
-          ⚠️ Mapeo parcial (Part 1 + nombre del beneficiario). No es un formulario completo listo para radicar.
+          ⚠️ Mapeo automático: Parts 1–3 (completas), O/P Supplement, y Part 5 parcial (puesto, itinerario, fechas, tipo de negocio — sin datos financieros). Requiere llenado manual del abogado: Part 4 §2–§11 (antecedentes migratorios), resto de Part 5 (campos financieros/operativos), Part 6 (EAR/ITAR), Parts 7–9 (declaraciones y firmas). No es un formulario completo listo para radicar.
         </p>
         {loadingI129 && <p className="text-xs text-gray-400">Generando… puede tardar 15-30 segundos.</p>}
         {errorI129 && (
