@@ -45,8 +45,11 @@ export function A2Panel({ caseId, documentFiles, initialTranslations, userRole }
   const translatableFiles = documentFiles.filter((f) => !f.isExcluded);
   const excludedFiles     = documentFiles.filter((f) => f.isExcluded);
 
+  // Solo cuenta como "traducido" si realmente se generó un .docx — un
+  // documento que A2 marcó completed por ya estar en inglés no debe
+  // contarse aquí (mismo criterio que documents-panel.tsx).
   const completedCount = translatableFiles.filter(
-    (f) => translationMap.get(f.filePath)?.status === "completed"
+    (f) => translationMap.get(f.filePath)?.status === "completed" && translationMap.get(f.filePath)?.translation_docx_path
   ).length;
 
   const pendingFiles = translatableFiles.filter((f) => {
@@ -188,9 +191,15 @@ export function A2Panel({ caseId, documentFiles, initialTranslations, userRole }
                     </span>
                   ) : translation?.status === "completed" ? (
                     <>
-                      <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
-                        <CheckCircle size={12} /> Traducido
-                      </span>
+                      {translation.translation_docx_path ? (
+                        <span className="flex items-center gap-1 text-xs text-green-600 font-medium">
+                          <CheckCircle size={12} /> Traducido
+                        </span>
+                      ) : (
+                        <span className="flex items-center gap-1 text-xs text-gray-500 font-medium">
+                          <CheckCircle size={12} /> Ya en inglés
+                        </span>
+                      )}
                       {translation.translation_docx_path && (
                         <button
                           type="button"
