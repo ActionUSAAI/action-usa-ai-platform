@@ -191,6 +191,18 @@ Una sola fuente de verdad por tipo de información. Ninguna entidad duplica la r
 - **Versionado:** no aplica — cada ejecución es su propia fila inmutable.
 - **Auditoría:** es en sí mismo el registro de auditoría de ejecución.
 
+### Case Packet
+- **Propósito:** el deliverable jurídico ensamblado, versionado y determinista que representa el expediente completo de un caso antes de radicarse — un snapshot inmutable, no el expediente en evolución continua.
+- **Responsabilidad:** componer y congelar — nunca generar contenido, nunca validar consistencia, nunca decidir cuándo o si se radica.
+- **Almacena:** lista ordenada de referencias `{generated_document_id, version}`, versión de Case Blueprint gobernante, referencia al Case Packet anterior en la cadena (si existe), estado.
+- **Relaciones:** pertenece a un Case; referencia el conjunto de Generated Document ya aprobados (por ID y versión, nunca copia contenido); referencia la versión de Case Blueprint que gobernó el conjunto; es referenciado por Case Filing como la unidad que se radica.
+- **Owner:** Document Generation Layer — único y exclusivo. Nunca editable manualmente por ningún humano ni por ningún otro componente.
+- **Consumers:** Case Filing, Workflow Orchestration Service (solo lee `status` para gating), Presentation Layer, el abogado (revisión y confirmación de validación).
+- **Lifecycle:** Assembling → Ready → Superseded. Sin estado de edición humana intermedia — cualquier corrección pasa por regenerar desde la fuente, nunca por editar directamente.
+- **Versionado:** sí, obligatorio — versionado secuencial simple, con cadena por referencia (`previous_packet_id`) al Packet anterior, mismo patrón que Case Filing.
+- **Auditoría:** sí, crítico — reconstruye exactamente qué versión de cada documento se incluyó, en qué orden, en qué momento.
+- **Nota:** especificación completa en `CASE_PACKET_CONTRACT_V1.md`.
+
 ---
 
 ## Nivel 7 — Radicación y resultado
@@ -200,7 +212,7 @@ Una sola fuente de verdad por tipo de información. Ninguna entidad duplica la r
 - **Responsabilidad:** capturar los hechos logísticos del acto de radicación en sí — no la estrategia (Blueprint), no el resultado (Outcome), no lo que ocurre después en USCIS (Case Event).
 - **Almacena:** submitted_at, receipt_number (nullable), receipt_confirmed_at, centro de servicio, modalidad de procesamiento, abogado responsable, tipo de filing (inicial/enmienda/respuesta a RFE/extensión).
 - **Nota de proceso real:** el receipt_number normalmente no está disponible al momento de envío — llega aproximadamente 7-10 días después. Por eso es nullable y submitted_at/receipt_confirmed_at son campos independientes.
-- **Relaciones:** pertenece a un Case; referencia el subconjunto específico de Generated Document incluidos en este acto de radicación.
+- **Relaciones:** pertenece a un Case; referencia el Case Packet (en estado Ready) que constituye la unidad radicada — no referencia Generated Document directamente, esa mediación ahora vive en Case Packet.
 - **Owner:** staff/abogado, al radicar — acción humana explícita, nunca generada por un motor de IA.
 - **Consumers:** Case Event (los eventos posteriores referencian este Filing), futuro Client Case Monitor, futuro Learning Engine.
 - **Lifecycle:** Prepared → Submitted → Superseded. **Termina aquí** — todo lo posterior (recibo asignado, RFE, decisión) es responsabilidad de la firma solo en cuanto acción de radicar, no de seguimiento; eso vive en Case Event.
