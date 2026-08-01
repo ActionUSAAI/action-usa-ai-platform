@@ -296,7 +296,26 @@ export async function POST(request: NextRequest) {
     const userPrompt = buildUserPrompt(submission as Record<string, any>);
     const result = await callClaude(userPrompt, systemPrompt);
 
-    // ── 4. Insert agent_intake_analysis ────────────────────────────────────
+    // ── 4. Determine current version chain for this case ───────────────────
+    // Antes de insertar, buscamos si ya existe una versión vigente
+    // (currency_status = 'current') de Criterion Assessment para este caso.
+    // Si existe, la nueva fila la superará: version + 1, y al final
+    // marcamos la anterior como 'superseded' con superseded_by apuntando
+    // a la nueva fila — cerrando el gap real encontrado 2026-08-01 (el
+    // esquema tenía version/superseded_by/currency_status desde antes,
+    // pero ningún código los poblaba).
+    const { data: previousCurrent } = await db
+      .from("agent_intake_analysis")
+      .select("id, version")
+      .eq("case_id", case_id)
+      .eq("currency_status", "current")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextVersion = previousCurrent ? previousCurrent.version + 1 : 1;
+
+    // ── 5. Insert agent_intake_analysis ────────────────────────────────────
     const { data: analysis, error: insertErr } = await db
       .from("agent_intake_analysis")
       .insert({
@@ -304,6 +323,8 @@ export async function POST(request: NextRequest) {
         submission_id: submission.id,
         run_id: runId,
         status: "completed",
+        currency_status: "current",
+        version: nextVersion,
         recommended_visa_type: result.visa_recommendation,  // existing column name
         classification_used: classification,
         visa_confidence: result.visa_confidence,
@@ -324,7 +345,21 @@ export async function POST(request: NextRequest) {
       throw new Error(`Failed to save analysis: ${insertErr?.message}`);
     }
 
-    // ── 5. Complete agent_run ──────────────────────────────────────────────
+    // ── 6. Supersede the previous version, if one existed ──────────────────
+    // No bloqueante: si esto falla, la nueva fila ya quedó guardada
+    // correctamente (lo importante); solo registramos el error sin
+    // interrumpir la respuesta al usuario.
+    if (previousCurrent) {
+      const { error: supersedeErr } = await db
+        .from("agent_intake_analysis")
+        .update({ currency_status: "superseded", superseded_by: analysis.id })
+        .eq("id", previousCurrent.id);
+      if (supersedeErr) {
+        console.error(`Failed to mark previous analysis ${previousCurrent.id} as superseded:`, supersedeErr.message);
+      }
+    }
+
+    // ── 7. Complete agent_run ──────────────────────────────────────────────
     await db
       .from("agent_runs")
       .update({
@@ -338,7 +373,7 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", runId);
 
-    // ── 6. Disparo automático de A5 (Case Strategy Engine) ──────────────────
+    // ── 8. Disparo automático de A5 (Case Strategy Engine) ──────────────────
     // Fire-and-forget real: waitUntil() extiende la vida de esta función
     // serverless hasta que la promesa de A5 se resuelva, sin bloquear la
     // respuesta que el usuario ya está recibiendo. Su propio try/catch
