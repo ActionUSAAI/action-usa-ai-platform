@@ -113,9 +113,9 @@ Todo corre sobre **Infrastructure Layer** (Vercel, Supabase, Anthropic API) — 
 ### 5. Document Generation Layer
 - **Objetivo:** ejecutar, sin reinterpretar, lo que el Core Legal Engine decidió.
 - **Responsabilidad:** convertir el Case Blueprint en documentos reales.
-- **Componentes:** A3 (Testimonial, Institucional), A4 (Attorney Letter, I-129), Document Template.
-- **Consume:** Case Blueprint (solo en estado approved — regla del Control Plane), Evidence Item referenciada.
-- **Produce:** Generated Document.
+- **Componentes:** A3 (Testimonial, Institucional), A4 (Attorney Letter, I-129), Document Template, Case Packet (ensamblaje del expediente final — ver `CASE_PACKET_CONTRACT_V1.md`).
+- **Consume:** Case Blueprint (solo en estado approved — regla del Control Plane), Evidence Item referenciada; el ensamblaje de Case Packet consume además el conjunto de Generated Document ya aprobados.
+- **Produce:** Generated Document; Case Packet (snapshot ensamblado y versionado del expediente completo, listo para que Case Filing lo radique).
 - **Dependencias:** Core Legal Engine (vía gating del Control Plane).
 - **Principios que respeta:** Human-in-the-Loop; nunca modifica decisiones del Blueprint, solo las ejecuta (ADR-008).
 - **Evolución aislada:** nuevos tipos de documento (nueva categoría migratoria) sin tocar el Core Legal Engine — el Blueprint ya es genérico por diseño.
@@ -175,9 +175,10 @@ Todo corre sobre **Infrastructure Layer** (Vercel, Supabase, Anthropic API) — 
 ### Workflow Orchestration Service
 - **Objetivo:** gobernar transversalmente el ciclo de vida del caso completo — no procesar datos, decidir cuándo cada capa de procesamiento puede actuar.
 - **Responsabilidad:** hacer cumplir la cascada de invalidación y las reglas de gating en cualquier punto donde una entidad del dominio cambie de estado.
-- **Componentes:** la entidad Workflow/Case Stage, el disparo automático A1→A5 (waitUntil), las transiciones de Case Blueprint.status y Case Filing.status.
-- **Consume:** eventos de cambio de estado de todas las capas del Data Plane.
-- **Produce:** decisiones de gating (¿puede generarse un documento ahora?), señales de invalidación ("stale").
+- **Componentes:** la entidad Workflow/Case Stage, las transiciones de Case Blueprint.status, Case Packet.status y Case Filing.status.
+- **Consume:** eventos de cambio de estado de todas las capas del Data Plane — siempre como señales opacas, nunca interpretando el contenido que las produjo.
+- **Produce:** decisiones de gating (¿puede generarse un documento ahora? ¿puede radicarse este Case Packet?), señales de invalidación ("stale").
+- **Patrón de disparo (coreografía, no orquestación):** cada capa del Data Plane se dispara reactivamente a sí misma al completar su propio trabajo (ej. A1→A5 vía waitUntil; Document Generation Layer se autodispara a ensamblar Case Packet al completar los documentos requeridos) — el Control Plane nunca comanda el inicio de un proceso, solo observa el estado resultante y aplica sus reglas de gating. Ningún componente del Data Plane requiere que Workflow le indique cuándo actuar.
 - **Dependencias:** visibilidad bidireccional sobre Evidence Layer, Core Legal Engine, Document Generation Layer, Integration Layer — no depende de ellas en el sentido de una pila de capas, las observa.
 - **Principios que respeta:** Human-in-the-Loop (la cascada nunca regenera automáticamente, solo señala), Version Everything.
 - **Patrón de referencia (DDD):** Process Manager / Saga — coordina una secuencia de negocio de larga duración a través de múltiples contextos, sin poseer lógica de dominio propia.
@@ -200,6 +201,7 @@ Todo corre sobre **Infrastructure Layer** (Vercel, Supabase, Anthropic API) — 
 | Testimonial / Institutional Letter Generator (A3) | Data Plane — Document Generation Layer | Existe |
 | Attorney Document Generator (A4) | Data Plane — Document Generation Layer | Existe |
 | Document Template | Data Plane — Document Generation Layer | No implementada |
+| Case Packet | Data Plane — Document Generation Layer | No implementado (ver CASE_PACKET_CONTRACT_V1.md) |
 | QA Engine | Data Plane — Validation Layer | No implementado |
 | RFE Prediction Engine | Data Plane — Prediction Layer | No implementado |
 | Client Case Monitor | Data Plane — Integration Layer | No implementado |
