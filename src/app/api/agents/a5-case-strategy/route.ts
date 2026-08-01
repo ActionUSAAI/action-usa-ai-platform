@@ -156,14 +156,14 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A5R
 
 export async function POST(request: NextRequest) {
   const db = adminDb();
-  let body: { case_id: string; submission_id?: string; criteria_met: Record<string, boolean>; criteria_scores: Record<string, number> };
+  let body: { case_id: string; submission_id?: string; criteria_met: Record<string, boolean>; criteria_scores: Record<string, number>; criterion_assessment_id?: string };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { case_id, submission_id, criteria_met, criteria_scores } = body;
+  const { case_id, submission_id, criteria_met, criteria_scores, criterion_assessment_id } = body;
   if (!case_id || !criteria_met || !criteria_scores) {
     return NextResponse.json({ error: "Missing required fields: case_id, criteria_met, criteria_scores" }, { status: 400 });
   }
@@ -206,12 +206,32 @@ export async function POST(request: NextRequest) {
     const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10);
     const result = await callClaude(userPrompt, systemPrompt);
 
+    // ── Determine current version chain for this case ──────────────────────
+    // El lifecycle (proposed/edited/approved/locked) describe etapas de
+    // revisión de UNA fila — no garantiza por sí solo que exista una sola
+    // versión vigente por caso. Esa garantía la construye este código:
+    // antes de insertar, buscamos cualquier fila no-superseded existente
+    // (la más reciente por created_at) y la marcamos superseded al insertar
+    // la nueva — mismo patrón ya aplicado en a1-intake-analyzer/route.ts.
+    const { data: previousCurrent } = await db
+      .from("case_strategy")
+      .select("id, version")
+      .eq("case_id", case_id)
+      .neq("status", "superseded")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    const nextVersion = previousCurrent ? previousCurrent.version + 1 : 1;
+
     const { data: strategy, error: insertErr } = await db
       .from("case_strategy")
       .insert({
         case_id,
         run_id: runId,
         status: "proposed",
+        version: nextVersion,
+        criterion_assessment_id: criterion_assessment_id ?? null,
         theory_of_case: result.theory_of_case,
         primary_narrative: result.primary_narrative,
         secondary_narrative: result.secondary_narrative,
@@ -229,7 +249,20 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertErr || !strategy) {
-      throw new Error(`Failed to save case strategy: ${insertErr?.message}`);
+      throw new Error(`Failed to save strategy: ${insertErr?.message}`);
+    }
+
+    // ── Supersede the previous version, if one existed ──────────────────────
+    // No bloqueante: si esto falla, la nueva fila ya quedó guardada
+    // correctamente; solo registramos el error sin interrumpir la respuesta.
+    if (previousCurrent) {
+      const { error: supersedeErr } = await db
+        .from("case_strategy")
+        .update({ status: "superseded", superseded_by: strategy.id })
+        .eq("id", previousCurrent.id);
+      if (supersedeErr) {
+        console.error(`Failed to mark previous strategy ${previousCurrent.id} as superseded:`, supersedeErr.message);
+      }
     }
 
     await db

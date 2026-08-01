@@ -391,6 +391,7 @@ export async function POST(request: NextRequest) {
               submission_id: submission.id,
               criteria_met: result.criteria_met,
               criteria_scores: result.criteria_scores,
+              criterion_assessment_id: analysis.id,
             }),
           });
           if (!res.ok) {
