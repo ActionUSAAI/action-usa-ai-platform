@@ -187,3 +187,30 @@
 **Justificación:** un modelo de dominio que se sigue expandiendo indefinidamente sin criterio de cierre pierde valor como referencia estable. Establecer un punto de congelamiento explícito, documentado, permite que el desarrollo futuro se construya *sobre* el modelo en vez de seguir *rediseñándolo* indefinidamente.
 
 **Consecuencias:** cualquier propuesta de nueva entidad futura debe justificarse con el mismo rigor usado en los ADR-002 a ADR-006 de este documento — no se agregan entidades por conveniencia de implementación.
+
+---
+
+## ADR-010 — Independent State Dimensions for Versioned Artifacts
+
+**Fecha:** 2026-08-02
+**Estado:** Aprobada
+
+**Contexto:** durante la evolución del Core Legal Engine se identificó que varias entidades versionadas del dominio mezclaban dos conceptos distintos dentro de un mismo campo de estado: el progreso de revisión de una fila específica, y si esa fila seguía siendo la versión vigente de su entidad para el caso correspondiente.
+
+**Problema:** un campo de estado único, con transiciones lineales, no puede representar correctamente que la transición a "no vigente" puede ocurrir desde cualquier punto de la progresión de revisión, sin relación con qué tan avanzada esté esa progresión — porque su causa no es una acción sobre la propia fila, sino la aparición de una fila hermana más reciente. La evidencia obtenida durante la implementación mostró múltiples versiones coexistiendo simultáneamente como vigentes para un mismo caso, demostrando que un único campo de estado no representaba correctamente el dominio.
+
+**Alternativas consideradas:**
+1. Inferir la vigencia mediante `ORDER BY created_at DESC LIMIT 1` — la fila más reciente se asume vigente sin ningún campo que lo declare.
+2. Inferir la vigencia mediante `superseded_by IS NULL` — vigente se define por la ausencia de una relación, no por un valor explícito.
+3. Mantener un único campo `status` que intente cubrir ambas dimensiones dentro de la misma secuencia lineal.
+4. Separar la madurez intrínseca de la entidad y su vigencia entre versiones en dos dimensiones de estado independientes.
+
+**Decisión:** Opción 4. Para entidades de tipo artefacto discreto versionado, la madurez intrínseca (transiciones causadas por acción directa sobre la propia fila) y la vigencia (transiciones causadas por la aparición de una versión posterior de la misma identidad) se modelan como dimensiones de estado independientes, nunca mezcladas en un solo campo.
+
+**Justificación:** las Opciones 1 y 2 representan inferencia técnica, no un hecho declarado del dominio — el estado "vigente" no existe como dato propio de la fila, se deduce indirectamente de su posición temporal o de la ausencia de una relación, lo cual es frágil ante cambios futuros de esquema y no ofrece ninguna garantía verificable sin reconstruir el contexto completo del sistema en un instante dado. La Opción 3 fue descartada porque un estado alcanzable desde múltiples puntos de una secuencia, sin depender de en qué punto de esa secuencia se encuentre la fila, es la señal estructural de una dimensión ortogonal, no un paso adicional de la misma progresión lineal. La Opción 4 representa correctamente la naturaleza causal de ambas transiciones, evitando mezclar cambios producidos por acciones sobre la entidad con cambios producidos por la existencia de una versión posterior.
+
+**Alcance:** este ADR aplica exclusivamente a entidades de tipo artefacto discreto versionado — aquellas donde una nueva versión reemplaza a la anterior como snapshot inmutable independiente. No aplica automáticamente a entidades de conocimiento acumulativo (futuro Knowledge Layer), cuya semántica de evolución —actualización continua por acumulación de observaciones, no sustitución discreta por versión hermana— es estructuralmente distinta y deberá analizarse por separado cuando exista un diseño concreto de esa capa.
+
+**Impacto sobre implementaciones existentes:** este ADR no requiere por sí mismo modificaciones inmediatas del sistema. Su función es gobernar el diseño de futuras entidades versionadas y servir como criterio para refactorizaciones graduales cuando resulte conveniente. Ningún cambio de esquema o contrato se considera implícitamente aprobado por este ADR.
+
+**Consecuencias:** mayor claridad del modelo de estados en toda entidad versionada futura, sin ambigüedad entre "qué tan revisada está esta fila" y "sigue siendo la vigente". Elimina la clase de bug ya observada en producción (múltiples filas marcadas simultáneamente como vigentes para el mismo caso). Facilita la aplicación consistente de Version Everything (Principio 5) al dar un vocabulario único y reutilizable para la dimensión de vigencia en cualquier entidad nueva. Facilita Auditability by Design (Principio 8) al hacer explícito, como dato propio de cada fila, en qué momento y por qué dejó de ser vigente. Facilita el diseño de entidades versionadas futuras mediante un criterio reproducible de dos preguntas (¿tiene madurez propia? ¿tiene vigencia entre versiones?), sin necesitar redescubrir el patrón caso por caso. El principio arquitectónico correspondiente queda formalizado en `AUCIS_ARCHITECTURE_PRINCIPLES.md`.
