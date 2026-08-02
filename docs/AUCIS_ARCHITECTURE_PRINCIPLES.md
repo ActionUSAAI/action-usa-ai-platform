@@ -36,6 +36,9 @@ El sistema distingue explícitamente entre acciones que la organización ejecuta
 ### 10. Multi-Tenant desde el Origen
 Ninguna decisión de diseño asume un único usuario final. Toda entidad de datos de caso queda, directa o indirectamente, aislada por Organization.
 
+### 11. Independencia de las Dimensiones de Estado
+En entidades de tipo artefacto discreto versionado, la madurez intrínseca y la vigencia representan dimensiones independientes del estado. La madurez describe transiciones causadas por acciones directas sobre la propia entidad; la vigencia describe transiciones causadas por la aparición de una versión posterior de la misma identidad. Un estado candidato que represente realmente un hecho perteneciente a otra entidad debe modelarse como una relación hacia esa entidad, nunca como un estado propio. Este principio aplica exclusivamente a artefactos discretos versionados; las entidades de conocimiento acumulativo requieren su propio modelo de evolución.
+
 ---
 
-Estos diez principios son la referencia final para evaluar cualquier cambio arquitectónico futuro en AUCIS.
+Estos once principios son la referencia final para evaluar cualquier cambio arquitectónico futuro en AUCIS.
