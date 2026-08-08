@@ -17,16 +17,45 @@ function adminDb() {
 //
 // "A1 mide. A5 decide." — A5 consume criteria_met/criteria_scores
 // de A1 como señal de entrada, nunca los recalcula. Construye el
-// Case Blueprint completo: teoría del caso, narrativa, priorización
-// de criterios (dominant/supporting/corroborative), dependencias de
-// evidencia, y estructura sugerida de documentos.
+// Case Blueprint completo conforme a
+// docs/A5_CASE_BLUEPRINT_SPECIFICATION_V2.md y
+// docs/AUCIS_BLUEPRINT_CONTRACT_V2.md (Blueprint Field Audit,
+// 2026-08-02).
 //
-// Ver docs/A5_CASE_STRATEGY_ENGINE_DESIGN.md.
+// Removidos en v2 (ADR-008 — pertenecen a Document Generation
+// Layer / Workflow, no al Core Legal Engine): petition_strategy_alignment,
+// document_directives, generation_priorities, attorney_instructions.
+// También removidos por el mismo criterio, nunca estuvieron en la
+// v2 aprobada: recommended_document_order, attorney_letter_outline,
+// recommended_exhibit_order.
+//
+// Deferred — Pending Empirical Validation (Blueprint Field Audit):
+// evidence_priority, strategic_priorities, review_notes. Se generan
+// solo si el propio modelo los considera relevantes (nunca
+// obligatorios), y nunca se reinterpretan ni se fuerzan.
 //
 // Explícitamente fuera de alcance: "Likely USCIS Concerns" y
 // "Estimated RFE Risk" — reservados para el futuro RFE Prediction
-// Engine (Capa 5 de docs/AUCIS_V2_STRATEGY_LAYER.md).
+// Engine.
 // ============================================================
+
+interface ReasoningProvenance {
+  source_type: "case_evidence" | "org_pattern" | "global_pattern";
+  influence_weight: number;
+  explanation: string;
+  reference_id: string | null;
+}
+
+interface FoundationalEvidenceItem {
+  evidence_item_id: string | null;
+  description: string;
+  why_foundational: string;
+}
+
+interface CrossReference {
+  criteria: [string, string];
+  connection: string;
+}
 
 interface A5Response {
   theory_of_case: string;
@@ -35,19 +64,35 @@ interface A5Response {
   dominant_criteria: string[];
   supporting_criteria: string[];
   corroborative_criteria: string[];
+  foundational_evidence: FoundationalEvidenceItem[];
   evidence_dependencies: Record<string, string[]>;
-  suggested_reinforcements: string[];
-  recommended_document_order: string[];
-  attorney_letter_outline: string[];
-  recommended_exhibit_order: string[];
-  criteria_cross_references: string[];
+  evidence_priority: Record<string, string[]> | null;
+  argument_sequence: string[];
+  cross_references: CrossReference[];
+  strategic_priorities: string[];
+  reinforcement_opportunities: string[];
+  missing_evidence_links: string[];
+  review_notes: string | null;
+  reasoning_provenance: {
+    theory_of_case?: ReasoningProvenance[];
+    primary_narrative?: ReasoningProvenance[];
+    secondary_narrative?: ReasoningProvenance[];
+    dominant_criteria?: Record<string, ReasoningProvenance[]>;
+    supporting_criteria?: Record<string, ReasoningProvenance[]>;
+    corroborative_criteria?: Record<string, ReasoningProvenance[]>;
+    foundational_evidence?: ReasoningProvenance[];
+    evidence_dependencies?: Record<string, ReasoningProvenance[]>;
+    evidence_priority?: ReasoningProvenance[];
+    argument_sequence?: ReasoningProvenance[];
+    strategic_priorities?: ReasoningProvenance[];
+    reinforcement_opportunities?: ReasoningProvenance[];
+    missing_evidence_links?: ReasoningProvenance[];
+  };
 }
 
 function buildSystemPrompt(): string {
   return `Eres el Case Strategy Engine (A5) de AUCIS (ACTION USA AI).
-
 Tu función es construir la teoría jurídica del caso y diseñar la estrategia probatoria que gobernará toda la petición — nunca vuelves a evaluar si un criterio está satisfecho (eso ya lo hizo A1); tu trabajo es decidir cómo se cuenta la historia con lo que A1 ya confirmó.
-
 "A1 mide. A5 decide." Nunca midas lo mismo que A1.
 
 Recibirás: los criterios que A1 marcó como satisfechos, con sus puntajes individuales, y el contenido real y completo de toda la evidencia disponible (referencias, premios, membresías, publicaciones, rol crítico, etc.).
@@ -56,19 +101,25 @@ Con eso, construye:
 1. **Theory of the Case** — la tesis jurídica central, en una o dos frases.
 2. **Primary Narrative** — la historia principal que conecta los criterios dominantes entre sí, no como compartimentos aislados.
 3. **Secondary Narrative** — hilos de apoyo, si existen (puede ser null si no aplica).
-4. **Dominant / Supporting / Corroborative Criteria** — clasifica cada criterio activo en una de estas tres categorías, según su función real dentro del caso (no todos los criterios pesan igual).
-5. **Evidence Dependencies** — para cada criterio, qué evidencia específica (nombre del recomendante, tipo de documento, hecho concreto) mejor lo respalda. Sé específico, cita los hechos reales que recibiste, no genérico.
-6. **Suggested Reinforcements** — qué evidencia adicional fortalecería el caso, si el abogado puede conseguirla.
-7. **Recommended Document Order** — en qué orden deberían presentarse los documentos del expediente.
-8. **Attorney Letter Outline** — estructura sugerida para la Attorney Petition Letter, basada en la teoría del caso.
-9. **Recommended Exhibit Order** — orden sugerido de Exhibits.
-10. **Cross-References Between Criteria** — conexiones narrativas explícitas entre criterios (ej. "el criterio X se corrobora con el criterio Y porque...").
+4. **Dominant / Supporting / Corroborative Criteria** — clasifica cada criterio activo en una de estas tres categorías, según su función real dentro del caso.
+5. **Foundational Evidence** — la pieza (o pocas piezas) de evidencia sobre la que descansa la teoría completa del caso. Cada elemento: description (texto), why_foundational (por qué ancla la teoría). evidence_item_id siempre null hoy (no existe esa entidad todavía).
+6. **Evidence Dependencies** — para cada criterio, qué evidencia específica mejor lo respalda. Sé específico, cita los hechos reales que recibiste.
+7. **Evidence Priority** (opcional) — solo si hay más de una evidencia por criterio y su orden de importancia es relevante. Map criterion_key → array ordenado. Si no aplica, omite el campo o usa null.
+8. **Argument Sequence** — secuencia lógica de argumentos, en el orden en que deberían razonarse. NUNCA capítulos de documento ni estructura de Attorney Letter — eso lo decide A4, no tú.
+9. **Cross-References Between Criteria** — array de objetos {criteria: [key, key], connection: string} — conexiones narrativas explícitas entre criterios.
+10. **Strategic Priorities** (opcional) — solo si hay un matiz táctico genuino que dominant/supporting/corroborative no capturan ya. No repitas esa clasificación con otras palabras.
+11. **Reinforcement Opportunities** — qué evidencia adicional fortalecería el caso, si el abogado puede conseguirla.
+12. **Missing Evidence Links** — vacíos probatorios que afectan la estrategia actual. Nunca predicción de RFE.
+13. **Review Notes** — normalmente null; tú no rellenas este campo, es espacio para el abogado.
+14. **Reasoning Provenance** — para cada campo de decisión que produzcas, agrega en reasoning_provenance la explicación de por qué llegaste a esa conclusión. source_type siempre "case_evidence". influence_weight siempre 1.0. reference_id siempre null (no existe Evidence Item tipada todavía). explanation: una frase concreta de por qué esa fuente influyó en esa decisión.
 
-PROHIBICIÓN CRÍTICA — CRITERION_KEY: los valores de "criterion_key" en dominant_criteria, supporting_criteria, corroborative_criteria, y evidence_dependencies DEBEN ser exclusivamente los que aparecen en la lista "EVALUACIÓN COMPLETA DE A1" que recibirás en el mensaje del usuario. NUNCA generes un criterion_key basado en nombres de campos que veas en la evidencia cruda (ej. nunca uses "artistic_exhibitions", "critical_role_org", "lead_starring_role", "performing_arts_commercial_success" u otros nombres de criterios de categorías de visa distintas — esos pueden aparecer en los datos de evidencia por razones históricas del formulario, pero NO son válidos para la clasificación de este caso). Si un campo de evidencia no corresponde a ningún criterion_key de la lista recibida, ignóralo para efectos de clasificación de criterios, aunque puedas usar su contenido narrativo dentro de foundational_evidence o evidence_dependencies de un criterion_key que sí sea válido.
+PROHIBICIÓN CRÍTICA — CRITERION_KEY: los valores de "criterion_key" en dominant_criteria, supporting_criteria, corroborative_criteria, y evidence_dependencies DEBEN ser exclusivamente los que aparecen en la lista "EVALUACIÓN COMPLETA DE A1" que recibirás en el mensaje del usuario. NUNCA generes un criterion_key basado en nombres de campos que veas en la evidencia cruda (ej. nunca uses "artistic_exhibitions", "critical_role_org", "lead_starring_role", "performing_arts_commercial_success" u otros nombres de criterios de categorías de visa distintas). Si un campo de evidencia no corresponde a ningún criterion_key de la lista recibida, ignóralo para efectos de clasificación de criterios, aunque puedas usar su contenido narrativo dentro de foundational_evidence o evidence_dependencies de un criterion_key que sí sea válido.
 
 PROHIBICIÓN CRÍTICA — CRITERIOS NO CONFIRMADOS: nunca incluyas en dominant_criteria ni en supporting_criteria ningún criterion_key marcado como "NO confirmado" por A1. Un criterio no confirmado solo puede aparecer en missing_evidence_links o en reinforcement_opportunities, nunca como si ya estuviera satisfecho.
 
-PROHIBICIÓN CRÍTICA: nunca evalúes riesgo de RFE ni preocupaciones probables de USCIS — eso pertenece a un motor futuro distinto. Tampoco inventes evidencia que no se te haya proporcionado — si algo no está en los datos que recibiste, no lo menciones como si existiera.
+PROHIBICIÓN CRÍTICA: nunca evalúes riesgo de RFE ni preocupaciones probables de USCIS. Tampoco inventes evidencia que no se te haya proporcionado.
+
+PROHIBICIÓN CRÍTICA — ESTRUCTURA DOCUMENTAL: nunca generes capítulos de documento, índices de Exhibits, ni ningún campo equivalente a "attorney_letter_outline" o "recommended_exhibit_order" — esa responsabilidad pertenece exclusivamente a Document Generation Layer (A4), que la deriva de argument_sequence y cross_references. Tu única salida es argument_sequence como secuencia lógica de razonamiento, nunca como estructura de documento.
 
 Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
 {
@@ -78,12 +129,18 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
   "dominant_criteria": ["criterion_key", ...],
   "supporting_criteria": ["criterion_key", ...],
   "corroborative_criteria": ["criterion_key", ...],
+  "foundational_evidence": [{ "evidence_item_id": null, "description": "string", "why_foundational": "string" }],
   "evidence_dependencies": { "criterion_key": ["evidencia específica 1", "evidencia específica 2"] },
-  "suggested_reinforcements": ["string", ...],
-  "recommended_document_order": ["string", ...],
-  "attorney_letter_outline": ["string", ...],
-  "recommended_exhibit_order": ["string", ...],
-  "criteria_cross_references": ["string", ...]
+  "evidence_priority": { "criterion_key": ["evidencia más fuerte primero", "..."] } o null,
+  "argument_sequence": ["string", ...],
+  "cross_references": [{ "criteria": ["key1", "key2"], "connection": "string" }],
+  "strategic_priorities": ["string", ...],
+  "reinforcement_opportunities": ["string", ...],
+  "missing_evidence_links": ["string", ...],
+  "review_notes": null,
+  "reasoning_provenance": {
+    "theory_of_case": [{ "source_type": "case_evidence", "influence_weight": 1.0, "explanation": "string", "reference_id": null }]
+  }
 }`;
 }
 
@@ -94,7 +151,6 @@ function buildUserPrompt(
   m10: Record<string, unknown>
 ): string {
   const lines: string[] = [];
-
   lines.push("=== EVALUACIÓN COMPLETA DE A1 — ÚNICOS criterion_key VÁLIDOS PARA ESTE CASO (no los re-evalúes) ===");
   lines.push("IMPORTANTE: estos son los ÚNICOS criterios que existen para esta clasificación. No uses ningún otro nombre de criterio bajo ninguna circunstancia, sin importar qué campos veas en la evidencia cruda más abajo.");
   Object.entries(criteriaMet).forEach(([key, met]) => {
@@ -103,11 +159,10 @@ function buildUserPrompt(
   const noneConfirmed = Object.values(criteriaMet).every((met) => met === false);
   if (noneConfirmed) {
     lines.push("");
-    lines.push("ATENCIÓN: A1 no confirmó NINGÚN criterio como satisfecho en este caso. dominant_criteria y supporting_criteria deben reflejar esta realidad — no inventes criterios confirmados que no existen. Puedes identificar cuáles criterios están MÁS CERCA de cumplirse (mayor puntaje) como foco de desarrollo futuro, pero NUNCA los presentes como si ya estuvieran satisfechos.");
+    lines.push("ATENCIÓN: A1 no confirmó NINGÚN criterio como satisfecho en este caso. dominant_criteria y supporting_criteria deben reflejar esta realidad — no inventes criterios confirmados que no existen. Puedes identificar cuáles criterios están MÁS CERCA de cumplirse (mayor puntaje) como foco de desarrollo futuro en missing_evidence_links/reinforcement_opportunities, pero NUNCA los presentes como si ya estuvieran satisfechos.");
   }
   lines.push("");
   lines.push(formatEvidenceForPrompt(m9, m10));
-
   return lines.join("\n");
 }
 
@@ -130,7 +185,6 @@ async function callClaude(userPrompt: string, systemPrompt: string): Promise<A5R
       messages: [{ role: "user", content: userPrompt }],
     }),
   });
-
   if (!res.ok) {
     const err = await res.text();
     throw new Error(`Claude API error ${res.status}: ${err}`);
@@ -162,12 +216,10 @@ export async function POST(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-
   const { case_id, submission_id, criteria_met, criteria_scores, criterion_assessment_id } = body;
   if (!case_id || !criteria_met || !criteria_scores) {
     return NextResponse.json({ error: "Missing required fields: case_id, criteria_met, criteria_scores" }, { status: 400 });
   }
-
   const { data: run, error: runErr } = await db
     .from("agent_runs")
     .insert({
@@ -193,15 +245,12 @@ export async function POST(request: NextRequest) {
     const { data: submission, error: subErr } = submission_id
       ? await subQuery.eq("id", submission_id).maybeSingle()
       : await subQuery.eq("case_id", case_id).maybeSingle();
-
     if (subErr) throw new Error(`Error fetching submission: ${subErr.message}`);
     if (!submission) throw new Error("No intake submission found for this case.");
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const sub = submission as Record<string, any>;
     const m9 = sub.module9 ?? {};
     const m10 = sub.module10 ?? {};
-
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10);
     const result = await callClaude(userPrompt, systemPrompt);
@@ -238,12 +287,16 @@ export async function POST(request: NextRequest) {
         dominant_criteria: result.dominant_criteria,
         supporting_criteria: result.supporting_criteria,
         corroborative_criteria: result.corroborative_criteria,
+        foundational_evidence: result.foundational_evidence,
         evidence_dependencies: result.evidence_dependencies,
-        suggested_reinforcements: result.suggested_reinforcements,
-        recommended_document_order: result.recommended_document_order,
-        attorney_letter_outline: result.attorney_letter_outline,
-        recommended_exhibit_order: result.recommended_exhibit_order,
-        criteria_cross_references: result.criteria_cross_references,
+        evidence_priority: result.evidence_priority,
+        argument_sequence: result.argument_sequence,
+        criteria_cross_references: result.cross_references,
+        strategic_priorities: result.strategic_priorities,
+        suggested_reinforcements: result.reinforcement_opportunities,
+        missing_evidence_links: result.missing_evidence_links,
+        review_notes: result.review_notes,
+        reasoning_provenance: result.reasoning_provenance,
       })
       .select("*")
       .single();
@@ -296,12 +349,15 @@ export async function PATCH(request: NextRequest) {
       dominant_criteria: string[];
       supporting_criteria: string[];
       corroborative_criteria: string[];
+      foundational_evidence: unknown[];
       evidence_dependencies: Record<string, string[]>;
+      evidence_priority: Record<string, string[]> | null;
+      argument_sequence: string[];
+      criteria_cross_references: unknown[];
+      strategic_priorities: string[];
       suggested_reinforcements: string[];
-      recommended_document_order: string[];
-      attorney_letter_outline: string[];
-      recommended_exhibit_order: string[];
-      criteria_cross_references: string[];
+      missing_evidence_links: string[];
+      review_notes: string | null;
     }>;
     approve?: boolean;
   };
@@ -310,7 +366,6 @@ export async function PATCH(request: NextRequest) {
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
-
   const { strategy_id, updates, approve } = body;
   if (!strategy_id) {
     return NextResponse.json({ error: "Missing required field: strategy_id" }, { status: 400 });
@@ -321,6 +376,7 @@ export async function PATCH(request: NextRequest) {
   if (updates) {
     Object.assign(patch, updates);
     patch.edited_at = new Date().toISOString();
+    if (!patch.status) patch.status = "edited";
   }
   if (approve === true) {
     patch.status = "approved";
@@ -329,21 +385,17 @@ export async function PATCH(request: NextRequest) {
     // desde el cliente — pendiente de conectar con el sistema de auth
     // real al integrar esta ruta con el panel.
   }
-
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ error: "No updates or approve flag provided" }, { status: 400 });
   }
-
   const { data: strategy, error: updateErr } = await db
     .from("case_strategy")
     .update(patch)
     .eq("id", strategy_id)
     .select("*")
     .single();
-
   if (updateErr || !strategy) {
     return NextResponse.json({ error: `Failed to update case strategy: ${updateErr?.message}` }, { status: 500 });
   }
-
   return NextResponse.json({ success: true, strategy });
 }
