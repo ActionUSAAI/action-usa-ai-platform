@@ -314,12 +314,21 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
               {strategy.foundational_evidence.length === 0 ? (
                 <p className="text-sm text-gray-400">—</p>
               ) : (
-                strategy.foundational_evidence.map((item, i) => (
-                  <div key={i} className="rounded-lg bg-gray-50 p-2">
-                    <p className="text-sm text-gray-800">{item.description}</p>
-                    <p className="mt-1 text-xs text-gray-500">Por qué ancla el caso: {item.why_foundational}</p>
-                  </div>
-                ))
+                strategy.foundational_evidence.map((item, i) => {
+                  if (!item || typeof item !== "object" || !("description" in item)) {
+                    return (
+                      <p key={i} className="text-sm text-gray-600 italic">
+                        (formato anterior — regenera la estrategia para ver el formato actualizado)
+                      </p>
+                    );
+                  }
+                  return (
+                    <div key={i} className="rounded-lg bg-gray-50 p-2">
+                      <p className="text-sm text-gray-800">{item.description}</p>
+                      <p className="mt-1 text-xs text-gray-500">Por qué ancla el caso: {item.why_foundational}</p>
+                    </div>
+                  );
+                })
               )}
             </div>
           </div>
@@ -360,21 +369,37 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
 
           <EditableList fieldKey="argument_sequence" value={strategy.argument_sequence} label="Argument Sequence" />
 
-          {/* Cross References — nuevo tipo estructurado en v2, solo lectura. */}
+          {/* Cross References — nuevo tipo estructurado en v2, solo lectura.
+              Guarda defensiva: filas generadas antes del despliegue de
+              Blueprint v2 (commit 1c7621a) siguen en formato string[] en
+              la base de datos — no se regeneran automáticamente. Sin esta
+              guarda, ref.criteria[0] sobre un string lanza TypeError y
+              rompe el panel completo (bug real detectado 2026-08-08,
+              caso real en producción). */}
           <div>
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Cross-References Between Criteria</span>
             <div className="mt-2 space-y-1">
               {strategy.criteria_cross_references.length === 0 ? (
                 <p className="text-sm text-gray-400">—</p>
               ) : (
-                strategy.criteria_cross_references.map((ref, i) => (
-                  <p key={i} className="text-sm text-gray-800">
-                    <span className="font-medium">{labels[ref.criteria[0]] ?? ref.criteria[0]}</span>
-                    {" ↔ "}
-                    <span className="font-medium">{labels[ref.criteria[1]] ?? ref.criteria[1]}</span>
-                    {": "}{ref.connection}
-                  </p>
-                ))
+                strategy.criteria_cross_references.map((ref, i) => {
+                  const isLegacyFormat = typeof ref === "string" || !ref || !Array.isArray((ref as CrossReference).criteria);
+                  if (isLegacyFormat) {
+                    return (
+                      <p key={i} className="text-sm text-gray-600 italic">
+                        {typeof ref === "string" ? ref : "(formato anterior — regenera la estrategia para ver el formato actualizado)"}
+                      </p>
+                    );
+                  }
+                  return (
+                    <p key={i} className="text-sm text-gray-800">
+                      <span className="font-medium">{labels[ref.criteria[0]] ?? ref.criteria[0]}</span>
+                      {" ↔ "}
+                      <span className="font-medium">{labels[ref.criteria[1]] ?? ref.criteria[1]}</span>
+                      {": "}{ref.connection}
+                    </p>
+                  );
+                })
               )}
             </div>
           </div>
