@@ -239,6 +239,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Failed to create agent run", detail: runErr?.message }, { status: 500 });
   }
   const runId = run.id as string;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let result: any;
 
   try {
     const subQuery = db.from("intake_submissions").select("*");
@@ -253,7 +255,7 @@ export async function POST(request: NextRequest) {
     const m10 = sub.module10 ?? {};
     const systemPrompt = buildSystemPrompt();
     const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10);
-    const result = await callClaude(userPrompt, systemPrompt);
+    result = await callClaude(userPrompt, systemPrompt);
 
     // ── Determine current version chain for this case ──────────────────────
     // El lifecycle (proposed/edited/approved/locked) describe etapas de
@@ -330,9 +332,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: true, strategy });
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
+    // Captura el último result parseado conocido (si callClaude() tuvo
+    // éxito pero un paso posterior, ej. el INSERT, falló) — antes se
+    // perdía por completo, dejando el fallo real (qué campo vino mal
+    // formado) sin ningún rastro diagnosticable. Hallazgo real, caso
+    // María Alejandra Barco Tabares, 2026-08-08: theory_of_case llegó
+    // null en un JSON por lo demás válido, sin captura del raw porque
+    // el parseo en sí no había fallado.
     await db
       .from("agent_runs")
-      .update({ status: "failed", error_detail: msg, completed_at: new Date().toISOString() })
+      .update({
+        status: "failed",
+        error_detail: msg,
+        completed_at: new Date().toISOString(),
+        output_summary: typeof result !== "undefined" ? { last_parsed_result: result } : null,
+      })
       .eq("id", runId);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
