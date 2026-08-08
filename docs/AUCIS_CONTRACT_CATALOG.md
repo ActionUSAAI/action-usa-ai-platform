@@ -10,7 +10,8 @@
 
 | Contract ID | Nombre | Versión | Contract Status | Contract Owner | Producer | Scope |
 |---|---|---|---|---|---|---|
-| `BP-CONTRACT-V1` | Blueprint Contract | v1 | Frozen | Core Legal Engine | Case Strategy Engine (A5) | Case-scoped |
+| `BP-CONTRACT-V2` | Blueprint Contract | v2 | Frozen | Core Legal Engine | Case Strategy Engine (A5) | Case-scoped |
+| `BP-CONTRACT-V1` | Blueprint Contract | v1 | Superseded | Core Legal Engine | Case Strategy Engine (A5) | Case-scoped |
 | `CA-CONTRACT-V1` | Criterion Assessment Contract | v1 | Frozen (Stage 0) | Core Legal Engine | Criterion Assessment Engine (A1) | Case-scoped |
 | `EI-CONTRACT-V1` | Evidence Item Contract | v1 | Frozen (Stage 0) | Evidence Layer | Intake (hoy) / CV Extractor A0 (futuro) | Case-scoped |
 | `WF-CONTRACT-V1` | Workflow State Machine Contract | v1 | Frozen (Stage 0) | Control Plane | Workflow Orchestration Service | Platform-scoped (reglas) / Case-scoped (ejecución) |
@@ -28,13 +29,13 @@ Evidence Item Contract (EI-CONTRACT-V1)
 Criterion Assessment Contract (CA-CONTRACT-V1)
     │  consumido por (input directo, nunca recalculado — ADR-002)
     ▼
-Blueprint Contract (BP-CONTRACT-V1)
+Blueprint Contract (BP-CONTRACT-V2)
     │  consumido por (lectura/ejecución, nunca reinterpretación — Invariant #2, #11)
     ▼
 Document Generation Layer (A3 / A4) — fuera del alcance de Stage 0, consumidor terminal
 ```
 
-El **Workflow State Machine Contract (WF-CONTRACT-V1)** no participa de esta cadena secuencial — la observa transversalmente desde el Control Plane, leyendo únicamente el campo `status` de `CA-CONTRACT-V1` y `BP-CONTRACT-V1` para decisiones de gating, sin consumir su contenido sustantivo (`AUCIS_PLATFORM_ARCHITECTURE.md`, Architectural Invariant #4).
+El **Workflow State Machine Contract (WF-CONTRACT-V1)** no participa de esta cadena secuencial — la observa transversalmente desde el Control Plane, leyendo únicamente el campo `status` de `CA-CONTRACT-V1` y `BP-CONTRACT-V2` para decisiones de gating, sin consumir su contenido sustantivo (`AUCIS_PLATFORM_ARCHITECTURE.md`, Architectural Invariant #4).
 
 ---
 
@@ -58,7 +59,7 @@ Estas reglas no se repiten en cada contrato individual — se declaran aquí una
 
 ## References
 
-- `AUCIS_BLUEPRINT_CONTRACT_V1.md`
+- `AUCIS_BLUEPRINT_CONTRACT_V2.md`
 - `AUCIS_CRITERION_ASSESSMENT_CONTRACT_V1.md`
 - `AUCIS_EVIDENCE_ITEM_CONTRACT_V1.md`
 - `AUCIS_WORKFLOW_STATE_MACHINE_CONTRACT_V1.md`
