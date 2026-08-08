@@ -4,22 +4,40 @@ import { useState } from "react";
 import { Compass, RefreshCw, Loader2, AlertCircle, Pencil, Check } from "lucide-react";
 import { resolveCriteriaLabels } from "./a1-panel";
 
+export interface CrossReference {
+  criteria: [string, string];
+  connection: string;
+}
+
+export interface FoundationalEvidenceItem {
+  evidence_item_id: string | null;
+  description: string;
+  why_foundational: string;
+}
+
 export interface CaseStrategy {
   id: string;
   case_id: string;
-  status: "proposed" | "approved";
+  status: "proposed" | "edited" | "approved" | "locked" | "superseded";
   theory_of_case: string;
   primary_narrative: string;
   secondary_narrative: string | null;
   dominant_criteria: string[];
   supporting_criteria: string[];
   corroborative_criteria: string[];
+  foundational_evidence: FoundationalEvidenceItem[];
   evidence_dependencies: Record<string, string[]>;
+  evidence_priority: Record<string, string[]> | null;
+  argument_sequence: string[];
+  // Nombre de columna sin cambiar respecto a v1 — el tipo de contenido sí
+  // cambió (Blueprint Field Audit): antes string[], ahora CrossReference[].
+  criteria_cross_references: CrossReference[];
+  strategic_priorities: string[];
+  // Nombre de columna sin cambiar respecto a v1 — almacena
+  // reinforcement_opportunities (Blueprint Specification v2).
   suggested_reinforcements: string[];
-  recommended_document_order: string[];
-  attorney_letter_outline: string[];
-  recommended_exhibit_order: string[];
-  criteria_cross_references: string[];
+  missing_evidence_links: string[];
+  review_notes: string | null;
   edited_at: string | null;
   approved_at: string | null;
   created_at: string;
@@ -37,12 +55,17 @@ interface A5PanelProps {
 
 const STATUS_BADGE: Record<string, string> = {
   proposed: "bg-amber-50 text-amber-700 border border-amber-200",
+  edited: "bg-blue-50 text-blue-700 border border-blue-200",
   approved: "bg-emerald-50 text-emerald-700 border border-emerald-200",
+  locked: "bg-indigo-50 text-indigo-700 border border-indigo-200",
+  superseded: "bg-gray-100 text-gray-500 border border-gray-200",
 };
-
 const STATUS_LABEL: Record<string, string> = {
   proposed: "Propuesta — pendiente de revisión",
+  edited: "Editada — pendiente de aprobación",
   approved: "Aprobada",
+  locked: "Bloqueada",
+  superseded: "Reemplazada por una versión más reciente",
 };
 
 export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, criteriaScores, classificationUsed, userRole }: A5PanelProps) {
@@ -51,7 +74,6 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
   const [error, setError] = useState<string | null>(null);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [draftValue, setDraftValue] = useState<string>("");
-
   const canTrigger = ["admin", "supervisor", "agent"].includes(userRole);
   const labels = resolveCriteriaLabels(classificationUsed);
 
@@ -201,6 +223,8 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
     );
   }
 
+  const canApprove = strategy && (strategy.status === "proposed" || strategy.status === "edited");
+
   return (
     <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
       <div className="flex items-center justify-between mb-4">
@@ -208,8 +232,8 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
           <Compass className="text-[#1B2B5E]" size={20} />
           <h2 className="text-lg font-semibold text-[#1B2B5E]">A5 — Case Strategy Engine</h2>
           {strategy && (
-            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[strategy.status]}`}>
-              {STATUS_LABEL[strategy.status]}
+            <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[strategy.status] ?? STATUS_BADGE.proposed}`}>
+              {STATUS_LABEL[strategy.status] ?? strategy.status}
             </span>
           )}
         </div>
@@ -231,18 +255,15 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
           <p className="mt-2 text-sm text-gray-500">Construyendo el Case Blueprint...</p>
         </div>
       )}
-
       {error && (
         <div className="mb-4 flex items-start gap-2 rounded-lg border border-red-100 bg-red-50 p-3 text-sm text-red-700">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>{error}</span>
         </div>
       )}
-
       {!loading && !strategy && !criteriaMet && (
         <p className="py-6 text-center text-sm text-gray-400">Ejecuta el análisis A1 primero para generar la estrategia del caso.</p>
       )}
-
       {!loading && !strategy && criteriaMet && (
         <p className="py-6 text-center text-sm text-gray-400">El análisis A1 está listo. Genera la estrategia del caso con el botón de arriba.</p>
       )}
@@ -285,6 +306,25 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
           </div>
           <hr className="border-gray-100" />
 
+          {/* Foundational Evidence — nuevo en v2, solo lectura (estructura de
+              objetos, no compatible con EditableText/EditableList). */}
+          <div>
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Foundational Evidence</span>
+            <div className="mt-2 space-y-2">
+              {strategy.foundational_evidence.length === 0 ? (
+                <p className="text-sm text-gray-400">—</p>
+              ) : (
+                strategy.foundational_evidence.map((item, i) => (
+                  <div key={i} className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-sm text-gray-800">{item.description}</p>
+                    <p className="mt-1 text-xs text-gray-500">Por qué ancla el caso: {item.why_foundational}</p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <hr className="border-gray-100" />
+
           <div>
             <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Evidence Dependencies</span>
             <div className="mt-2 space-y-2">
@@ -298,19 +338,61 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
               ))}
             </div>
           </div>
+
+          {/* Evidence Priority — Deferred (Blueprint Field Audit), solo se
+              muestra si el modelo lo produjo. */}
+          {strategy.evidence_priority && Object.keys(strategy.evidence_priority).length > 0 && (
+            <div>
+              <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Evidence Priority</span>
+              <div className="mt-2 space-y-2">
+                {Object.entries(strategy.evidence_priority).map(([key, evidence]) => (
+                  <div key={key} className="rounded-lg bg-gray-50 p-2">
+                    <p className="text-xs font-semibold text-gray-600">{labels[key] ?? key}</p>
+                    <ol className="list-decimal list-inside text-sm text-gray-700">
+                      {evidence.map((e, i) => <li key={i}>{e}</li>)}
+                    </ol>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <hr className="border-gray-100" />
 
-          <EditableList fieldKey="suggested_reinforcements" value={strategy.suggested_reinforcements} label="Suggested Reinforcements" />
-          <EditableList fieldKey="criteria_cross_references" value={strategy.criteria_cross_references} label="Cross-References Between Criteria" />
-          <hr className="border-gray-100" />
+          <EditableList fieldKey="argument_sequence" value={strategy.argument_sequence} label="Argument Sequence" />
 
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <EditableList fieldKey="recommended_document_order" value={strategy.recommended_document_order} label="Recommended Document Order" />
-            <EditableList fieldKey="attorney_letter_outline" value={strategy.attorney_letter_outline} label="Attorney Letter Outline" />
-            <EditableList fieldKey="recommended_exhibit_order" value={strategy.recommended_exhibit_order} label="Recommended Exhibit Order" />
+          {/* Cross References — nuevo tipo estructurado en v2, solo lectura. */}
+          <div>
+            <span className="text-xs font-medium uppercase tracking-wide text-gray-500">Cross-References Between Criteria</span>
+            <div className="mt-2 space-y-1">
+              {strategy.criteria_cross_references.length === 0 ? (
+                <p className="text-sm text-gray-400">—</p>
+              ) : (
+                strategy.criteria_cross_references.map((ref, i) => (
+                  <p key={i} className="text-sm text-gray-800">
+                    <span className="font-medium">{labels[ref.criteria[0]] ?? ref.criteria[0]}</span>
+                    {" ↔ "}
+                    <span className="font-medium">{labels[ref.criteria[1]] ?? ref.criteria[1]}</span>
+                    {": "}{ref.connection}
+                  </p>
+                ))
+              )}
+            </div>
           </div>
 
-          {canTrigger && strategy.status === "proposed" && (
+          {/* Strategic Priorities — Deferred (Blueprint Field Audit), solo se
+              muestra si el modelo lo produjo. */}
+          {strategy.strategic_priorities.length > 0 && (
+            <EditableList fieldKey="strategic_priorities" value={strategy.strategic_priorities} label="Strategic Priorities" />
+          )}
+
+          <EditableList fieldKey="suggested_reinforcements" value={strategy.suggested_reinforcements} label="Reinforcement Opportunities" />
+          <EditableList fieldKey="missing_evidence_links" value={strategy.missing_evidence_links} label="Missing Evidence Links" />
+
+          {/* Review Notes — Deferred (Blueprint Field Audit), espacio del
+              abogado; siempre editable, nunca lo produce A5. */}
+          <EditableText fieldKey="review_notes" value={strategy.review_notes} label="Review Notes (abogado)" />
+
+          {canTrigger && canApprove && (
             <>
               <hr className="border-gray-100" />
               <button
