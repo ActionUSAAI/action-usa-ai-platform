@@ -177,13 +177,45 @@ Devuelve ÚNICAMENTE este objeto JSON, sin markdown ni explicación adicional:
 function buildUserPrompt(
   beneficiaryFullName: string,
   visaType: string,
-  candidate: CandidateLetter
+  candidate: CandidateLetter,
+  criterionKey: string | null,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blueprint: Record<string, any> | null
 ): string {
   const lines: string[] = [];
   lines.push(`BENEFICIARIO: ${beneficiaryFullName}`);
   lines.push(`Clasificación de visa: ${visaType}`);
   lines.push(`ORGANIZACIÓN: ${candidate.organizationName}`);
   lines.push(``);
+  // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md Sección 1: para cartas
+  // subtypeB_*, A3 ejecuta la decisión jurídica ya tomada por A5 — no
+  // la reinterpreta. subtypeA_advisory nunca llega aquí con blueprint
+  // no-null y criterionKey no-null simultáneamente, porque está exenta
+  // del gating (ver resolveCandidates y el loop de generación).
+  if (blueprint && criterionKey) {
+    if (blueprint.theory_of_case) {
+      lines.push(`TEORÍA DEL CASO (ya decidida por A5 — úsala como contexto, nunca la contradigas):`);
+      lines.push(blueprint.theory_of_case);
+      lines.push(``);
+    }
+    const evidenceForCriterion: string[] = (blueprint.evidence_dependencies ?? {})[criterionKey] ?? [];
+    if (evidenceForCriterion.length > 0) {
+      lines.push(`EVIDENCIA QUE A5 YA IDENTIFICÓ COMO RELEVANTE PARA ESTE CRITERIO — prioriza estos hechos sobre cualquier otro dato del intake:`);
+      evidenceForCriterion.forEach((e) => lines.push(`  - ${e}`));
+      lines.push(``);
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const relevantCrossRefs = (blueprint.criteria_cross_references ?? []).filter(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (ref: any) => Array.isArray(ref?.criteria) && ref.criteria.includes(criterionKey)
+    );
+    if (relevantCrossRefs.length > 0) {
+      lines.push(`CONEXIONES CON OTROS CRITERIOS (A5 ya identificó esto — puedes reflejarlo naturalmente si aplica, sin forzarlo):`);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      relevantCrossRefs.forEach((ref: any) => lines.push(`  - ${ref.connection}`));
+      lines.push(``);
+    }
+  }
   lines.push(`DATOS DE EVIDENCIA DISPONIBLES:`);
   for (const [key, value] of Object.entries(candidate.sourceData)) {
     if (value === null || value === undefined || value === "") continue;
@@ -255,6 +287,25 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Mod
   return parsed;
 }
 
+// Encapsulado deliberadamente: hoy selecciona el Blueprint vigente vía
+// status IN ('approved','locked'), pero ADR-010 ya identificó que status
+// mezcla dos dimensiones (workflow editorial + vigencia) — cuando
+// case_strategy migre a workflow_status + currency_status (diferido,
+// ver AUCIS_ARCHITECTURE_DECISIONS.md ADR-010), solo esta función
+// necesita actualizarse. Mismo patrón que a3-testimonial-letters/route.ts.
+async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: string) {
+  const { data: strategy, error } = await db
+    .from("case_strategy")
+    .select("*")
+    .eq("case_id", caseId)
+    .in("status", ["approved", "locked"])
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Error fetching Blueprint: ${error.message}`);
+  return strategy;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -266,6 +317,12 @@ export async function POST(req: NextRequest) {
     }
 
     const db = adminDb();
+
+    // ── Fetch approved Blueprint (puede ser null) — AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md:
+    // a diferencia de Testimonial, Institutional no bloquea globalmente
+    // sin Blueprint, porque subtypeA_advisory está exento del gating por
+    // criterio (ver comentario en resolveCandidates/el loop de generación).
+    const blueprint = await getApprovedBlueprint(db, case_id);
 
     const subQuery = db.from("intake_submissions").select("*");
     const { data: submission, error: subErr } = submission_id
@@ -296,10 +353,46 @@ export async function POST(req: NextRequest) {
     }
 
     const letters: InstitutionalLetterEntry[] = [];
+    const escalated: { letterType: InstitutionalLetterType; organizationName: string; criterionKey: string }[] = [];
 
     for (const candidate of candidates) {
+      const criterionKey = CRITERION_KEY_BY_LETTER_TYPE[candidate.letterType] ?? null;
+
+      // Advisory letters are intentionally excluded from Blueprint
+      // criterion gating because they certify institutional support
+      // rather than arguing a USCIS criterion. See Blueprint Execution
+      // Contract v1.
+      if (candidate.letterType !== "subtypeA_advisory") {
+        // subtypeB_* SON Blueprint Executors — AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md
+        // Sección 4: si el criterio no existe en el Blueprint aprobado,
+        // no se infiere ni se sustituye — se escala, no se genera
+        // silenciosamente.
+        const blueprintCriteria = new Set<string>([
+          ...(blueprint?.dominant_criteria ?? []),
+          ...(blueprint?.supporting_criteria ?? []),
+          ...(blueprint?.corroborative_criteria ?? []),
+        ]);
+        if (!blueprint || !criterionKey || !blueprintCriteria.has(criterionKey)) {
+          escalated.push({
+            letterType: candidate.letterType,
+            organizationName: candidate.organizationName,
+            criterionKey: criterionKey ?? "unknown",
+          });
+          console.warn(
+            `[A3 Institutional Blueprint Executor] Escalando: ${candidate.letterType} (${candidate.organizationName}) requiere criterio "${criterionKey}" que no existe en el Blueprint aprobado (case_id ${case_id}). No se genera esta carta.`
+          );
+          continue;
+        }
+      }
+
       const systemPrompt = buildSystemPrompt(candidate.letterType);
-      const userPrompt = buildUserPrompt(beneficiaryFullName, visaType, candidate);
+      const userPrompt = buildUserPrompt(
+        beneficiaryFullName,
+        visaType,
+        candidate,
+        candidate.letterType === "subtypeA_advisory" ? null : criterionKey,
+        candidate.letterType === "subtypeA_advisory" ? null : blueprint
+      );
       const { blocks } = await callClaude(systemPrompt, userPrompt);
 
       letters.push({
@@ -323,7 +416,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       case_id,
       lettersGenerated: result.length,
-      letterTypes: candidates.map((c) => c.letterType),
+      letterTypes: candidates.filter((c) => letters.some((l) => l.letterType === c.letterType && l.organizationName === c.organizationName)).map((c) => c.letterType),
+      escalated,
       results: result,
     });
   } catch (err) {
