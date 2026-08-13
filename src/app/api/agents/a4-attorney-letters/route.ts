@@ -8,7 +8,7 @@ import {
   type ConsultationExceptionInput,
   type CriterionArgument,
 } from "@/lib/agents/a4-attorney-docx-builder";
-import { resolveCriteriaSet } from "@/lib/canonical-criteria";
+import { resolveCriteriaSet, criteriaSetForClassification } from "@/lib/canonical-criteria";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -160,7 +160,8 @@ function buildTipo0UserPrompt(
   awards: Record<string, unknown>[],
   orderedCriteria: string[],
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  blueprint: Record<string, any>
+  blueprint: Record<string, any>,
+  criterionCitationByKey: Record<string, string>
 ): string {
   const lines: string[] = [];
   lines.push(`BENEFICIARIO: ${beneficiaryFullName}`);
@@ -185,10 +186,8 @@ function buildTipo0UserPrompt(
     }
     lines.push(`CRITERIOS A ARGUMENTAR, EN ESTE ORDEN (ya decidido por A5 según argument_sequence — no reordenes):`);
     orderedCriteria.forEach((criterionKey) => {
-      const row = exhibitRows.find((r) =>
-        r.criterion_label.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " ")) ||
-        r.criterion_citation === criterionKey
-      );
+      const canonicalCitation = criterionCitationByKey[criterionKey];
+      const row = canonicalCitation ? exhibitRows.find((r) => r.criterion_citation === canonicalCitation) : undefined;
       if (!row) return;
       lines.push(`- Criterion citation: ${row.criterion_citation} | Label: ${row.criterion_label} | Exhibit: ${row.exhibit_number}`);
       const evidenceForCriterion: string[] = (blueprint.evidence_dependencies ?? {})[criterionKey] ?? [];
@@ -253,6 +252,19 @@ async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: stri
     .maybeSingle();
   if (error) throw new Error(`Error fetching Blueprint: ${error.message}`);
   return strategy;
+}
+
+// Resuelve la cita CFR canónica de un criterion_key del Blueprint, para
+// hacer matching exacto contra case_exhibits.criterion_citation — nunca
+// comparación de texto libre contra criterion_label (bug real encontrado
+// 2026-08-13: "critical_role_4a" no coincide como substring de "Critical
+// or essential role..." aunque el Exhibit correcto sí exista). Mismo
+// patrón que resolveCriterionCitationAndLabel() en
+// a3-institutional-letters/route.ts.
+function resolveCriterionCitation(criterionKey: string, visaType: string): string | null {
+  const { classification } = resolveCriteriaSet(visaType);
+  const def = criteriaSetForClassification(classification).find((c) => c.key === criterionKey);
+  return def?.citation ?? null;
 }
 
 export async function POST(req: NextRequest) {
@@ -370,10 +382,8 @@ export async function POST(req: NextRequest) {
       // decidió argumentar un criterio para el que no existe Exhibit
       // físico todavía — no se infiere ni se sustituye, se escala.
       for (const criterionKey of orderedCriteria) {
-        const hasExhibit = exhibitRows.some((r) =>
-          r.criterion_label.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " ")) ||
-          r.criterion_citation === criterionKey
-        );
+        const canonicalCitation = resolveCriterionCitation(criterionKey, visaType);
+        const hasExhibit = canonicalCitation !== null && exhibitRows.some((r) => r.criterion_citation === canonicalCitation);
         if (!hasExhibit) {
           escalatedCriteria.push({
             criterionKey,
@@ -397,6 +407,12 @@ export async function POST(req: NextRequest) {
     const awards = (m10.awards ?? []) as Record<string, unknown>[];
 
     const tipo0SystemPrompt = buildTipo0SystemPrompt(petitionStrategy);
+    const criterionCitationByKey: Record<string, string> = {};
+    for (const criterionKey of orderedCriteria) {
+      const citation = resolveCriterionCitation(criterionKey, visaType);
+      if (citation) criterionCitationByKey[criterionKey] = citation;
+    }
+
     const tipo0UserPrompt = buildTipo0UserPrompt(
       beneficiaryFullName,
       visaType,
@@ -405,7 +421,8 @@ export async function POST(req: NextRequest) {
       exhibitRows,
       awards,
       orderedCriteria,
-      blueprint
+      blueprint,
+      criterionCitationByKey
     );
 
     const modelResponse = await callClaude(tipo0SystemPrompt, tipo0UserPrompt, 8192);
