@@ -222,6 +222,7 @@ export type Module10 = {
   criticalRoleOrgStatus: EvidenceStatus; criticalRoleOrg: CriticalRoleOrgEvidence[]; criticalRoleOrgDisposition: string;
   commercialSuccessStatus: EvidenceStatus; commercialSuccess: CommercialSuccessEvidence[]; commercialSuccessDisposition: string;
   significantRecognitionStatus: EvidenceStatus; significantRecognition: SignificantRecognitionEvidence[]; significantRecognitionDisposition: string;
+  criticalRoleStatus: EvidenceStatus;
   criticalRole?: CriticalRoleEvidence; // un solo rol crítico por expediente
 };
 

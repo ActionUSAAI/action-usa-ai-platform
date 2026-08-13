@@ -564,19 +564,17 @@ export function Module10({ data: d, onChange, sessionId }: Props) {
         <p className="text-sm text-gray-600 mb-3">¿Has desempeñado un cargo directivo/electo o técnico/instructor en una organización de reputación distinguida?</p>
 
         <Field label="¿Tienes este tipo de evidencia?">
-          <Select
-            value={d.criticalRole ? "si" : "no"}
-            onChange={v => {
-              if (v === "si" && !d.criticalRole) {
+          <EvidenceSelector
+            value={d.criticalRoleStatus}
+            onChange={s => {
+              u("criticalRoleStatus", s);
+              if (s === "tengo" && !d.criticalRole) {
                 u("criticalRole", { criticalRoleType: "elected", organizationName:"", electedOrAppointedTitle:"", tenureStartDate:"", tenureEndDate:null, organizationReputationEvidence:"", organizationalGrowthMetrics:"" } as CriticalRoleEvidence);
-              } else if (v === "no") {
+              } else if (s !== "tengo") {
                 u("criticalRole", undefined);
               }
             }}
-          >
-            <option value="no">No tengo</option>
-            <option value="si">Sí tengo</option>
-          </Select>
+          />
         </Field>
 
         {d.criticalRole && (() => {

@@ -105,8 +105,12 @@ export function formatEvidenceForPrompt(m9: Record<string, any>, m10: Record<str
       lines.push(`  Cursos/funciones: ${str(cr.specificCoursesOrDutiesTaught)}`);
       lines.push(`  Evidencia de institucionalización: ${str(cr.institutionalizationEvidence)}`);
     }
+  } else if (m10.criticalRoleStatus === "no_tengo") {
+    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — El cliente confirmó que no tiene este tipo de rol/evidencia`);
+  } else if (m10.criticalRoleStatus === "tal_vez") {
+    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — El cliente indicó que tal vez tiene evidencia relevante, pero no completó los detalles — vale la pena investigar con el cliente`);
   } else {
-    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — Sin información capturada en el intake (el cliente no completó esta sección, o no aplica a su caso)`);
+    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — Sin respuesta del cliente en esta sección del intake`);
   }
   // Artistic Exhibitions (EB-1A)
   lines.push(`\n[CRITERION: artistic_exhibitions] EXHIBICIONES ARTÍSTICAS — ${statusLabel(str(m10.artisticExhibitionsStatus))}`);

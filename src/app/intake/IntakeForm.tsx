@@ -123,6 +123,7 @@ const INITIAL: IntakeFormData = {
     criticalRoleOrgStatus: "", criticalRoleOrg: [], criticalRoleOrgDisposition: "",
     commercialSuccessStatus: "", commercialSuccess: [], commercialSuccessDisposition: "",
     significantRecognitionStatus: "", significantRecognition: [], significantRecognitionDisposition: "",
+    criticalRoleStatus: "",
   },
   module11: {
     createdMethod:emptyAnswer(), ledImpactProjects:emptyAnswer(), solvedComplexProblems:emptyAnswer(),
