@@ -81,7 +81,15 @@ export function formatEvidenceForPrompt(m9: Record<string, any>, m10: Record<str
   const patents = (m10.patents ?? []) as Record<string, unknown>[];
   patents.forEach(p => lines.push(`  - ${str(p.title)} (${str(p.year)}) — ${str(p.status)}`));
   if (str(m10.patentsDisposition)) lines.push(`  Notas del cliente: ${str(m10.patentsDisposition)}`);
-  // Critical Role (4a/4b) — defensive read, no intake UI exists for this field yet
+  // Critical Role (4a/4b) — el formulario de intake existe y está activo
+  // desde el commit 5b96594 (2026-07-12), Module10.tsx. Si este objeto
+  // llega vacío, significa que el cliente no completó esta sección (o
+  // respondió que no aplica) — el formulario no distingue hoy entre
+  // "sin responder" y "no aplica" (Module10.tsx no tiene un campo de
+  // estado paralelo aquí, a diferencia de otros campos del mismo módulo
+  // como criticalRoleOrgStatus). Mejora de UI identificada, no resuelta
+  // en este fix — ver hallazgo 2026-08-08, caso María Alejandra Barco
+  // Tabares.
   if (m10.criticalRole) {
     const cr = m10.criticalRole as Record<string, unknown>;
     if (cr.criticalRoleType === "elected") {
@@ -98,7 +106,7 @@ export function formatEvidenceForPrompt(m9: Record<string, any>, m10: Record<str
       lines.push(`  Evidencia de institucionalización: ${str(cr.institutionalizationEvidence)}`);
     }
   } else {
-    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — Sin datos capturados (pendiente de UI de intake)`);
+    lines.push(`\n[CRITERION: critical_role_4a/4b] ROL CRÍTICO — Sin información capturada en el intake (el cliente no completó esta sección, o no aplica a su caso)`);
   }
   // Artistic Exhibitions (EB-1A)
   lines.push(`\n[CRITERION: artistic_exhibitions] EXHIBICIONES ARTÍSTICAS — ${statusLabel(str(m10.artisticExhibitionsStatus))}`);
