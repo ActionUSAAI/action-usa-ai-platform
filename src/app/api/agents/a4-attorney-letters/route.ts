@@ -157,7 +157,10 @@ function buildTipo0UserPrompt(
   petitionStrategy: "multiCriteria" | "singleAchievement",
   attorneyName: string,
   exhibitRows: { criterion_citation: string; criterion_label: string; exhibit_number: number }[],
-  awards: Record<string, unknown>[]
+  awards: Record<string, unknown>[],
+  orderedCriteria: string[],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blueprint: Record<string, any>
 ): string {
   const lines: string[] = [];
   lines.push(`BENEFICIARIO: ${beneficiaryFullName}`);
@@ -166,9 +169,40 @@ function buildTipo0UserPrompt(
   lines.push(``);
 
   if (petitionStrategy === "multiCriteria") {
-    lines.push(`CRITERIOS ACTIVOS (en orden canónico, con Exhibit ya asignado):`);
-    exhibitRows.forEach((r) => {
-      lines.push(`- Criterion citation: ${r.criterion_citation} | Label: ${r.criterion_label} | Exhibit: ${r.exhibit_number}`);
+    // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md: A4 convierte argument_sequence
+    // en estructura real de documento — su única libertad estructural.
+    // El orden aquí ya viene determinado por el Blueprint (orderedCriteria),
+    // nunca por case_exhibits.
+    if (blueprint.theory_of_case) {
+      lines.push(`TEORÍA DEL CASO (ya decidida por A5 — organiza block2/block3 alrededor de esto, nunca la contradigas):`);
+      lines.push(blueprint.theory_of_case);
+      lines.push(``);
+    }
+    if ((blueprint.argument_sequence ?? []).length > 0) {
+      lines.push(`SECUENCIA LÓGICA DE ARGUMENTACIÓN (ya decidida por A5 — tu única libertad es convertir esto en prosa de sección legal; no cambies el orden ni omitas pasos):`);
+      (blueprint.argument_sequence as string[]).forEach((step: string) => lines.push(`  ${step}`));
+      lines.push(``);
+    }
+    lines.push(`CRITERIOS A ARGUMENTAR, EN ESTE ORDEN (ya decidido por A5 según argument_sequence — no reordenes):`);
+    orderedCriteria.forEach((criterionKey) => {
+      const row = exhibitRows.find((r) =>
+        r.criterion_label.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " ")) ||
+        r.criterion_citation === criterionKey
+      );
+      if (!row) return;
+      lines.push(`- Criterion citation: ${row.criterion_citation} | Label: ${row.criterion_label} | Exhibit: ${row.exhibit_number}`);
+      const evidenceForCriterion: string[] = (blueprint.evidence_dependencies ?? {})[criterionKey] ?? [];
+      if (evidenceForCriterion.length > 0) {
+        lines.push(`  Evidencia que A5 ya identificó como relevante:`);
+        evidenceForCriterion.forEach((e) => lines.push(`    - ${e}`));
+      }
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const relevantCrossRefs = (blueprint.criteria_cross_references ?? []).filter(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (ref: any) => Array.isArray(ref?.criteria) && ref.criteria.includes(criterionKey)
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      relevantCrossRefs.forEach((ref: any) => lines.push(`  Conexión con otro criterio (A5 ya identificó esto): ${ref.connection}`));
     });
   } else {
     lines.push(`PREMIOS DOCUMENTADOS (identifica cuál califica como logro único mayor):`);
@@ -201,6 +235,26 @@ Devuelve ÚNICAMENTE este JSON:
 }`;
 }
 
+// Encapsulado deliberadamente: hoy selecciona el Blueprint vigente vía
+// status IN ('approved','locked'), pero ADR-010 ya identificó que status
+// mezcla dos dimensiones (workflow editorial + vigencia) — cuando
+// case_strategy migre a workflow_status + currency_status (diferido,
+// ver AUCIS_ARCHITECTURE_DECISIONS.md ADR-010), solo esta función
+// necesita actualizarse. Mismo patrón que a3-testimonial-letters/route.ts
+// y a3-institutional-letters/route.ts.
+async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: string) {
+  const { data: strategy, error } = await db
+    .from("case_strategy")
+    .select("*")
+    .eq("case_id", caseId)
+    .in("status", ["approved", "locked"])
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Error fetching Blueprint: ${error.message}`);
+  return strategy;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -218,6 +272,19 @@ export async function POST(req: NextRequest) {
     }
 
     const db = adminDb();
+
+    // ── Fetch approved Blueprint — AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md:
+    // A4 ejecuta la estrategia ya decidida por A5, nunca la reconstruye.
+    // A diferencia de a3-institutional-letters, aquí no hay tipo de carta
+    // exento — la Attorney Petition Letter siempre argumenta criterios
+    // del Blueprint.
+    const blueprint = await getApprovedBlueprint(db, case_id);
+    if (!blueprint) {
+      return NextResponse.json(
+        { error: "No hay un Case Blueprint aprobado para este caso. A4 no puede ejecutar sin una estrategia aprobada." },
+        { status: 409 }
+      );
+    }
 
     const { data: submission, error: subErr } = await db
       .from("intake_submissions")
@@ -243,7 +310,15 @@ export async function POST(req: NextRequest) {
     const context = { caseId: case_id, beneficiaryFullName, visaType: classification, attorneyName, firmName, firmAddress };
 
     // ── Tipo 0 — Attorney Petition Letter ──────────────────────────────
+    // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md: el Blueprint decide QUÉ
+    // criterios argumentar y en qué orden (dominant_criteria +
+    // supporting_criteria, ordenados según argument_sequence).
+    // case_exhibits sigue siendo, exclusivamente, la fuente del número
+    // físico de cada Exhibit — nunca al revés. Blueprint → qué evidencia
+    // usar → case_exhibits → qué número tiene cada Exhibit.
     let exhibitRows: { criterion_citation: string; criterion_label: string; exhibit_number: number }[] = [];
+    let orderedCriteria: string[] = [];
+    const escalatedCriteria: { criterionKey: string; reason: string }[] = [];
 
     if (petitionStrategy === "multiCriteria") {
       const { data: existingExhibits } = await db
@@ -271,6 +346,52 @@ export async function POST(req: NextRequest) {
           { status: 400 }
         );
       }
+
+      // QUÉ argumentar y en qué orden: del Blueprint, no de case_exhibits.
+      const blueprintCriteria: string[] = [
+        ...(blueprint.dominant_criteria ?? []),
+        ...(blueprint.supporting_criteria ?? []),
+      ];
+      // argument_sequence es texto libre ordenado (no un array de
+      // criterion_key) — se usa para ordenar los criterios según en qué
+      // paso de la secuencia lógica aparecen mencionados por primera vez.
+      // Un criterio del Blueprint que no aparece mencionado en ningún
+      // paso queda al final, en el orden en que A5 lo listó.
+      const argumentSequence: string[] = blueprint.argument_sequence ?? [];
+      const sequenceRank = (criterionKey: string): number => {
+        const idx = argumentSequence.findIndex((step) =>
+          step.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " "))
+        );
+        return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
+      };
+      orderedCriteria = [...blueprintCriteria].sort((a, b) => sequenceRank(a) - sequenceRank(b));
+
+      // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md Sección 4: el Blueprint
+      // decidió argumentar un criterio para el que no existe Exhibit
+      // físico todavía — no se infiere ni se sustituye, se escala.
+      for (const criterionKey of orderedCriteria) {
+        const hasExhibit = exhibitRows.some((r) =>
+          r.criterion_label.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " ")) ||
+          r.criterion_citation === criterionKey
+        );
+        if (!hasExhibit) {
+          escalatedCriteria.push({
+            criterionKey,
+            reason: "El Blueprint clasificó este criterio para argumentar, pero no existe un Exhibit ensamblado que lo respalde.",
+          });
+          console.warn(
+            `[A4 Blueprint Executor] Escalando: criterio ${criterionKey} no tiene Exhibit en case_exhibits (case_id ${case_id}). No se argumentará en esta petición.`
+          );
+        }
+      }
+      orderedCriteria = orderedCriteria.filter((c) => !escalatedCriteria.some((e) => e.criterionKey === c));
+
+      if (orderedCriteria.length === 0) {
+        return NextResponse.json(
+          { error: "Ningún criterio del Blueprint aprobado tiene Exhibit ensamblado — no se puede construir la petición.", escalatedCriteria },
+          { status: 400 }
+        );
+      }
     }
 
     const awards = (m10.awards ?? []) as Record<string, unknown>[];
@@ -282,7 +403,9 @@ export async function POST(req: NextRequest) {
       petitionStrategy,
       attorneyName,
       exhibitRows,
-      awards
+      awards,
+      orderedCriteria,
+      blueprint
     );
 
     const modelResponse = await callClaude(tipo0SystemPrompt, tipo0UserPrompt, 8192);
@@ -355,6 +478,7 @@ export async function POST(req: NextRequest) {
       case_id,
       tipo0: tipo0Result,
       tipo0b: tipo0bResult,
+      escalatedCriteria: escalatedCriteria.length > 0 ? escalatedCriteria : undefined,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
