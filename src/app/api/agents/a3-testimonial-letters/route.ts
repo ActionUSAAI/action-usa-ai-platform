@@ -93,7 +93,10 @@ function buildUserPrompt(
   industry: string,
   criterionLabel: string,
   criterionCitation: string,
-  group: ReferenceEntry[]
+  group: ReferenceEntry[],
+  criterionKey: string,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  blueprint: Record<string, any>
 ): string {
   const lines: string[] = [];
   lines.push(`BENEFICIARIO:`);
@@ -103,6 +106,34 @@ function buildUserPrompt(
   lines.push(``);
   lines.push(`CRITERIO A SUSTENTAR: ${criterionLabel} (${criterionCitation})`);
   lines.push(``);
+  // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md Sección 1: A3 ejecuta la
+  // decisión jurídica ya tomada por A5 — no la reinterpreta ni la
+  // recalcula. La teoría del caso y la evidencia específica ya
+  // identificada por A5 orientan el contenido; el estilo de redacción
+  // (estructura de 7 bloques, regla anti-hipérbole, variación) sigue
+  // siendo responsabilidad exclusiva de A3.
+  if (blueprint.theory_of_case) {
+    lines.push(`TEORÍA DEL CASO (ya decidida por A5 — úsala como contexto, nunca la contradigas):`);
+    lines.push(blueprint.theory_of_case);
+    lines.push(``);
+  }
+  const evidenceForCriterion: string[] = (blueprint.evidence_dependencies ?? {})[criterionKey] ?? [];
+  if (evidenceForCriterion.length > 0) {
+    lines.push(`EVIDENCIA QUE A5 YA IDENTIFICÓ COMO RELEVANTE PARA ESTE CRITERIO — prioriza estos hechos sobre cualquier otro dato del intake:`);
+    evidenceForCriterion.forEach((e) => lines.push(`  - ${e}`));
+    lines.push(``);
+  }
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const relevantCrossRefs = (blueprint.criteria_cross_references ?? []).filter(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (ref: any) => Array.isArray(ref?.criteria) && ref.criteria.includes(criterionKey)
+  );
+  if (relevantCrossRefs.length > 0) {
+    lines.push(`CONEXIONES CON OTROS CRITERIOS (A5 ya identificó esto — puedes reflejarlo naturalmente en el bloque 5 si aplica, sin forzarlo):`);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    relevantCrossRefs.forEach((ref: any) => lines.push(`  - ${ref.connection}`));
+    lines.push(``);
+  }
   lines.push(`FIRMANTES DE ESTE LOTE (genera una carta por cada uno, con conciencia mutua):`);
 
   group.forEach((ref, i) => {
@@ -183,6 +214,25 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Mod
   return parsed.letters;
 }
 
+// Encapsulado deliberadamente: hoy selecciona el Blueprint vigente vía
+// status IN ('approved','locked'), pero ADR-010 ya identificó que status
+// mezcla dos dimensiones (workflow editorial + vigencia) — cuando
+// case_strategy migre a workflow_status + currency_status (diferido,
+// ver AUCIS_ARCHITECTURE_DECISIONS.md ADR-010), solo este función
+// necesita actualizarse.
+async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: string) {
+  const { data: strategy, error } = await db
+    .from("case_strategy")
+    .select("*")
+    .eq("case_id", caseId)
+    .in("status", ["approved", "locked"])
+    .order("version", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Error fetching Blueprint: ${error.message}`);
+  return strategy;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -194,6 +244,16 @@ export async function POST(req: NextRequest) {
     }
 
     const db = adminDb();
+
+    // ── 0. Fetch approved Blueprint — AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md:
+    // A3 ejecuta un Blueprint aprobado, nunca redacta cartas sin uno.
+    const blueprint = await getApprovedBlueprint(db, case_id);
+    if (!blueprint) {
+      return NextResponse.json(
+        { error: "No hay un Case Blueprint aprobado para este caso. A3 no puede ejecutar sin una estrategia aprobada." },
+        { status: 409 }
+      );
+    }
 
     // ── 1. Fetch intake_submission ──────────────────────────────────────
     const subQuery = db.from("intake_submissions").select("*");
@@ -222,11 +282,22 @@ export async function POST(req: NextRequest) {
     const { classification } = resolveCriteriaSet(visaType);
     const criteriaSet = criteriaSetForClassification(classification);
 
-    // ── 2. Group references by targetCriterionKey ──────────────────────
+    // ── 2. Group references by targetCriterionKey, restricted to
+    // criterios que el Blueprint efectivamente clasificó (dominant,
+    // supporting, o corroborative — A3 no decide cuáles participan,
+    // esa decisión ya la tomó A5; corroborative también genera
+    // documentos, no solo dominant/supporting). ────────────────────────
+    const blueprintCriteria = new Set<string>([
+      ...(blueprint.dominant_criteria ?? []),
+      ...(blueprint.supporting_criteria ?? []),
+      ...(blueprint.corroborative_criteria ?? []),
+    ]);
+
     const references: ReferenceEntry[] = m9.references ?? [];
     const grouped = new Map<string, ReferenceEntry[]>();
     for (const ref of references) {
       if (!ref.targetCriterionKey) continue;
+      if (!blueprintCriteria.has(ref.targetCriterionKey)) continue;
       const list = grouped.get(ref.targetCriterionKey) ?? [];
       list.push(ref);
       grouped.set(ref.targetCriterionKey, list);
@@ -234,7 +305,7 @@ export async function POST(req: NextRequest) {
 
     if (grouped.size === 0) {
       return NextResponse.json(
-        { error: "No references with targetCriterionKey found for this case." },
+        { error: "Ninguna referencia con targetCriterionKey coincide con los criterios clasificados en el Blueprint aprobado." },
         { status: 400 }
       );
     }
@@ -249,6 +320,19 @@ export async function POST(req: NextRequest) {
       const criterionCitation = criterionDef?.citation ?? criterionKey;
 
       const systemPrompt = buildSystemPrompt(criterionLabelEn, criterionCitation);
+      // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md Sección 4: si el Blueprint
+      // no tiene evidence_dependencies para este criterio, no se inventa
+      // ni se sustituye con specificAchievements del intake — se escala
+      // marcando el batch para revisión humana explícita, sin bloquear
+      // la generación de los demás criterios del mismo caso.
+      const hasEvidenceForCriterion =
+        ((blueprint.evidence_dependencies ?? {})[criterionKey] ?? []).length > 0;
+      if (!hasEvidenceForCriterion) {
+        console.warn(
+          `[A3 Blueprint Executor] Escalando: criterio ${criterionKey} no tiene evidence_dependencies en el Blueprint aprobado (case_id ${case_id}). Generando sin ese contexto — requiere revisión humana antes de aprobar estas cartas.`
+        );
+      }
+
       const userPrompt = buildUserPrompt(
         beneficiaryFullName,
         visaType,
@@ -256,7 +340,9 @@ export async function POST(req: NextRequest) {
         industry,
         criterionLabelEn,
         criterionCitation,
-        group
+        group,
+        criterionKey,
+        blueprint
       );
 
       const modelLetters = await callClaude(systemPrompt, userPrompt);
