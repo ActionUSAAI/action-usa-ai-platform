@@ -154,17 +154,43 @@ entonces "criterionCitation" en tu respuesta debe ser exactamente "8 CFR 214.2(o
       // a diferencia de multiCriteria, esta rama todavía decide
       // internamente qué premio "califica como logro único mayor" — una
       // decisión jurídica real que, según AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md,
-      // debería originarse en el Blueprint (A5), no en A4. No se corrigió
-      // en esta sesión porque, verificado contra la base de datos real,
-      // no existe ningún caso con petitionStrategy: singleAchievement y
-      // premios completos en module10.awards sobre el cual validar
-      // empíricamente cualquier fix — mismo estándar de rigor aplicado a
-      // los tres fixes de multiCriteria (matching por cita CFR, orden por
-      // argument_sequence, prohibición de citas jurisprudenciales), todos
-      // validados contra el caso real de Neira Rincón antes de aceptarse.
-      // Diseñar un fix sin poder validarlo empíricamente introduciría
-      // exactamente el tipo de riesgo no verificado que esta sesión evitó
-      // en cada corrección anterior. Retomar cuando exista un caso real.
+      // debería originarse en el Blueprint (A5), no en A4.
+      //
+      // Actualización (2026-08-14, mismo día): se probó esta rama con un
+      // caso sintético diseñado a propósito (Juan Lopez, case_id
+      // 443bf280-ec96-4b8f-b9bd-c3809b5a1787) — dos premios ficticios,
+      // uno claramente calificante (FIDIC, alcance internacional, proceso
+      // competitivo) y uno claramente no calificante (reconocimiento
+      // gremial automático por antigüedad). El modelo identificó y
+      // justificó correctamente el premio calificante, y rechazó
+      // explícitamente el otro con el razonamiento correcto — sin ningún
+      // anclaje al Blueprint. Esto NO cierra el pendiente: confirma que
+      // el modelo puede acertar en casos bien diferenciados, no que la
+      // decisión esté gobernada estructuralmente. Sigue sin haber
+      // garantía de consistencia entre corridas, ni de comportamiento
+      // correcto ante dos premios genuinamente ambiguos en mérito, o con
+      // evidencia parcial — el caso de prueba fue diseñado
+      // deliberadamente sin ambigüedad para poder observar el
+      // comportamiento base, no para representar el caso difícil real.
+      //
+      // Hallazgo adicional del mismo experimento: el modelo complementó
+      // su análisis con contexto real sobre la organización otorgante
+      // (FIDIC) que no estaba en los datos proporcionados — información
+      // verídica sobre la institución, no un hecho fabricado sobre el
+      // beneficiario, pero sí evidencia de que el modelo recurre a su
+      // propio conocimiento de trasfondo cuando el Blueprint/evidencia
+      // no cubre un vacío, el mismo patrón de riesgo que
+      // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md prohíbe para el resto de
+      // la evidencia del caso.
+      //
+      // No se corrigió en esta sesión porque, más allá del caso
+      // sintético, no existe ningún caso real con petitionStrategy:
+      // singleAchievement sobre el cual validar el diseño de un fix
+      // estructural — mismo estándar de rigor aplicado a los tres fixes
+      // de multiCriteria, todos validados contra el caso real de Neira
+      // Rincón antes de aceptarse. Retomar cuando exista un caso real,
+      // o cuando se decida diseñar el fix aceptando el caso sintético
+      // como validación parcial suficiente.
       `
 RUTA: Logro único (major, internationally recognized award). Se te proporcionarán todos los premios documentados del beneficiario. Identifica cuál de ellos, si alguno, califica como premio mayor de reconocimiento internacional, y escribe un único análisis ("singleAchievementAnalysis") argumentando por qué ese premio específico satisface el estándar: naturaleza competitiva internacional, rigor del proceso de evaluación, autoridad de la institución otorgante, e impacto en la carrera del beneficiario. Si ningún premio califica claramente, sé honesto en el análisis sobre la fortaleza relativa del caso.`;
 

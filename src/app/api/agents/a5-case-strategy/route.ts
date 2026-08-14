@@ -146,6 +146,22 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
 }`;
 }
 
+// PENDIENTE — encontrado 2026-08-14 (caso sintético Juan Lopez,
+// case_id 443bf280-ec96-4b8f-b9bd-c3809b5a1787): esta función nunca
+// recibe visaType/classification como parámetro — A5 no sabe si el
+// caso es O-1A, O-1B, o EB-1A. En este caso real, el modelo mencionó
+// "petición EB-1A" en theory_of_case cuando module1.visaType era
+// "O-1A" — inferencia libre sin dato real que la sustente. No rompe
+// la mecánica de clasificación de criterios (criterion_key es
+// agnóstico de clasificación por diseño, según
+// A5_CASE_BLUEPRINT_SPECIFICATION_V2.md), pero puede producir
+// narrativa (theory_of_case, primary_narrative) que menciona la
+// clasificación de visa equivocada en prosa. No corregido en esta
+// sesión — encontrado durante la validación de un pendiente distinto
+// (petitionStrategy: singleAchievement en A4), fuera del alcance de
+// esa validación. Fix propuesto, no implementado: pasar
+// visaType/classification a buildUserPrompt, similar a como ya lo
+// hace a1-intake-analyzer/route.ts.
 function buildUserPrompt(
   criteriaMet: Record<string, boolean>,
   criteriaScores: Record<string, number>,
