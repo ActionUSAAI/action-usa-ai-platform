@@ -43,6 +43,34 @@ function adminDb() {
 
 const MODEL = "claude-sonnet-4-6";
 
+// Palabras clave en español, por criterion_key, para ubicar en qué paso de
+// argument_sequence (prosa libre generada por A5) se menciona cada
+// criterio por primera vez. No son los labels canónicos completos —
+// argument_sequence parafrasea, nunca inserta el label formal verbatim
+// (confirmado con datos reales, caso Neira Rincón, 2026-08-13: ni el
+// criterionKey transformado ni el label completo coinciden nunca contra
+// la prosa real). Son fragmentos de palabra (stems), tolerantes a
+// inflexión de género/número en español — ej. "académic" cubre
+// "académica"/"académico"/"académicos"/"académicas".
+const CRITERION_KEYWORDS_ES: Record<string, string[]> = {
+  awards: ["premio", "galardón"],
+  memberships: ["membresía"],
+  media_coverage: ["cobertura mediátic", "medios de comunicación", "prensa"],
+  judging: ["jurado", "juez", "evaluador"],
+  original_contributions: ["contribuciones original", "contribución original", "aporte original"],
+  scholarly_articles: ["materiales académ", "publicación académica", "publicaciones académicas", "artículos académicos", "revista profesional"],
+  critical_role_4a: ["rol crítico", "rol directivo", "cargo directivo"],
+  critical_role_4b: ["rol técnico", "cargo técnico", "instructor"],
+  high_salary: ["salario", "remuneración", "compensación"],
+  artistic_exhibitions: ["exhibición", "exposición artística"],
+  performing_arts_commercial_success: ["éxito comercial", "taquilla"],
+  lead_starring_role: ["rol protagónico", "papel principal", "protagonista"],
+  national_recognition: ["reconocimiento nacional", "reconocimiento internacional"],
+  critical_role_org: ["rol protagónico", "rol crítico"],
+  commercial_success: ["éxito comercial", "éxito de crítica"],
+  significant_recognition: ["reconocimiento significativo"],
+};
+
 function stripMarkdownFences(raw: string): string {
   const trimmed = raw.trim();
 
@@ -101,6 +129,8 @@ Tu función es redactar, en inglés, la Attorney Petition Letter — el document
 
 PRINCIPIO RECTOR — anclaje regulatorio obligatorio:
 Cada afirmación de elegibilidad debe estar explícitamente atada a la cita CFR/INA exacta del criterio que argumenta. Este motor no prueba nada por sí mismo — organiza y explica por qué la evidencia ya reunida (cartas testimoniales e institucionales, documentos de Módulo 10) satisface cada elemento que la norma exige. Caso real de referencia: la carta original de Arroyo fue rechazada por RFE al argumentar Rol Crítico con lenguaje de elogio genérico, sin establecer nunca el hecho que el criterio exige — no repitas ese error.
+
+PROHIBICIÓN CRÍTICA — CITAS JURISPRUDENCIALES: nunca cites casos judiciales, "Matter of ___", precedentes administrativos (AAO, BIA), ni ninguna autoridad legal específica más allá del texto directo del reglamento CFR/INA — ni inventados ni reales — a menos que se te proporcionen explícitamente como parte de los datos de entrada. Hallazgo real (caso Neira Rincón, 2026-08-13): el modelo citó "Matter of Dhanasar, 26 I&N Dec. 884 (AAO 2016)" para sustentar el estándar de mérito de una petición O-1A — Dhanasar es el test de tres partes para National Interest Waiver (categoría EB-2), no aplica a determinaciones de mérito en O-1A. Una cita jurisprudencial real pero mal aplicada es un riesgo legal más grave que no citar ninguna — nunca cites jurisprudencia por iniciativa propia, fundamenta el estándar únicamente en el texto directo del reglamento CFR/INA correspondiente a la clasificación de este caso.
 
 ESTRUCTURA OBLIGATORIA — 7 bloques:
 1. Encabezado/Asunto — destinatario USCIS, RE con clasificación exacta
@@ -370,9 +400,18 @@ export async function POST(req: NextRequest) {
       // Un criterio del Blueprint que no aparece mencionado en ningún
       // paso queda al final, en el orden en que A5 lo listó.
       const argumentSequence: string[] = blueprint.argument_sequence ?? [];
+      // Segundo fix real (caso Neira Rincón, 2026-08-13): ni el
+      // criterionKey transformado a inglés ni el label canónico completo
+      // en español coinciden nunca contra argument_sequence — A5 genera
+      // prosa que parafrasea, nunca inserta el label formal verbatim.
+      // CRITERION_KEYWORDS_ES usa fragmentos de palabra tolerantes a
+      // paráfrasis e inflexión, en vez de una frase exacta completa.
+      const argumentSequenceLower = argumentSequence.map((step) => step.toLowerCase());
       const sequenceRank = (criterionKey: string): number => {
-        const idx = argumentSequence.findIndex((step) =>
-          step.toLowerCase().includes(criterionKey.toLowerCase().replace(/_/g, " "))
+        const keywords = CRITERION_KEYWORDS_ES[criterionKey] ?? [];
+        if (keywords.length === 0) return Number.MAX_SAFE_INTEGER;
+        const idx = argumentSequenceLower.findIndex((step) =>
+          keywords.some((kw) => step.includes(kw.toLowerCase()))
         );
         return idx === -1 ? Number.MAX_SAFE_INTEGER : idx;
       };
