@@ -150,7 +150,22 @@ RUTA: Multi-criterio. Para cada criterio activo que se te proporcione, escribe u
 IMPORTANTE: "criterionCitation" debe ser copiado EXACTAMENTE del valor que sigue a "Criterion citation:" en la lista de criterios activos que se te proporciona — solo la cita regulatoria, sin el label y sin el número de Exhibit. Por ejemplo, si el criterio activo se te presenta como:
 - Criterion citation: 8 CFR 214.2(o)(3)(iii)(B)(5) | Label: Contribuciones originales de importancia significativa al campo | Exhibit: 1
 entonces "criterionCitation" en tu respuesta debe ser exactamente "8 CFR 214.2(o)(3)(iii)(B)(5)" — NO "Contribuciones originales de importancia significativa al campo (8 CFR 214.2(o)(3)(iii)(B)(5))" ni ninguna otra variación con el label incluido.`
-      : `
+      : // PENDIENTE — Blueprint Executor incompleto para esta ruta (2026-08-14):
+      // a diferencia de multiCriteria, esta rama todavía decide
+      // internamente qué premio "califica como logro único mayor" — una
+      // decisión jurídica real que, según AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md,
+      // debería originarse en el Blueprint (A5), no en A4. No se corrigió
+      // en esta sesión porque, verificado contra la base de datos real,
+      // no existe ningún caso con petitionStrategy: singleAchievement y
+      // premios completos en module10.awards sobre el cual validar
+      // empíricamente cualquier fix — mismo estándar de rigor aplicado a
+      // los tres fixes de multiCriteria (matching por cita CFR, orden por
+      // argument_sequence, prohibición de citas jurisprudenciales), todos
+      // validados contra el caso real de Neira Rincón antes de aceptarse.
+      // Diseñar un fix sin poder validarlo empíricamente introduciría
+      // exactamente el tipo de riesgo no verificado que esta sesión evitó
+      // en cada corrección anterior. Retomar cuando exista un caso real.
+      `
 RUTA: Logro único (major, internationally recognized award). Se te proporcionarán todos los premios documentados del beneficiario. Identifica cuál de ellos, si alguno, califica como premio mayor de reconocimiento internacional, y escribe un único análisis ("singleAchievementAnalysis") argumentando por qué ese premio específico satisface el estándar: naturaleza competitiva internacional, rigor del proceso de evaluación, autoridad de la institución otorgante, e impacto en la carrera del beneficiario. Si ningún premio califica claramente, sé honesto en el análisis sobre la fortaleza relativa del caso.`;
 
   const outputContract =
