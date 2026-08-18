@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { waitUntil } from "@vercel/functions";
 import { CriterionDef, resolveCriteriaSet } from "@/lib/canonical-criteria";
 import { str } from "@/lib/agents/shared-helpers";
 import { formatEvidenceForPrompt } from "@/lib/agents/evidence-formatter";
@@ -373,36 +372,12 @@ export async function POST(request: NextRequest) {
       })
       .eq("id", runId);
 
-    // ── 8. Disparo automático de A5 (Case Strategy Engine) ──────────────────
-    // Fire-and-forget real: waitUntil() extiende la vida de esta función
-    // serverless hasta que la promesa de A5 se resuelva, sin bloquear la
-    // respuesta que el usuario ya está recibiendo. Su propio try/catch
-    // interno asegura que un fallo de A5 nunca marque como "failed" esta
-    // ejecución de A1, que ya fue exitosa.
-    waitUntil(
-      (async () => {
-        try {
-          const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://actionusaai.com";
-          const res = await fetch(`${baseUrl}/api/agents/a5-case-strategy`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              case_id,
-              submission_id: submission.id,
-              criteria_met: result.criteria_met,
-              criteria_scores: result.criteria_scores,
-              criterion_assessment_id: analysis.id,
-            }),
-          });
-          if (!res.ok) {
-            const errText = await res.text();
-            console.error(`A5 auto-trigger failed (${res.status}):`, errText);
-          }
-        } catch (a5Err) {
-          console.error("A5 auto-trigger threw:", a5Err instanceof Error ? a5Err.message : a5Err);
-        }
-      })()
-    );
+    // A5 ya no se dispara automáticamente desde aquí. Desde la Fase 2.1,
+    // el único orquestador válido es Legal Decision Procedure
+    // (src/app/api/agents/legal-decision-cycle/route.ts), que invoca A1
+    // síncronamente y, solo si tiene éxito, invoca A5 a continuación. A1
+    // vuelve a tener una única responsabilidad: producir la evaluación
+    // jurídica y persistirla. No dispara nada más.
 
     return NextResponse.json({ success: true, analysis });
 
