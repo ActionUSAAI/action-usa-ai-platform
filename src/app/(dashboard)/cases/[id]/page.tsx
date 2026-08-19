@@ -13,8 +13,8 @@ import type { DocTranslation } from "./a2-panel";
 import { DocumentsPanel } from "./documents-panel";
 import { A3A4Panel } from "./a3a4-panel";
 import type { RecommendationLetter, PetitionDraft, I129Draft } from "./a3a4-panel";
-import { A5Panel } from "./a5-panel";
-import type { CaseStrategy } from "./a5-panel";
+import { BlueprintLifecycleSection } from "./blueprint-lifecycle-section";
+import type { CaseStrategy } from "./blueprint-lifecycle-section";
 import { extractTranslatableFiles } from "./extract-files";
 
 interface CasePageProps {
@@ -199,6 +199,8 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             caseId={params.id}
             submissionId={submissionId}
             initialAnalysis={(latestAnalysis ?? null) as IntakeAnalysis | null}
+            criteriaMet={latestAnalysis?.criteria_met ?? null}
+            criteriaScores={latestAnalysis?.criteria_scores ?? null}
             userRole={userRole}
           />
           <A2Panel
@@ -209,12 +211,10 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
           />
 
           {/* ── Blueprint Lifecycle ── */}
-          <A5Panel
+          <BlueprintLifecycleSection
             caseId={params.id}
             submissionId={submissionId}
             initialStrategy={(latestStrategy ?? null) as CaseStrategy | null}
-            criteriaMet={latestAnalysis?.criteria_met ?? null}
-            criteriaScores={latestAnalysis?.criteria_scores ?? null}
             classificationUsed={latestAnalysis?.classification_used ?? null}
             userRole={userRole}
           />

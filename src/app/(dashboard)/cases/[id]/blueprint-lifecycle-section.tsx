@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Compass, RefreshCw, Loader2, AlertCircle, Pencil, Check } from "lucide-react";
-import { resolveCriteriaLabels } from "./a1-panel";
+import { resolveCriteriaLabels } from "./legal-decision-section";
 
 export interface CrossReference {
   criteria: [string, string];
@@ -43,12 +43,10 @@ export interface CaseStrategy {
   created_at: string;
 }
 
-interface A5PanelProps {
+interface BlueprintLifecycleSectionProps {
   caseId: string;
   submissionId: string | null;
   initialStrategy: CaseStrategy | null;
-  criteriaMet: Record<string, boolean> | null;
-  criteriaScores: Record<string, number> | null;
   classificationUsed: string | null;
   userRole: string;
 }
@@ -68,7 +66,7 @@ const STATUS_LABEL: Record<string, string> = {
   superseded: "Reemplazada por una versión más reciente",
 };
 
-export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, criteriaScores, classificationUsed, userRole }: A5PanelProps) {
+export function BlueprintLifecycleSection({ caseId, submissionId, initialStrategy, classificationUsed, userRole }: BlueprintLifecycleSectionProps) {
   const [strategy, setStrategy] = useState<CaseStrategy | null>(initialStrategy);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,29 +74,6 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
   const [draftValue, setDraftValue] = useState<string>("");
   const canTrigger = ["admin", "supervisor", "agent"].includes(userRole);
   const labels = resolveCriteriaLabels(classificationUsed);
-
-  async function generateStrategy() {
-    if (!criteriaMet || !criteriaScores) return;
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/agents/a5-case-strategy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ case_id: caseId, submission_id: submissionId, criteria_met: criteriaMet, criteria_scores: criteriaScores }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Error al generar la estrategia del caso");
-      } else {
-        setStrategy(data.strategy as CaseStrategy);
-      }
-    } catch {
-      setError("Error de red al conectar con el agente A5");
-    } finally {
-      setLoading(false);
-    }
-  }
 
   async function saveField(key: string, value: string | string[]) {
     if (!strategy) return;
@@ -230,23 +205,13 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <Compass className="text-[#1B2B5E]" size={20} />
-          <h2 className="text-lg font-semibold text-[#1B2B5E]">A5 — Case Strategy Engine</h2>
+          <h2 className="text-lg font-semibold text-[#1B2B5E]">Blueprint Lifecycle</h2>
           {strategy && (
             <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_BADGE[strategy.status] ?? STATUS_BADGE.proposed}`}>
               {STATUS_LABEL[strategy.status] ?? strategy.status}
             </span>
           )}
         </div>
-        {canTrigger && criteriaMet && (
-          <button
-            onClick={generateStrategy}
-            disabled={loading}
-            className={strategy ? "flex items-center gap-1 rounded-lg border border-gray-200 px-3 py-1.5 text-sm text-gray-700 hover:bg-gray-50" : "rounded-lg bg-[#1B2B5E] px-3 py-1.5 text-sm text-white"}
-          >
-            {strategy && <RefreshCw size={14} />}
-            {strategy ? "Regenerar" : "Generar Estrategia"}
-          </button>
-        )}
       </div>
 
       {loading && (
@@ -261,11 +226,10 @@ export function A5Panel({ caseId, submissionId, initialStrategy, criteriaMet, cr
           <span>{error}</span>
         </div>
       )}
-      {!loading && !strategy && !criteriaMet && (
-        <p className="py-6 text-center text-sm text-gray-400">Ejecuta el análisis A1 primero para generar la estrategia del caso.</p>
-      )}
-      {!loading && !strategy && criteriaMet && (
-        <p className="py-6 text-center text-sm text-gray-400">El análisis A1 está listo. Genera la estrategia del caso con el botón de arriba.</p>
+      {!loading && !strategy && (
+        <p className="py-6 text-center text-sm text-gray-400">
+          Todavía no existe un Blueprint para este caso. Genera uno desde la sección Legal Decision.
+        </p>
       )}
 
       {!loading && strategy && (

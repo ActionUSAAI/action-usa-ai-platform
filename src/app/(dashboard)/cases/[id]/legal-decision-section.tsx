@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Brain, ChevronRight, AlertCircle, RefreshCw } from "lucide-react";
 import { CRITERIA_O1A, CRITERIA_EB1A, CRITERIA_O1B } from "@/lib/canonical-criteria";
 
@@ -26,6 +27,8 @@ interface LegalDecisionSectionProps {
   caseId: string;
   submissionId: string | null;
   initialAnalysis: IntakeAnalysis | null;
+  criteriaMet: Record<string, boolean> | null;
+  criteriaScores: Record<string, number> | null;
   userRole: string;
 }
 
@@ -102,13 +105,47 @@ function scoreViabilityLabel(score: number): string {
   return "AUSENTE";
 }
 
-export function LegalDecisionSection({ caseId, submissionId, initialAnalysis, userRole }: LegalDecisionSectionProps) {
+export function LegalDecisionSection({ caseId, submissionId, initialAnalysis, criteriaMet, criteriaScores, userRole }: LegalDecisionSectionProps) {
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<IntakeAnalysis | null>(initialAnalysis);
 
   const canTrigger = ["admin", "supervisor", "agent"].includes(userRole);
   const criteriaLabels = resolveCriteriaLabels(analysis?.classification_used ?? null);
+  const router = useRouter();
+
+  // Fase 5, Paso 4: Generate Strategy pertenece a Legal Decision, nunca a
+  // Blueprint Lifecycle. Produce una nueva estrategia jurídica sobre la
+  // evaluación ya existente -- mismo endpoint/payload que antes (A5Panel).
+  // Sincronización con Blueprint Lifecycle Section vía router.refresh():
+  // decisión de implementación documentada explícitamente (Fase 5, Paso 4)
+  // -- preserva a page.tsx (Server Component) como único origen de verdad,
+  // sin introducir estado compartido entre componentes hermanos. No es un
+  // cambio de dominio ni de contrato; es un mecanismo de sincronización de
+  // infraestructura, sustituible en el futuro sin implicar rediseño
+  // arquitectónico.
+  async function generateStrategy() {
+    if (!criteriaMet || !criteriaScores) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/agents/a5-case-strategy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId, submission_id: submissionId, criteria_met: criteriaMet, criteria_scores: criteriaScores }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Error al generar la estrategia del caso");
+      } else {
+        router.refresh();
+      }
+    } catch {
+      setError("Error de red al conectar con el agente A5");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   async function runAnalysis() {
     setLoading(true);
@@ -167,6 +204,15 @@ export function LegalDecisionSection({ caseId, submissionId, initialAnalysis, us
               Analizar con A1 <ChevronRight size={14} />
             </button>
           )
+        )}
+
+        {canTrigger && !loading && criteriaMet && (
+          <button
+            onClick={generateStrategy}
+            className="flex items-center gap-1.5 rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            <RefreshCw size={13} /> {analysis ? "Generar/Regenerar Estrategia" : "Generar Estrategia"}
+          </button>
         )}
       </div>
 
