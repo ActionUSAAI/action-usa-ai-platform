@@ -387,8 +387,25 @@ export async function POST(req: NextRequest) {
     const m15 = sub.module15 ?? {};
 
     const beneficiaryFullName: string = m1.fullName ?? "";
-    const visaType: string = m1.visaType ?? "";
-
+    // Fase 4: la única fuente jurídica es Case.active_legal_petition, nunca
+    // module1.visaType (que permanece únicamente como expectativa del
+    // cliente, sin uso funcional aquí). Mismo patrón ya aplicado a A1/A5
+    // en la Fase 3 -- resolveCriteriaSet() nunca falla por sí sola ante un
+    // string vacío/inválido (retorna O-1A por defecto de forma silenciosa),
+    // por eso la verificación debe ocurrir explícitamente antes de
+    // llamarla, nunca delegada a ella.
+    const { data: caseRowForA4, error: caseErrForA4 } = await db
+      .from("cases")
+      .select("active_legal_petition")
+      .eq("id", case_id)
+      .maybeSingle();
+    if (caseErrForA4) throw new Error(`Error fetching case: ${caseErrForA4.message}`);
+    if (!caseRowForA4?.active_legal_petition) {
+      throw new Error(
+        "Case is missing active_legal_petition. A4 can only build a petition for a case whose legal classification has been confirmed. Use the Legal Decision Procedure, which enforces this via the Legal Decision Cycle Policy Contract v1."
+      );
+    }
+    const visaType: string = caseRowForA4.active_legal_petition;
     const { classification } = resolveCriteriaSet(visaType);
     const context = { caseId: case_id, beneficiaryFullName, visaType: classification, attorneyName, firmName, firmAddress };
 
