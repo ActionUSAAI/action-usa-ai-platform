@@ -6,8 +6,8 @@ import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priority
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
 import { LegalIdentitySection } from "./legal-identity-section";
-import { A1Panel } from "./a1-panel";
-import type { IntakeAnalysis } from "./a1-panel";
+import { LegalDecisionSection } from "./legal-decision-section";
+import type { IntakeAnalysis } from "./legal-decision-section";
 import { A2Panel } from "./a2-panel";
 import type { DocTranslation } from "./a2-panel";
 import { DocumentsPanel } from "./documents-panel";
@@ -195,7 +195,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
           />
 
           {/* ── Legal Decision ── */}
-          <A1Panel
+          <LegalDecisionSection
             caseId={params.id}
             submissionId={submissionId}
             initialAnalysis={(latestAnalysis ?? null) as IntakeAnalysis | null}
