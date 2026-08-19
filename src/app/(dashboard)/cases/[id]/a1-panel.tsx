@@ -114,16 +114,25 @@ export function A1Panel({ caseId, submissionId, initialAnalysis, userRole }: A1P
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/agents/a1-intake-analyzer", {
+      // A partir de la Fase 3, el único punto de entrada válido al Core
+      // Legal Engine es Legal Decision Procedure — nunca se invoca A1
+      // directamente. La Policy autoriza o rechaza (rechazo = comportamiento
+      // correcto, no un error del sistema, para casos sin Initial/Active
+      // Legal Petition confirmadas).
+      const res = await fetch("/api/agents/legal-decision-cycle", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ case_id: caseId, submission_id: submissionId }),
+        body: JSON.stringify({ case_id: caseId }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setError(data.error ?? "Error al ejecutar el análisis A1");
+        setError(data.error ?? "Error al ejecutar el Legal Decision Cycle");
+      } else if (data.authorized === false) {
+        setError(data.reason ?? "El caso no está autorizado para ejecutar un ciclo jurídico.");
+      } else if (data.error) {
+        setError(data.error);
       } else {
-        setAnalysis(data.analysis as IntakeAnalysis);
+        setAnalysis(data.criterion_assessment as IntakeAnalysis);
       }
     } catch {
       setError("Error de red al conectar con el agente A1");

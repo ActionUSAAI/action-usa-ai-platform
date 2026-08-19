@@ -286,9 +286,25 @@ export async function POST(request: NextRequest) {
     if (!submission) throw new Error("No intake submission found for this case. The client must complete the intake form first.");
 
     // ── 3. Resolve classification and build prompts ────────────────────────
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const m1ForClassification = (submission as Record<string, any>).module1 ?? {};
-    const { classification, criteria } = resolveCriteriaSet(String(m1ForClassification.visaType ?? ""));
+    // Fase 3: la única fuente jurídica es Case.active_legal_petition, nunca
+    // module1.visaType (que permanece únicamente como expectativa del
+    // cliente, sin uso funcional aquí). resolveCriteriaSet() nunca falla
+    // por sí sola -- ante un string vacío o inválido, retorna O-1A por
+    // defecto de forma silenciosa (confirmado en su implementación) -- por
+    // eso esta verificación debe ocurrir explícitamente antes de llamarla,
+    // nunca delegada a ella.
+    const { data: caseRow, error: caseErr } = await db
+      .from("cases")
+      .select("active_legal_petition")
+      .eq("id", case_id)
+      .maybeSingle();
+    if (caseErr) throw new Error(`Error fetching case: ${caseErr.message}`);
+    if (!caseRow?.active_legal_petition) {
+      throw new Error(
+        "Case is missing active_legal_petition. A1 can only evaluate a case whose legal classification has been confirmed. Use the Legal Decision Procedure, which enforces this via the Legal Decision Cycle Policy Contract v1."
+      );
+    }
+    const { classification, criteria } = resolveCriteriaSet(caseRow.active_legal_petition);
     const systemPrompt = buildSystemPrompt(classification, criteria);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any

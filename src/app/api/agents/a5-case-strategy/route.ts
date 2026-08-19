@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { formatEvidenceForPrompt } from "@/lib/agents/evidence-formatter";
+import { resolveCriteriaSet } from "@/lib/canonical-criteria";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -166,9 +167,13 @@ function buildUserPrompt(
   criteriaMet: Record<string, boolean>,
   criteriaScores: Record<string, number>,
   m9: Record<string, unknown>,
-  m10: Record<string, unknown>
+  m10: Record<string, unknown>,
+  classification: string
 ): string {
   const lines: string[] = [];
+  lines.push(`CLASIFICACIÓN JURÍDICA VIGENTE DEL CASO (Case.active_legal_petition): ${classification}`);
+  lines.push("Usa exclusivamente esta clasificación en tu razonamiento -- nunca menciones ni asumas otra clasificación distinta a esta, sin importar lo que sugiera la evidencia cruda del intake.");
+  lines.push("");
   lines.push("=== EVALUACIÓN COMPLETA DE A1 — ÚNICOS criterion_key VÁLIDOS PARA ESTE CASO (no los re-evalúes) ===");
   lines.push("IMPORTANTE: estos son los ÚNICOS criterios que existen para esta clasificación. No uses ningún otro nombre de criterio bajo ninguna circunstancia, sin importar qué campos veas en la evidencia cruda más abajo.");
   Object.entries(criteriaMet).forEach(([key, met]) => {
@@ -271,8 +276,27 @@ export async function POST(request: NextRequest) {
     const sub = submission as Record<string, any>;
     const m9 = sub.module9 ?? {};
     const m10 = sub.module10 ?? {};
+    // Fase 3: la única fuente jurídica es Case.active_legal_petition. Antes
+    // de esta fase, A5 no recibía ninguna clasificación -- causa raíz del
+    // bug original (theory_of_case mencionando "EB-1A" sin fundamento real,
+    // caso Juan Lopez, 2026-08-14). resolveCriteriaSet() nunca falla por sí
+    // sola ante un valor vacío/inválido (retorna O-1A por defecto de forma
+    // silenciosa) -- la verificación debe ocurrir explícitamente antes.
+    const { data: caseRowForA5, error: caseErrForA5 } = await db
+      .from("cases")
+      .select("active_legal_petition")
+      .eq("id", case_id)
+      .maybeSingle();
+    if (caseErrForA5) throw new Error(`Error fetching case: ${caseErrForA5.message}`);
+    if (!caseRowForA5?.active_legal_petition) {
+      throw new Error(
+        "Case is missing active_legal_petition. A5 can only build a strategy for a case whose legal classification has been confirmed. Use the Legal Decision Procedure, which enforces this via the Legal Decision Cycle Policy Contract v1."
+      );
+    }
+    const { classification: classificationForA5 } = resolveCriteriaSet(caseRowForA5.active_legal_petition);
+
     const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10);
+    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10, classificationForA5);
     result = await callClaude(userPrompt, systemPrompt);
 
     // ── Determine current version chain for this case ──────────────────────
