@@ -35,7 +35,7 @@ export interface I129Draft {
   created_at: string;
 }
 
-interface A3A4PanelProps {
+interface DocumentGenerationSectionProps {
   caseId: string;
   submissionId: string | null;
   initialLetters: RecommendationLetter[];
@@ -58,7 +58,7 @@ async function handleDownload(docxPath: string | null) {
   }
 }
 
-export function A3A4Panel({ caseId, submissionId, initialLetters, initialDrafts, initialI129Drafts, userRole }: A3A4PanelProps) {
+export function DocumentGenerationSection({ caseId, submissionId, initialLetters, initialDrafts, initialI129Drafts, userRole }: DocumentGenerationSectionProps) {
   const [letters, setLetters] = useState<RecommendationLetter[]>(initialLetters);
   const [drafts, setDrafts] = useState<PetitionDraft[]>(initialDrafts);
   const [i129Drafts, setI129Drafts] = useState<I129Draft[]>(initialI129Drafts);

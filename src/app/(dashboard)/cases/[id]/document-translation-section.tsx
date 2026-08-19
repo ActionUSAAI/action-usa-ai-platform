@@ -23,7 +23,7 @@ export interface DocTranslation {
   created_at: string;
 }
 
-interface A2PanelProps {
+interface DocumentTranslationSectionProps {
   caseId: string;
   documentFiles: DocumentFile[];
   initialTranslations: DocTranslation[];
@@ -32,7 +32,7 @@ interface A2PanelProps {
 
 const ALLOWED_ROLES = new Set(["admin", "supervisor", "agent"]);
 
-export function A2Panel({ caseId, documentFiles, initialTranslations, userRole }: A2PanelProps) {
+export function DocumentTranslationSection({ caseId, documentFiles, initialTranslations, userRole }: DocumentTranslationSectionProps) {
   const [translationMap, setTranslationMap] = useState<Map<string, DocTranslation>>(
     () => new Map(initialTranslations.map((t) => [t.original_file_path, t]))
   );
@@ -112,7 +112,7 @@ export function A2Panel({ caseId, documentFiles, initialTranslations, userRole }
       <div className="flex items-start justify-between mb-5">
         <div className="flex items-center gap-2">
           <Languages size={18} className="text-[#1B2B5E]" />
-          <h3 className="font-semibold text-gray-900">A2 — Traductor de Documentos</h3>
+          <h3 className="font-semibold text-gray-900">Traducción de Documentos</h3>
         </div>
         {pendingFiles.length > 0 && (
           <button

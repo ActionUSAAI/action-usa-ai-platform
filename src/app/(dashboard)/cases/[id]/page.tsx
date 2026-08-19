@@ -8,11 +8,11 @@ import { InvitationPanel } from "./invitation-panel";
 import { LegalIdentitySection } from "./legal-identity-section";
 import { LegalDecisionSection } from "./legal-decision-section";
 import type { IntakeAnalysis } from "./legal-decision-section";
-import { A2Panel } from "./a2-panel";
-import type { DocTranslation } from "./a2-panel";
+import { DocumentTranslationSection } from "./document-translation-section";
+import type { DocTranslation } from "./document-translation-section";
 import { DocumentsPanel } from "./documents-panel";
-import { A3A4Panel } from "./a3a4-panel";
-import type { RecommendationLetter, PetitionDraft, I129Draft } from "./a3a4-panel";
+import { DocumentGenerationSection } from "./document-generation-section";
+import type { RecommendationLetter, PetitionDraft, I129Draft } from "./document-generation-section";
 import { BlueprintLifecycleSection } from "./blueprint-lifecycle-section";
 import type { CaseStrategy } from "./blueprint-lifecycle-section";
 import { extractTranslatableFiles } from "./extract-files";
@@ -203,7 +203,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             criteriaScores={latestAnalysis?.criteria_scores ?? null}
             userRole={userRole}
           />
-          <A2Panel
+          <DocumentTranslationSection
             caseId={params.id}
             documentFiles={documentFiles}
             initialTranslations={(existingTranslations ?? []) as DocTranslation[]}
@@ -220,7 +220,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
           />
 
           {/* ── Document Generation ── */}
-          <A3A4Panel
+          <DocumentGenerationSection
             caseId={params.id}
             submissionId={submissionId}
             initialLetters={(recommendationLetters ?? []) as RecommendationLetter[]}

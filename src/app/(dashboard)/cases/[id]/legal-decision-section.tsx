@@ -116,7 +116,7 @@ export function LegalDecisionSection({ caseId, submissionId, initialAnalysis, cr
 
   // Fase 5, Paso 4: Generate Strategy pertenece a Legal Decision, nunca a
   // Blueprint Lifecycle. Produce una nueva estrategia jurídica sobre la
-  // evaluación ya existente -- mismo endpoint/payload que antes (A5Panel).
+  // evaluación ya existente -- mismo endpoint/payload que antes.
   // Sincronización con Blueprint Lifecycle Section vía router.refresh():
   // decisión de implementación documentada explícitamente (Fase 5, Paso 4)
   // -- preserva a page.tsx (Server Component) como único origen de verdad,
