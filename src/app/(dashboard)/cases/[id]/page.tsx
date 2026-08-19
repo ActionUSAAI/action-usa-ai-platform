@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, DollarSign, Clock } from "lucide-react";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
+import { LegalIdentitySection } from "./legal-identity-section";
 import { A1Panel } from "./a1-panel";
 import type { IntakeAnalysis } from "./a1-panel";
 import { A2Panel } from "./a2-panel";
@@ -185,15 +186,21 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             </dl>
           </div>
 
-          {/* A1 Intake Analyzer */}
+          {/* ── Identidad Jurídica del Caso — capa fundacional del dominio ── */}
+          <LegalIdentitySection
+            caseId={params.id}
+            initialLegalPetition={caso.initial_legal_petition ?? null}
+            activeLegalPetition={caso.active_legal_petition ?? null}
+            userRole={userRole}
+          />
+
+          {/* ── Legal Decision ── */}
           <A1Panel
             caseId={params.id}
             submissionId={submissionId}
             initialAnalysis={(latestAnalysis ?? null) as IntakeAnalysis | null}
             userRole={userRole}
           />
-
-          {/* A2 Document Processor */}
           <A2Panel
             caseId={params.id}
             documentFiles={documentFiles}
@@ -201,7 +208,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             userRole={userRole}
           />
 
-          {/* A5 Case Strategy Engine */}
+          {/* ── Blueprint Lifecycle ── */}
           <A5Panel
             caseId={params.id}
             submissionId={submissionId}
@@ -212,7 +219,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             userRole={userRole}
           />
 
-          {/* A3/A4 — Cartas y Petición */}
+          {/* ── Document Generation ── */}
           <A3A4Panel
             caseId={params.id}
             submissionId={submissionId}
