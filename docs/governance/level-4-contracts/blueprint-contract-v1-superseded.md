@@ -1,3 +1,10 @@
+---
+document: "Blueprint Contract v1"
+level: 4
+status: "Superseded (no contemplado como estado formal por la Architectural Constitution v1 — preservado por el Séptimo Principio del Data Governance Charter, sección Evolución del Conocimiento)"
+governed_by: "blueprint-contract.md (docs/governance/level-4-contracts/)"
+---
+
 # AUCIS — Blueprint Contract v1
 
 **Estado:** Congelado. Aprobado 2026-07-29. Primer contrato formal producido bajo la regla Contract First Development (ver sección al final). Contrato de integración oficial entre el Core Legal Engine y el resto de la plataforma.

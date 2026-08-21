@@ -1,8 +1,15 @@
+---
+document: "Blueprint Execution Contract"
+level: 4
+status: Frozen
+governed_by: "Legal Decision Procedure Contract (pendiente de materialización como archivo)"
+---
+
 # AUCIS — Blueprint Execution Contract v1
 
 **Estado:** Frozen. Aprobado 2026-08-13.
 
-Este documento no redefine las reglas de consumo del Blueprint. Presupone íntegramente `AUCIS_BLUEPRINT_CONTRACT_V2.md` y únicamente documenta el comportamiento interno de ejecución de Document Generation Layer cuando esas reglas ya han sido satisfechas.
+Este documento no redefine las reglas de consumo del Blueprint. Presupone íntegramente `blueprint-contract.md (docs/governance/level-4-contracts/)` y únicamente documenta el comportamiento interno de ejecución de Document Generation Layer cuando esas reglas ya han sido satisfechas.
 
 ## Alcance
 
@@ -14,7 +21,7 @@ Este documento cubre exclusivamente:
 4. Qué debe hacer un generador cuando el Blueprint no contiene información suficiente para completar una decisión.
 5. Cuándo debe detener la generación y escalar a revisión humana en lugar de inferir.
 
-No cubre: consumidores, permisos, reglas de consumo, reglas de integridad, versionado, ni responsabilidades del productor del Blueprint — todo eso pertenece exclusivamente a `AUCIS_BLUEPRINT_CONTRACT_V2.md`.
+No cubre: consumidores, permisos, reglas de consumo, reglas de integridad, versionado, ni responsabilidades del productor del Blueprint — todo eso pertenece exclusivamente a `blueprint-contract.md (docs/governance/level-4-contracts/)`.
 
 ## Principio Rector
 
@@ -36,7 +43,7 @@ Document Generation Layer conserva libertad exclusivamente sobre la forma lingü
 
 Esta libertad tiene un límite estructural claro: puede cambiar *cómo* se dice algo, nunca *qué* se dice. Dos redacciones distintas de la misma instrucción del Blueprint son ambas válidas si, y solo si, un lector no podría inferir de ninguna de las dos una decisión distinta a la que el Blueprint contiene.
 
-Esta libertad no incluye estructura documental (capítulos, orden de secciones, conversión de `argument_sequence` en outline) — esa responsabilidad ya está asignada exclusivamente a A4 por `AUCIS_BLUEPRINT_CONTRACT_V2.md`.
+Esta libertad no incluye estructura documental (capítulos, orden de secciones, conversión de `argument_sequence` en outline) — esa responsabilidad ya está asignada exclusivamente a A4 por `blueprint-contract.md (docs/governance/level-4-contracts/)`.
 
 ## 3. Qué debe hacer un generador cuando el Blueprint es ambiguo
 
@@ -64,7 +71,7 @@ Este comportamiento es la aplicación directa, a nivel de ejecución de document
 
 ## References
 
-- `AUCIS_BLUEPRINT_CONTRACT_V2.md` — reglas de consumo, permisos, e integridad del Blueprint; documento del que este depende íntegramente.
+- `blueprint-contract.md (docs/governance/level-4-contracts/)` — reglas de consumo, permisos, e integridad del Blueprint; documento del que este depende íntegramente.
 - `A5_CASE_BLUEPRINT_SPECIFICATION_V2.md` — Brechas Técnicas relacionadas con el origen de vacíos de información.
 - `AUCIS_ARCHITECTURE_PRINCIPLES.md` — Principio de Human-in-the-Loop, base de la Sección 5.
 - `AUCIS_ARCHITECTURE_DECISIONS.md` — ADR-008, base de la distinción entre decisión y ejecución.

@@ -1,3 +1,10 @@
+---
+document: "Blueprint Contract"
+level: 4
+status: Frozen
+governed_by: "Legal Decision Procedure Contract (pendiente de materialización como archivo)"
+---
+
 # AUCIS — Blueprint Contract v2
 
 **Estado:** Aprobado. Reemplazará oficialmente a `AUCIS_BLUEPRINT_CONTRACT_V1.md` cuando `AUCIS_CONTRACT_CATALOG.md` quede actualizado reflejando esta versión, conforme a `AUCIS_ARCHITECTURE_DOCUMENTATION_GOVERNANCE.md`. Hasta ese momento, v1 permanece Frozen. Resultado del Blueprint Field Audit (2026-08-02) — alinea este contrato con `A5_CASE_BLUEPRINT_SPECIFICATION_V2.md`, no introduce ninguna decisión arquitectónica nueva.
