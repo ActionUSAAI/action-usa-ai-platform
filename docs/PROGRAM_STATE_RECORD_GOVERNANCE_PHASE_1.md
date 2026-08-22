@@ -11,6 +11,8 @@
 | Architectural Constitution v1 | 0 | `docs/governance/level-0-constitution/` |
 | Data Governance Charter v1 | 1 | `docs/governance/level-1-charters/` |
 | Knowledge Charter v1 | 1 | `docs/governance/level-1-charters/` |
+| Legal Decision Cycle Policy Contract v1 | 2 | `docs/governance/level-2-policies-procedures/` |
+| Legal Decision Procedure Contract v1 | 2 | `docs/governance/level-2-policies-procedures/` |
 | Blueprint Contract v2 | 4 | `docs/governance/level-4-contracts/` |
 | Blueprint Execution Contract v1 | 4 | `docs/governance/level-4-contracts/` |
 
@@ -18,40 +20,41 @@
 
 Blueprint Contract v1 — `status: Superseded` (valor sin respaldo formal en la Constitution, documentado explícitamente en su propio frontmatter).
 
-Los tres Blueprint Contracts fueron reubicados desde `docs/` hacia `docs/governance/level-4-contracts/` vía `git mv`, con frontmatter agregado y referencias cruzadas internas corregidas (ruta, no contenido). Commits: `c2bd361`, `f205c22`, `cce037e` — pusheados a `origin/main`.
+Los tres Blueprint Contracts fueron reubicados desde `docs/` hacia `docs/governance/level-4-contracts/` vía `git mv`, con frontmatter agregado y referencias cruzadas internas corregidas (ruta, no contenido).
+
+Los dos Legal Decision Contracts fueron materializados por primera vez como archivo — su texto completo fue proporcionado directamente en conversación y verificado por consistencia interna antes de materializarse, tras determinar que ni el código ni el contexto de sesión post-compactación contenían el texto normativo completo por sí solos.
+
+Commits: `c2bd361`, `f205c22`, `cce037e`, `4561e9e`, `e962262` — todos pusheados a `origin/main`, verificados por `git fetch` + comparación de hash.
 
 ## 3. Documentos Pendientes
 
-**Legal Decision Cycle Policy Contract** y **Legal Decision Procedure Contract** — Level 2. No existen como archivo. Nunca fueron materializados como documento independiente.
+Ninguno dentro del alcance original de Governance Phase 1. Level 0, 1, 2, y 4 están completos.
 
 ## 4. Brechas Conocidas
 
-- Level 2 vacío como archivo físico, aunque su contenido normativo ya fue discutido, refinado, y tratado con autoridad Frozen a lo largo de esta sesión y de sesiones previas.
-- `governed_by` de los tres Blueprint Contracts (Level 4) apunta a un documento que hoy no existe físicamente — anotado explícitamente en su propio frontmatter.
 - Estado "Superseded" usado en Blueprint Contract v1 sin definición formal en la Architectural Constitution v1 (Sección 3 solo contempla Proposal/Frozen).
 - Level 3, 5, y 6 vacíos — legítimo según la Constitución (Sección 6, Extensión del Sistema): no se crean niveles sin documento real que los ocupe.
 
 ## 5. Riesgos Abiertos
 
-- Mientras Level 2 no exista como archivo, cualquier auditoría del corpus de gobernanza verá una cadena de autoridad interrumpida: Blueprint Contract declara depender de un documento inexistente.
-- El contenido real de los Legal Decision Contracts vive disperso en dos fuentes de naturaleza distinta (código y conversación), con riesgo real de reconstrucción imprecisa si se recupera de memoria en vez de desde la fuente primaria.
+- Ninguno relacionado con cadena de autoridad interrumpida — la brecha de `governed_by` apuntando a un documento inexistente (Blueprint Contracts → Legal Decision Procedure Contract) quedó resuelta con la materialización de Level 2.
 
-## 6. Fuentes Primarias para Recuperación (sin reconstrucción)
+## 6. Fuentes Primarias (histórico — ya no aplica como pendiente)
 
-1. `src/app/api/agents/legal-decision-cycle/route.ts` — contiene comentarios de código que citan explícitamente ambos contratos, incluyendo fragmentos de su contenido normativo.
-2. El historial de la conversación donde ambos contratos fueron diseñados, refinados en múltiples rondas, y declarados Frozen.
-3. Transcripts de sesiones anteriores donde estos dos contratos se hayan originado o refinado.
+Sección conservada como registro histórico del método de recuperación: el texto completo de ambos Legal Decision Contracts no estaba accesible ni en `src/app/api/agents/legal-decision-cycle/route.ts` (solo resumen operativo) ni en el contexto de la sesión post-compactación. Fue recuperado y proporcionado directamente en conversación antes de su materialización.
 
 ## 7. Próximo Hito Autorizado
 
-La recuperación y materialización fiel de los dos Legal Decision Contracts desde las fuentes primarias identificadas en la Sección 6, para completar Level 2.
+Diseño de la Knowledge Acquisition Architecture (Level 3), sujeto al Criterio de Entrada de la Sección 8.
 
 ## 8. Criterio de Entrada para Iniciar Knowledge Acquisition Architecture
 
-1. `docs/governance/level-2-policies-procedures/` contiene el Legal Decision Cycle Policy Contract y el Legal Decision Procedure Contract como archivos `.md`, con frontmatter consistente con el resto del corpus.
-2. El `governed_by` de los tres Blueprint Contracts en Level 4 apunta a una ruta real y existente.
-3. `git log` confirma ambos archivos pusheados a `origin/main`, verificado por `git fetch` + comparación de hash.
-4. No queda ninguna brecha de Level 2 registrada en un Program State Record vigente.
+1. ✅ `docs/governance/level-2-policies-procedures/` contiene el Legal Decision Cycle Policy Contract y el Legal Decision Procedure Contract como archivos `.md`, con frontmatter consistente con el resto del corpus.
+2. ✅ El `governed_by` de los tres Blueprint Contracts en Level 4 apunta a una ruta real y existente.
+3. ✅ `git log` confirma ambos archivos pusheados a `origin/main`, verificado por `git fetch` + comparación de hash.
+4. ✅ No queda ninguna brecha de Level 2 registrada en este Program State Record.
+
+**Los cuatro criterios están satisfechos. La Knowledge Acquisition Architecture puede iniciarse.**
 
 ## 9. Architectural Decisions Captured
 
@@ -60,9 +63,10 @@ Memoria histórica de decisiones permanentes — verdaderas independientemente d
 - Resolución entre Pares y Extensión del Sistema se modelaron como ramas hermanas, no como dependencia padre-hija, tras demostrar que ninguna de las dos responsabilidades presupone el contenido de la otra.
 - El Criterio de Irreducibilidad de Bloques Constitucionales se extrajo como instrumento externo de validación, no como contenido de la Constitution.
 - La metadata de documentos Frozen se redujo a cuatro campos (`document`, `level`, `status`, `governed_by`), eliminando cualquier dato que Git ya provee nativamente.
+- Un documento cuya fuente primaria completa no es recuperable puede materializarse por su núcleo verificado (coincidencia entre fuentes independientes), mientras el contenido no verificable permanece como brecha explícita — nunca inferido.
 
 ## 10. Estado de la Fase
 
 **Governance Phase 1 — Completed.**
 
-Materialización completa de Levels 0, 1, y 4 del corpus normativo. Level 2 identificado como único vacío real, con fuentes primarias señaladas para su recuperación fiel. Este registro permanece consultable como fuente activa de brechas conocidas y criterio de entrada verificable para la siguiente fase.
+Materialización completa de Levels 0, 1, 2, y 4 del corpus normativo. Sin brechas abiertas dentro del alcance original de esta fase. Este registro permanece consultable como fuente activa de estado y criterio de entrada verificable para la siguiente fase.
