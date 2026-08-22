@@ -2,7 +2,7 @@
 document: "Blueprint Execution Contract"
 level: 4
 status: Frozen
-governed_by: "Legal Decision Procedure Contract (pendiente de materialización como archivo)"
+governed_by: "legal-decision-procedure-contract.md (docs/governance/level-2-policies-procedures/)"
 ---
 
 # AUCIS — Blueprint Execution Contract v1

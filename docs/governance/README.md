@@ -17,6 +17,7 @@ Ningún documento en este repositorio tiene autoridad sobre la Constitution. Tod
 - `level-0-constitution/` — cómo se gobierna este corpus documental.
 - `level-1-charters/` — verdades fundamentales del dominio.
 - `level-2-policies-procedures/` — reglas que gobiernan procesos.
+- `level-4-contracts/` — interacción entre componentes ya identificados.
 
 ## Relación entre niveles
 
