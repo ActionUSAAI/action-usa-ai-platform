@@ -12,7 +12,7 @@
 
 | ID | Fuente | Estado | Unidades | Extraídas | Pendientes | Verificado |
 |---|---|---|---|---|---|---|
-| F001 | Immigration and Nationality Act (INA) | Not Started | — | 0 | — | No |
+| F001 | Immigration and Nationality Act (INA) | In Progress | 3 | 0 | 3 | No |
 | F002 | 8 CFR §214.2(o) | Not Started | — | 0 | — | No |
 | F003 | USCIS Policy Manual | Not Started | — | 0 | — | No |
 | F004 | Form I-129 | Not Started | — | 0 | — | No |
@@ -23,7 +23,7 @@
 
 | Fecha | Fuente | Unidades nuevas | Estado |
 |---|---|---|---|
-| — | — | — | — |
+| 2026-08-23 | F001 (INA) | 3 (LKA-000001, LKA-000002, LKA-000003) | Unidades identificadas y registradas; texto literal pendiente de inserción |
 
 ## Control de Integridad (por fuente)
 
