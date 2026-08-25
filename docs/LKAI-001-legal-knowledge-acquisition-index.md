@@ -12,8 +12,8 @@
 
 | ID | Fuente | Estado | Unidades | Extraídas | Pendientes | Verificado |
 |---|---|---|---|---|---|---|
-| F001 | Immigration and Nationality Act (INA) | In Progress | 3 | 0 | 3 | No |
-| F002 | 8 CFR §214.2(o) | Not Started | — | 0 | — | No |
+| F001 | Immigration and Nationality Act (INA) | In Progress | 3 | 3 | 0 | No |
+| F002 | 8 CFR §214.2(o) | In Progress | — | 10 | — | No |
 | F003 | USCIS Policy Manual | Not Started | — | 0 | — | No |
 | F004 | Form I-129 | Not Started | — | 0 | — | No |
 | F005 | Instructions for Form I-129 | Not Started | — | 0 | — | No |
@@ -24,6 +24,8 @@
 | Fecha | Fuente | Unidades nuevas | Estado |
 |---|---|---|---|
 | 2026-08-23 | F001 (INA) | 3 (LKA-000001, LKA-000002, LKA-000003) | Unidades identificadas y registradas; texto literal pendiente de inserción |
+| 2026-08-24 | F001 (INA), F002 (8 CFR §214.2(o)) | 13 total (LKA-000001 a LKA-000013) | Texto literal incorporado y siete campos derivados completados para LKA-000001 a LKA-000013; los trece registros se encuentran en estado Structurally Complete |
+| 2026-08-24 | F001 (INA) | 0 nuevas — corrección retroactiva de LKA-000001 | Campo Explicitly Mentioned Concepts alineado con la práctica del resto del corpus (commit 23eaa87); registro permanece Structurally Complete |
 
 ## Control de Integridad (por fuente)
 
