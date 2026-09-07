@@ -580,6 +580,7 @@ NEXT OPERATION: MASTER-SUBJECT-002 — SESSION 13 — SE-02 SEMANTIC CONSTITUTIO
 | 10 | SE-02 Decision Locus Determination | PASS / CLOSED (post SR-...-S10-01) — all DL candidates NOT ESTABLISHED; locus DL-F; **authority gap identified**, MASTER jurisdiction to resolve = YES |
 | 11–12R | SE-02 Authority Constitution → Review → Re-Review | PASS / CLOSED (post SR-...-S11-01, SR-...-S11-02) — RC-AUTH-SE02 proposed (DL-D, bounded), Session 12 found 1 defect (AEPE clause), corrected, Session 12R: all AR-01–15 PASS, 0 defects |
 | — | **RC-AUTH-SE02 — MASTER-GOVERNED APPROVAL ACT** | **APPROVED** — SE-02 decision locus now DL-D — ESTABLISHED, bounded per RC-AUTH-SE02; SE-02 semantic content itself remains NOT YET CONSTITUTED; RC-11 remains OPEN |
+| — | **FIRST VERTICAL-SLICE IMPLEMENTATION AUTHORIZATION ACT** | **AUTHORIZED — BOUNDED** — one real, bounded AKAE↔AEPE vertical-slice implementation attempt authorized under the Implementation Evidence & Architecture Re-Entry Gate; no runtime-closure subject resolved or reopened; general AKAE↔AEPE implementation, architectural gap resolution, and production deployment remain NOT AUTHORIZED. See `docs/MASTER-SUBJECT-002-PHASE-TRANSITION.md` for the narrative context and rationale for this phase change. |
 
 IMPLEMENTATION AUTHORIZED (across all sessions): NO
 
@@ -611,5 +612,93 @@ SE-02 SEMANTIC CONSTITUTION
 
 SESSION 13 EXECUTION:
 NOT INITIATED BY THIS CONSOLIDATED-STATE UPDATE
+
+STOP.
+
+---
+
+## FIRST VERTICAL-SLICE IMPLEMENTATION AUTHORIZATION ACT (AUTHORIZED — BOUNDED)
+
+CROSS-REFERENCE: See `docs/MASTER-SUBJECT-002-PHASE-TRANSITION.md` for the narrative
+record explaining why this phase transition occurred — the closure of SE-02 semantic
+constitution as PARTIAL/INSUFFICIENT (Sessions 13/13A/13C) despite established authority
+(RC-AUTH-SE02), and the establishment of the Implementation Evidence & Architecture
+Re-Entry Gate as the mechanism now governing when real execution evidence requires
+return to architecture.
+
+Verbatim canonical text of the act:
+
+```
+MASTER-SUBJECT-002
+FIRST VERTICAL-SLICE IMPLEMENTATION AUTHORIZATION ACT
+
+GOVERNING AUTHORITY: MASTER-000 — APPROVED / CONSTITUTED
+SUBJECT: AKAE ↔ AEPE FIRST REAL VERTICAL-SLICE INTERACTION
+ACT: BOUNDED IMPLEMENTATION AUTHORIZATION
+EFFECT: PROSPECTIVE ONLY
+
+AUTHORIZED VERTICAL SLICE:
+ONE REAL INTERACTION → ONE KNOWLEDGE REQUIREMENT → AKAE ENTRY / GOVERNED-KNOWLEDGE PATH
+→ ONE GOVERNED-KNOWLEDGE RETURN PATH → AEPE / COMP-06 BOUNDARY → ONE CONSUMPTION OBSERVATION
+
+FIXED ARCHITECTURAL STATE PRESERVED: RC-01, RC-02, RC-10, RC-11, RC-13, SE-02 all remain OPEN.
+SE-02 subject/reference/relation/output and RC-D-SE02/RC-D11 remain exactly as closed in
+Sessions 9–13C (NOT YET DETERMINABLE / NOT YET CONSTITUTED as applicable). No open state is
+silently resolved by this authorization.
+
+AUTHORIZED IMPLEMENTATION BEHAVIOR: IL (implementation-local) and DEF (implementation defect
+correction) may proceed locally. AR (architecture re-entry) is prohibited from local resolution
+and requires ALL of RE-01 (concrete execution context) through RE-05 (no silent default/invention/
+assumption/reconstruction) to be satisfied, producing an Implementation Blocker Evidence Record,
+before the affected path stops. EXT and UND findings are recorded, not resolved.
+
+SOURCE-FIRST: UNCHANGED. Must not silently supply KR-03, Applicable Specialization Context, SE-02
+target/relation/output, domain values, AKAE entry semantics, selection criteria, or return
+semantics beyond what is already established.
+
+SUCCESS CONDITIONS: VS-RESULT-A (completed path without unauthorized invention) OR VS-RESULT-B
+(evidenced blocker via RE-01–RE-05 + Implementation Blocker Evidence Record). A correctly
+evidenced blocker is a successful architectural learning result, not a failure.
+
+PROHIBITED: placeholder/arbitrary KR-03 or Applicable Specialization Context; invented SE-02
+semantics; COMP-07 substitution for governed knowledge; bypassing AKAE governance; treating
+structural stubs as functional success; mocking a missing architectural semantic and reporting
+E2E success; silently broadening the authorized slice.
+
+SCOPE CONTROL: does NOT authorize general AKAE/AEPE/AUSCIS implementation, production deployment,
+migration of existing production behavior, repository-wide refactoring unrelated to the slice,
+resolution of all TC contract items, resolution of RC-01/RC-02/RC-10/RC-11/RC-13, architectural
+decisions, or MASTER amendments. Only code necessary for the bounded vertical slice may be
+created or modified.
+
+NON-CASCADE RULE: one blocker does not automatically reopen every related architectural subject —
+only the subject materially implicated by the evidence.
+
+THIS ACT DOES NOT EXECUTE THE SLICE. Authorization only; a separate execution operation is
+required afterward.
+```
+
+Constitutive effect of this act:
+
+```
+FIRST VERTICAL-SLICE IMPLEMENTATION: AUTHORIZED — BOUNDED
+AUTHORIZATION SCOPE: ONE BOUNDED REAL AKAE↔AEPE KNOWLEDGE INTERACTION
+IMPLEMENTATION EVIDENCE & ARCHITECTURE RE-ENTRY GATE: ACTIVE
+IL LOCAL RESOLUTION: AUTHORIZED
+DEF LOCAL CORRECTION: AUTHORIZED
+AR LOCAL RESOLUTION: PROHIBITED (requires RE-01–RE-05 + Implementation Blocker Evidence Record)
+OPEN ARCHITECTURAL SUBJECTS AUTOMATICALLY REOPENED: NO
+GENERAL AKAE↔AEPE IMPLEMENTATION: NOT AUTHORIZED
+ARCHITECTURAL GAP RESOLUTION: NOT AUTHORIZED
+PRODUCTION DEPLOYMENT: NOT AUTHORIZED
+THIS ACT EXECUTES IMPLEMENTATION: NO
+CODE MODIFIED BY THIS ACT: NO
+SOURCE-FIRST MODIFIED: NO
+
+RUNTIME-CLOSURE SUBJECTS: unchanged — RC-01, RC-02, RC-10, RC-11 (authority DL-D established,
+content pending), RC-13 all remain exactly as they were before this act.
+
+NEXT REQUIRED OPERATION: FIRST VERTICAL-SLICE IMPLEMENTATION EXECUTION
+```
 
 STOP.
