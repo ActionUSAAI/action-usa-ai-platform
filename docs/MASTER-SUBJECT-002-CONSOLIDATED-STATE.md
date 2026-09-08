@@ -582,7 +582,12 @@ NEXT OPERATION: MASTER-SUBJECT-002 — SESSION 13 — SE-02 SEMANTIC CONSTITUTIO
 | — | **RC-AUTH-SE02 — MASTER-GOVERNED APPROVAL ACT** | **APPROVED** — SE-02 decision locus now DL-D — ESTABLISHED, bounded per RC-AUTH-SE02; SE-02 semantic content itself remains NOT YET CONSTITUTED; RC-11 remains OPEN |
 | — | **FIRST VERTICAL-SLICE IMPLEMENTATION AUTHORIZATION ACT** | **AUTHORIZED — BOUNDED** — one real, bounded AKAE↔AEPE vertical-slice implementation attempt authorized under the Implementation Evidence & Architecture Re-Entry Gate; no runtime-closure subject resolved or reopened; general AKAE↔AEPE implementation, architectural gap resolution, and production deployment remain NOT AUTHORIZED. See `docs/MASTER-SUBJECT-002-PHASE-TRANSITION.md` for the narrative context and rationale for this phase change. |
 
-IMPLEMENTATION AUTHORIZED (across all sessions): NO
+GENERAL IMPLEMENTATION AUTHORIZED:
+NO
+
+FIRST VERTICAL-SLICE IMPLEMENTATION:
+AUTHORIZED — BOUNDED
+(see FVSI Authorization Act, final section of this document)
 
 RUNTIME-CLOSURE SUBJECTS REMAINING:
 5
