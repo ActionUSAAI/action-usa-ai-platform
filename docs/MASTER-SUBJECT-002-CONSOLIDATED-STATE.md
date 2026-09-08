@@ -589,6 +589,7 @@ NEXT OPERATION: MASTER-SUBJECT-002 — SESSION 13 — SE-02 SEMANTIC CONSTITUTIO
 | — | **KR-03 Content/Semantic Validity Decision Locus Determination** (post SR-...-KR03-CV-DL-01) | **DL-F — NOT ESTABLISHED** across all 5 candidate loci (precision-corrected: DL-B and DL-D findings tightened to remove unsupported inferences). New authority allocation required. |
 | — | **KR-03 Content-Validity Authority Allocation Determination** (post SR-...-KR03-CV-AA-01) | **NOT YET DETERMINABLE** — Models A (cross-architecture), B (domain), C (distributed) all NOT ESTABLISHED; Model D (allocation not yet determinable) is the only supported outcome; no nameable specific missing dependency identified (unsupported "additional blocker" conclusion withdrawn by correction). |
 | — | **KR-03 Content-Validity — Honest Closure & Independent-Probe Method** | **DELIBERATE CLOSURE** — not an unfinished analysis. Establishes the generalized methodological principle: a real blocker is never bypassed by invention; a stopped subject is reopened only by new concrete runtime evidence from any legitimate execution path (an "Independent Evidence Probe"), not by indefinite further analytical decomposition of the same point. Candidate next probe target: NOT YET SELECTED. |
+| — | **PROJECT-DIRECTION-001 — ADOPTED WORKING METHODOLOGY** | **APPROVED — IN EFFECT** (Project Director, 2026-09-08) — establishes Minimum Necessary Architecture, Minimum Locus Check, Proportional Governance, and the Operating Standard as the project's working methodology going forward; explicitly does NOT modify AKAE/AEPE/AUSCIS/MASTER-000/MASTER-SUBJECT-002 or close RC-01/RC-02/RC-10/RC-11/RC-13; all six runtime-closure subjects remain exactly as they were. See `docs/PROJECT-DIRECTION-001.md`. |
 
 GENERAL IMPLEMENTATION AUTHORIZED:
 NO
@@ -1068,5 +1069,47 @@ NOT ESTABLISHED
 NEXT OPERATION:
 NOT ESTABLISHED — candidate: a new Independent Evidence Probe targeting a different,
 self-contained part of the established architecture; target NOT YET SELECTED.
+
+STOP.
+
+---
+
+## PROJECT-DIRECTION-001 — ADOPTED WORKING METHODOLOGY (APPROVED — IN EFFECT)
+
+CROSS-REFERENCE: `docs/PROJECT-DIRECTION-001.md` — "AKAE / AEPE / AUSCIS — Minimum Necessary
+Architecture & Proportional Governance," approved by the Project Director (Alexander Clavijo) on
+2026-09-08.
+
+```
+PROJECT-DIRECTION-001
+REVIEW: N/A — director-issued project direction, not subject to MASTER-000 Architectural Review
+PROJECT DIRECTOR APPROVAL: APPROVED
+APPROVAL DATE: 2026-09-08
+STATUS: APPROVED — IN EFFECT
+```
+
+**Non-effects (per PROJECT-DIRECTION-001 §21, preserved exactly):** approval of this document does
+NOT by itself modify AKAE Core, AEPE, AUSCIS, MASTER-000, or MASTER-SUBJECT-002; does not resolve
+the historical AKAE-PIPELINE-001 documentary collision; does not establish a new AKAE Core version
+or change any Frozen artifact; does not establish KR-03 semantics, Applicable Specialization Context
+semantics, or SE-02 semantics; does not close RC-01, RC-02, RC-10, RC-11, or RC-13; does not establish
+`Defined Context = KR-03`; does not authorize implementation; and does not change any existing
+architectural lifecycle state.
+
+**Runtime-closure subjects — unchanged by this adoption:**
+- RC-01: unchanged — OPEN / RUNTIME-BLOCKING, authority DL-D established (RC-AUTH-RC01), content-validity separately blocked (locus NOT ESTABLISHED, allocation NOT YET DETERMINABLE)
+- RC-02: unchanged — fully open
+- RC-10: unchanged — fully open
+- RC-11: unchanged — authority DL-D established (RC-AUTH-SE02), content NOT YET CONSTITUTED
+- RC-13: unchanged — fully open
+- SE-02: unchanged — OPEN, PARTIAL/INSUFFICIENT closure preserved (Sessions 13/13A/13C)
+
+**Effect on future work:** the Operating Standard defined in PROJECT-DIRECTION-001 §20 (identify
+concrete need → check existing sources → if established, use it → if not, determine necessity now →
+if needed, minimum locus check → design minimum solution → verify non-conflict → apply proportional
+governance → implement → execute → let runtime evidence identify the next real requirement) now
+governs future work on RC-01, RC-02, RC-10, RC-11, RC-13, and SE-02, in place of unbounded further
+architectural discovery sessions on questions already found to have no nameable cause of
+indeterminacy (per the Independent Evidence Probe method established earlier in this document).
 
 STOP.
