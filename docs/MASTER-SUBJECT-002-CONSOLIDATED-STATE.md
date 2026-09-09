@@ -1229,3 +1229,52 @@ this record. This is a deliberate pause, consistent with the
 project's SE-02 and KR-03-content-validity precedents.
 
 STOP.
+
+---
+
+## RC-01 / KR-03 — MINIMUM FUNCTIONAL SEMANTICS APPROVAL (APPROVED)
+
+GOVERNING CONTEXT: MASTER-000 — APPROVED / CONSTITUTED · PROJECT-DIRECTION-001 — APPROVED / IN
+EFFECT · RC-AUTH-RC01 — APPROVED / AUTHORITATIVE
+OPERATION: PROPORTIONAL ARCHITECTURAL APPROVAL
+
+```
+KR03 MINIMUM FUNCTIONAL SEMANTICS:
+APPROVED
+
+APPROVED RULE:
+"KR03 — Specialization Context: the context, independent of KR02's Knowledge Subject/Need, that
+identifies the specialization under which the Knowledge Requirement is to be understood for the
+governed-knowledge interaction. KR03 does not itself determine source authority, applicability,
+acquisition, verification, or expert reasoning."
+
+SEMANTIC MEANING:
+ESTABLISHED PROSPECTIVELY
+
+EFFECT:
+PROSPECTIVE ONLY
+
+CONCRETE KR03 VALUE:
+NOT ESTABLISHED
+
+KR03 → TC10:
+NOT ESTABLISHED
+
+KR03 → APPLICABLE SPECIALIZATION CONTEXT:
+NOT ESTABLISHED
+
+DEFINED CONTEXT → KR03:
+NOT ESTABLISHED
+
+RC-01:
+OPEN / RUNTIME-BLOCKING
+
+TC01 RUNTIME BLOCKER REMOVED:
+NO
+```
+
+**Non-cascade (preserved unchanged):** RC-02, RC-10, RC-11, RC-13, SE-02, RC-AUTH-RC01,
+RC-AUTH-SE02, and RC-D12 are not modified by this approval. No code modified; no implementation
+executed.
+
+STOP.
