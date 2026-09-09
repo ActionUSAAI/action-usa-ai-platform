@@ -590,6 +590,7 @@ NEXT OPERATION: MASTER-SUBJECT-002 — SESSION 13 — SE-02 SEMANTIC CONSTITUTIO
 | — | **KR-03 Content-Validity Authority Allocation Determination** (post SR-...-KR03-CV-AA-01) | **NOT YET DETERMINABLE** — Models A (cross-architecture), B (domain), C (distributed) all NOT ESTABLISHED; Model D (allocation not yet determinable) is the only supported outcome; no nameable specific missing dependency identified (unsupported "additional blocker" conclusion withdrawn by correction). |
 | — | **KR-03 Content-Validity — Honest Closure & Independent-Probe Method** | **DELIBERATE CLOSURE** — not an unfinished analysis. Establishes the generalized methodological principle: a real blocker is never bypassed by invention; a stopped subject is reopened only by new concrete runtime evidence from any legitimate execution path (an "Independent Evidence Probe"), not by indefinite further analytical decomposition of the same point. Candidate next probe target: NOT YET SELECTED. |
 | — | **PROJECT-DIRECTION-001 — ADOPTED WORKING METHODOLOGY** | **APPROVED — IN EFFECT** (Project Director, 2026-09-08) — establishes Minimum Necessary Architecture, Minimum Locus Check, Proportional Governance, and the Operating Standard as the project's working methodology going forward; explicitly does NOT modify AKAE/AEPE/AUSCIS/MASTER-000/MASTER-SUBJECT-002 or close RC-01/RC-02/RC-10/RC-11/RC-13; all six runtime-closure subjects remain exactly as they were. See `docs/PROJECT-DIRECTION-001.md`. |
+| — | **RC-01 / KR-03 — Minimum Functional Semantics** (post SR-RC01-KR03-MFS-01) | **PARTIAL PROGRESS — RC-01 REMAINS OPEN** — first substantive application of PROJECT-DIRECTION-001's lightweight method to RC-01/KR-03; produces a PROPOSED (not approved/authoritative) minimal functional definition of KR-03 — "the context, independent of KR02's Knowledge Subject/Need, that identifies the specialization under which the Knowledge Requirement is to be understood" — passing necessity/minimality/non-conflict, but establishing no concrete KR-03 value, no relation to RC-02/TC-10, and no change to KR-03 content-validity's DL-F locus. RC-01: OPEN / RUNTIME-BLOCKING, unchanged. NEXT STEP: NOT ESTABLISHED. |
 
 GENERAL IMPLEMENTATION AUTHORIZED:
 NO
@@ -1111,5 +1112,120 @@ governance → implement → execute → let runtime evidence identify the next 
 governs future work on RC-01, RC-02, RC-10, RC-11, RC-13, and SE-02, in place of unbounded further
 architectural discovery sessions on questions already found to have no nameable cause of
 indeterminacy (per the Independent Evidence Probe method established earlier in this document).
+
+STOP.
+
+---
+
+## RC-01 / KR-03 — MINIMUM FUNCTIONAL SEMANTICS (PARTIAL PROGRESS, RC-01 REMAINS OPEN)
+
+GOVERNING AUTHORITY: MASTER-000 — APPROVED / CONSTITUTED
+METHODOLOGY: PROJECT-DIRECTION-001 — APPROVED / IN EFFECT
+OPERATION TYPE: PROSPECTIVE ARCHITECTURE DESIGN (first substantive
+  application of the PROJECT-DIRECTION-001 lightweight method to
+  RC-01/KR-03)
+
+### 1. SEQUENCE
+
+This operation followed the lightweight Operating Standard
+(PROJECT-DIRECTION-001 §20) applied to RC-01/KR-03 for the first
+time:
+
+RC-01 / KR-03 — MINIMUM NECESSARY ARCHITECTURE APPLICATION
+(Necessity → Source → Locus → Design)
+RESULT: locus decomposition (form/domain-value) withdrawn as
+premature; proposed form rule withdrawn as insufficient to
+satisfy demonstrated need. NEXT STEP: NOT ESTABLISHED.
+↓
+RC-01 / KR-03 — MINIMUM FUNCTIONAL SEMANTICS DESIGN
+(prospective, historical discovery prohibited)
+FIRST ATTEMPT: defined KR-03 as "context of origin" — corrected
+(SR-RC01-KR03-MFS-01) for silently risking equivalence with
+provenance/timing concepts and creating an unauthorized
+relationship to TC-10.
+CORRECTED RESULT: below.
+
+
+### 2. CORRECTED MINIMUM FUNCTIONAL SEMANTIC RULE (PROPOSED)
+
+KR03 — Specialization Context: the context, independent of KR02's
+Knowledge Subject/Need, that identifies the specialization under
+which the Knowledge Requirement is to be understood for the
+governed-knowledge interaction. KR03 does not itself determine
+source authority, applicability, acquisition, verification, or
+expert reasoning.
+
+
+**Status: PROPOSED — prospective design, not historically
+discovered, not approved, not authoritative.**
+
+### 3. FUNCTIONAL ANALYSIS (preserved from the corrected result)
+
+DISTINCT FROM KR02: YES — KR02 conveys content (what is being
+asked); KR03 conveys the specialization under which that content
+is to be understood — an independent axis, not derivable from
+KR02 alone.
+
+MINIMAL: YES — every exclusion clause (source authority,
+applicability, acquisition, verification, expert reasoning) maps
+to an already-established design constraint; no origin, timing,
+or determining-party claim is made.
+
+NON-CONFLICT:
+AKAE: PASS
+AEPE: PASS
+AUSCIS: PASS
+MASTER / RC-AUTH-RC01: PASS
+
+SEMANTIC SUFFICIENCY FOR DEMONSTRATED INTERACTION: YES
+CONCRETE KR03 VALUE ESTABLISHED: NO
+
+
+### 4. WHAT THIS DOES AND DOES NOT ESTABLISH
+
+**Establishes (as a proposal, pending appropriate proportional
+governance per PROJECT-DIRECTION-001 §11):**
+- A conceptually distinct, non-conflicting, minimal functional
+  definition of what KR-03 means — that it identifies the
+  specialization under which content must be understood, as
+  opposed to KR-02's content itself.
+
+**Does NOT establish:**
+- Any relationship between KR-03 and Applicable Specialization
+  Context (RC-02) — remains NOT ESTABLISHED, unchanged.
+- Any relationship between KR-03 and TC-10 — NOT ESTABLISHED by
+  this design.
+- Any concrete value for KR-03 in the demonstrated interaction
+  (INA §101(a)(1) "administrator" lookup).
+- Domain-value authority or content — untouched, as required.
+- KR-03 content-validity's decision locus — remains DL-F, NOT
+  ESTABLISHED (unchanged from prior determination).
+
+### 5. HONEST CURRENT STATE
+
+RC-01: OPEN / RUNTIME-BLOCKING (unchanged)
+KR-03 FUNCTIONAL SEMANTICS: PROPOSED (conceptually sufficient,
+non-conflicting)
+KR-03 CONCRETE VALUE (for re-executing the vertical slice):
+NOT ESTABLISHED
+MISSING ELEMENT: An actual asserted specialization/governance-
+context value for the demonstrated interaction, supplied through
+a legitimate, governed source — not yet established.
+
+
+This is genuine partial progress — for the first time, a definition
+of KR-03 exists that survives the four PROJECT-DIRECTION-001 §9
+controls (necessity, minimality, non-conflict, correct locus) without
+requiring domain-value invention. It does not, by itself, unblock
+the demonstrated vertical-slice execution. The remaining gap (a
+concrete, legitimately-sourced value) is left honestly open, per
+PROJECT-DIRECTION-001's own discipline: NOT ESTABLISHED is not
+converted into a manufactured next operation.
+
+### 6. NEXT STEP
+
+NOT ESTABLISHED — no next operation is authorized or recommended by
+this record. This is a deliberate pause, consistent with the
+project's SE-02 and KR-03-content-validity precedents.
 
 STOP.
