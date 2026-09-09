@@ -120,6 +120,8 @@ PROHIBICIÓN CRÍTICA — CRITERION_KEY: los valores de "criterion_key" en domin
 
 PROHIBICIÓN CRÍTICA — CRITERIOS NO CONFIRMADOS: nunca incluyas en dominant_criteria ni en supporting_criteria ningún criterion_key marcado como "NO confirmado" por A1. Un criterio no confirmado solo puede aparecer en missing_evidence_links o en reinforcement_opportunities, nunca como si ya estuviera satisfecho.
 
+PROHIBICIÓN CRÍTICA — PÉRDIDA SILENCIOSA DE EVALUACIÓN MATERIAL DE A1: puedes priorizar y transformar la evaluación de A1 -- no tienes que tratar todos los criterios por igual -- pero no puedes: (a) omitir por completo, sin ninguna mención, un criterion_key que A1 evaluó (aunque decidas no priorizarlo, debe aparecer al menos una vez en evidence_dependencies, missing_evidence_links, o reinforcement_opportunities); (b) para cualquier criterio que sí priorices (dominant/supporting/corroborative, foundational_evidence, o strategic_priorities), perder la razón material que A1 dio para que ese criterio permanezca NO confirmado -- si esa razón describe una duda de encaje legal (ej. si un cargo cuenta como cierta categoría regulatoria), y no solo ausencia de documentos, tu evidence_dependencies o argument_sequence para ese criterio debe reflejar esa duda explícitamente, no reducirla a "falta documentación".
+
 PROHIBICIÓN CRÍTICA: nunca evalúes riesgo de RFE ni preocupaciones probables de USCIS. Tampoco inventes evidencia que no se te haya proporcionado.
 
 PROHIBICIÓN CRÍTICA — ESTRUCTURA DOCUMENTAL: nunca generes capítulos de documento, índices de Exhibits, ni ningún campo equivalente a "attorney_letter_outline" o "recommended_exhibit_order" — esa responsabilidad pertenece exclusivamente a Document Generation Layer (A4), que la deriva de argument_sequence y cross_references. Tu única salida es argument_sequence como secuencia lógica de razonamiento, nunca como estructura de documento.
@@ -166,6 +168,7 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
 function buildUserPrompt(
   criteriaMet: Record<string, boolean>,
   criteriaScores: Record<string, number>,
+  criteriaGaps: Record<string, string | null>,
   m9: Record<string, unknown>,
   m10: Record<string, unknown>,
   classification: string
@@ -176,8 +179,12 @@ function buildUserPrompt(
   lines.push("");
   lines.push("=== EVALUACIÓN COMPLETA DE A1 — ÚNICOS criterion_key VÁLIDOS PARA ESTE CASO (no los re-evalúes) ===");
   lines.push("IMPORTANTE: estos son los ÚNICOS criterios que existen para esta clasificación. No uses ningún otro nombre de criterio bajo ninguna circunstancia, sin importar qué campos veas en la evidencia cruda más abajo.");
+  lines.push("Cada criterio incluye, cuando A1 la dejó, la RAZÓN por la que no está confirmado -- esa razón es una evaluación material de A1 (puede ser un problema de encaje legal, no solo de documentación faltante) y debe reflejarse en tu salida para todo criterio que priorices o menciones, nunca perderse en silencio.");
   Object.entries(criteriaMet).forEach(([key, met]) => {
     lines.push(`- ${key}: ${met ? "CONFIRMADO" : "NO confirmado"} (puntaje A1 = ${criteriaScores[key] ?? "N/A"})`);
+    if (!met && criteriaGaps[key]) {
+      lines.push(`  Razón de A1 (NO reevaluar, solo preservar en tu razonamiento): ${criteriaGaps[key]}`);
+    }
   });
   const noneConfirmed = Object.values(criteriaMet).every((met) => met === false);
   if (noneConfirmed) {
@@ -243,6 +250,40 @@ export async function POST(request: NextRequest) {
   if (!case_id || !criteria_met || !criteria_scores) {
     return NextResponse.json({ error: "Missing required fields: case_id, criteria_met, criteria_scores" }, { status: 400 });
   }
+
+  // A5 nunca debe construir un Blueprint sin saber, y verificar, sobre qué
+  // Criterion Assessment se basa (ADR-010, migración 023). Hallazgo real
+  // 2026-09-09: este campo era opcional y no se validaba — ni existencia,
+  // ni pertenencia al caso, ni currency_status — y el único caller de UI
+  // real (legal-decision-section.tsx) ni siquiera lo enviaba, produciendo
+  // case_strategy rows con criterion_assessment_id NULL para siempre.
+  if (!criterion_assessment_id) {
+    return NextResponse.json(
+      { error: "Missing required field: criterion_assessment_id. A5 no puede construir un Blueprint sin identificar el Criterion Assessment del que parte." },
+      { status: 400 }
+    );
+  }
+  const { data: sourceAssessment, error: assessmentErr } = await db
+    .from("agent_intake_analysis")
+    .select("id, case_id, currency_status, criteria_gaps")
+    .eq("id", criterion_assessment_id)
+    .maybeSingle();
+  if (assessmentErr) {
+    return NextResponse.json({ error: `Error fetching criterion_assessment_id: ${assessmentErr.message}` }, { status: 500 });
+  }
+  if (!sourceAssessment || sourceAssessment.case_id !== case_id) {
+    return NextResponse.json(
+      { error: "criterion_assessment_id does not exist or does not belong to this case." },
+      { status: 400 }
+    );
+  }
+  if (sourceAssessment.currency_status !== "current") {
+    return NextResponse.json(
+      { error: `criterion_assessment_id refers to a Criterion Assessment that is not current (currency_status='${sourceAssessment.currency_status}'). A5 requires the current A1 evaluation.` },
+      { status: 409 }
+    );
+  }
+
   const { data: run, error: runErr } = await db
     .from("agent_runs")
     .insert({
@@ -296,21 +337,20 @@ export async function POST(request: NextRequest) {
     const { classification: classificationForA5 } = resolveCriteriaSet(caseRowForA5.active_legal_petition);
 
     const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, m9, m10, classificationForA5);
+    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, sourceAssessment.criteria_gaps ?? {}, m9, m10, classificationForA5);
     result = await callClaude(userPrompt, systemPrompt);
 
     // ── Determine current version chain for this case ──────────────────────
-    // El lifecycle (proposed/edited/approved/locked) describe etapas de
-    // revisión de UNA fila — no garantiza por sí solo que exista una sola
-    // versión vigente por caso. Esa garantía la construye este código:
-    // antes de insertar, buscamos cualquier fila no-superseded existente
-    // (la más reciente por created_at) y la marcamos superseded al insertar
-    // la nueva — mismo patrón ya aplicado en a1-intake-analyzer/route.ts.
+    // status (proposed/edited/approved/locked/superseded) es la dimensión
+    // editorial de UNA fila; currency_status (migración 023, ADR-010) es la
+    // dimensión de vigencia entre versiones — independientes. Buscamos la
+    // fila currency_status = 'current' existente para este caso, mismo
+    // patrón ya aplicado en a1-intake-analyzer/route.ts.
     const { data: previousCurrent } = await db
       .from("case_strategy")
       .select("id, version")
       .eq("case_id", case_id)
-      .neq("status", "superseded")
+      .eq("currency_status", "current")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
@@ -350,12 +390,14 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Supersede the previous version, if one existed ──────────────────────
-    // No bloqueante: si esto falla, la nueva fila ya quedó guardada
-    // correctamente; solo registramos el error sin interrumpir la respuesta.
+    // Solo currency_status cambia — status (editorial) se preserva tal cual
+    // quedó (p.ej. un Blueprint 'approved' sigue 'approved' aunque ya no sea
+    // vigente; ADR-010, migración 023). No bloqueante: si esto falla, la
+    // nueva fila ya quedó guardada correctamente; solo registramos el error.
     if (previousCurrent) {
       const { error: supersedeErr } = await db
         .from("case_strategy")
-        .update({ status: "superseded", superseded_by: strategy.id })
+        .update({ currency_status: "superseded", superseded_by: strategy.id })
         .eq("id", previousCurrent.id);
       if (supersedeErr) {
         console.error(`Failed to mark previous strategy ${previousCurrent.id} as superseded:`, supersedeErr.message);

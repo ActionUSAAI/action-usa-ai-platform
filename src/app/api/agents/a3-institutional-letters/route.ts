@@ -287,18 +287,16 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Mod
   return parsed;
 }
 
-// Encapsulado deliberadamente: hoy selecciona el Blueprint vigente vía
-// status IN ('approved','locked'), pero ADR-010 ya identificó que status
-// mezcla dos dimensiones (workflow editorial + vigencia) — cuando
-// case_strategy migre a workflow_status + currency_status (diferido,
-// ver AUCIS_ARCHITECTURE_DECISIONS.md ADR-010), solo esta función
-// necesita actualizarse. Mismo patrón que a3-testimonial-letters/route.ts.
+// Requiere AMBAS dimensiones (ADR-010, migración 023): editorialmente
+// válido (approved/locked) Y vigente (currency_status = 'current'). Mismo
+// patrón que a3-testimonial-letters/route.ts.
 async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: string) {
   const { data: strategy, error } = await db
     .from("case_strategy")
     .select("*")
     .eq("case_id", caseId)
     .in("status", ["approved", "locked"])
+    .eq("currency_status", "current")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();

@@ -3,6 +3,9 @@ import { createClient } from "@supabase/supabase-js";
 import { CriterionDef, resolveCriteriaSet } from "@/lib/canonical-criteria";
 import { str } from "@/lib/agents/shared-helpers";
 import { formatEvidenceForPrompt } from "@/lib/agents/evidence-formatter";
+import { createKnowledgeRequirement } from "@/lib/akae/knowledge-requirement";
+import { determineEntry } from "@/lib/akae/entry-determination";
+import { deliverGovernedKnowledge, GovernedKnowledgeAnswer } from "@/lib/akae/governed-knowledge-delivery";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -18,7 +21,8 @@ function adminDb() {
 
 function buildSystemPrompt(
   classification: "O-1A" | "O-1B" | "EB-1A",
-  criteria: CriterionDef[]
+  criteria: CriterionDef[],
+  criticalRoleGovernedKnowledge?: GovernedKnowledgeAnswer | null
 ): string {
   const criteriaList = criteria.map(c => `- ${c.key}: ${c.label}`).join("\n");
   const scoresSchema = criteria.map(c => `    "${c.key}": 0-100`).join(",\n");
@@ -30,6 +34,14 @@ function buildSystemPrompt(
 
   const countingRule = hasSplitCriticalRole
     ? `\nNOTA IMPORTANTE SOBRE CONTEO: critical_role_4a y critical_role_4b representan el MISMO criterio regulatorio (rol crítico/esencial en organización distinguida), evaluado por dos mecanismos de prueba distintos (cargo directivo/electo vs. técnico/instructor). Si AMBOS resultan "met" = true, cuentan como UN SOLO criterio satisfecho para el umbral mínimo, no como dos.`
+    : "";
+
+  // Solo se agrega cuando AKAE entregó texto oficial verificado (nunca
+  // FOUND_BUT_NOT_VERIFIED ni NOT_ACQUIRED) — ver
+  // src/lib/akae/governed-knowledge-delivery.ts. Sin esto, el criterio se
+  // evalúa como antes, solo con el label corto.
+  const governedKnowledgeBlock = criticalRoleGovernedKnowledge?.verified && criticalRoleGovernedKnowledge.text
+    ? `\n\nCONOCIMIENTO JURÍDICO GOBERNADO Y VERIFICADO — aplica exclusivamente a critical_role_4a/critical_role_4b (${criticalRoleGovernedKnowledge.citation}):\n"${criticalRoleGovernedKnowledge.text}"\nEvalúa critical_role_4a y critical_role_4b usando este texto oficial verificado como estándar, no tu conocimiento de fondo sobre la regulación.`
     : "";
 
   return `Eres el Agente A1 — Intake Analyzer de AUCIS (Automated Case Intelligence System) de ACTION USA AI.
@@ -46,7 +58,7 @@ METODOLOGÍA DE PUNTAJE:
 - 0-24: AUSENTE — Sin evidencia encontrada
 
 Un criterio se considera "met" (criteria_met = true) si su puntaje es ≥ 60.
-Se requieren al menos 3 criterios met.${countingRule}
+Se requieren al menos 3 criterios met.${countingRule}${governedKnowledgeBlock}
 
 Considera también:
 - El estado declarado ("tengo/tal_vez/no_tengo") refleja la percepción del cliente — verifica con la evidencia concreta
@@ -305,7 +317,33 @@ export async function POST(request: NextRequest) {
       );
     }
     const { classification, criteria } = resolveCriteriaSet(caseRow.active_legal_petition);
-    const systemPrompt = buildSystemPrompt(classification, criteria);
+
+    // ── AKAE consumption (TC-01/TC-04, bounded to this slice) ──────────────
+    // La necesidad de conocimiento gobernado para critical_role_4a/4b nace
+    // aquí, en A1, donde antes se evaluaba el criterio solo con el label
+    // corto. A1 nunca lee LKA-*.md ni el almacenamiento interno de AKAE
+    // directamente — solo consume GovernedKnowledgeAnswer, la interfaz de
+    // entrega de src/lib/akae/governed-knowledge-delivery.ts. Cuando AKAE no
+    // entrega texto verificado (no adquirido, o adquirido pero no
+    // verificado), buildSystemPrompt no incluye ningún bloque adicional y el
+    // criterio se evalúa exactamente como antes.
+    const criticalRoleCriterion = criteria.find(
+      c => c.key === "critical_role_4a" || c.key === "critical_role_4b"
+    );
+    let criticalRoleGovernedKnowledge: GovernedKnowledgeAnswer | null = null;
+    if (criticalRoleCriterion) {
+      const kr = createKnowledgeRequirement(
+        criticalRoleCriterion.citation,
+        `Obtener conocimiento gobernado correspondiente a ${criticalRoleCriterion.citation} — estándar de "rol crítico/esencial en organización distinguida" para evaluar ${criticalRoleCriterion.key}.`,
+        "AILA"
+      );
+      const entry = determineEntry(kr);
+      criticalRoleGovernedKnowledge = entry.entryConditionsSatisfied
+        ? deliverGovernedKnowledge(kr.kr02.citation)
+        : null;
+    }
+
+    const systemPrompt = buildSystemPrompt(classification, criteria, criticalRoleGovernedKnowledge);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const userPrompt = buildUserPrompt(submission as Record<string, any>);

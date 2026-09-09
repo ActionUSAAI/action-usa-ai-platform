@@ -132,7 +132,7 @@ export function LegalDecisionSection({ caseId, submissionId, initialAnalysis, cr
       const res = await fetch("/api/agents/a5-case-strategy", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ case_id: caseId, submission_id: submissionId, criteria_met: criteriaMet, criteria_scores: criteriaScores }),
+        body: JSON.stringify({ case_id: caseId, submission_id: submissionId, criteria_met: criteriaMet, criteria_scores: criteriaScores, criterion_assessment_id: analysis?.id }),
       });
       const data = await res.json();
       if (!res.ok) {

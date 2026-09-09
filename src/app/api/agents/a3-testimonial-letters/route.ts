@@ -96,7 +96,8 @@ function buildUserPrompt(
   group: ReferenceEntry[],
   criterionKey: string,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  blueprint: Record<string, any>
+  blueprint: Record<string, any>,
+  criterionConfirmed: boolean
 ): string {
   const lines: string[] = [];
   lines.push(`BENEFICIARIO:`);
@@ -105,6 +106,11 @@ function buildUserPrompt(
   lines.push(`Profesión/industria: ${profession} / ${industry}`);
   lines.push(``);
   lines.push(`CRITERIO A SUSTENTAR: ${criterionLabel} (${criterionCitation})`);
+  if (criterionConfirmed) {
+    lines.push(`ESTADO DEL CRITERIO: A1 ya confirmó este criterio como satisfecho -- esta carta refuerza un criterio ya establecido.`);
+  } else {
+    lines.push(`ESTADO DEL CRITERIO: A1 NO ha confirmado este criterio todavía (evaluación vigente, met=false). Esta carta es evidencia de DESARROLLO para ayudar a sustentarlo en el futuro -- nunca declares, afirmes, ni des a entender que el criterio ya está satisfecho o cumplido. En el bloque 5 (Conexión regulatoria), describe cómo este testimonio APORTA hacia el estándar regulatorio, nunca que el estándar ya se cumplió.`);
+  }
   lines.push(``);
   // AUCIS_BLUEPRINT_EXECUTION_CONTRACT.md Sección 1: A3 ejecuta la
   // decisión jurídica ya tomada por A5 — no la reinterpreta ni la
@@ -214,18 +220,18 @@ async function callClaude(systemPrompt: string, userPrompt: string): Promise<Mod
   return parsed.letters;
 }
 
-// Encapsulado deliberadamente: hoy selecciona el Blueprint vigente vía
-// status IN ('approved','locked'), pero ADR-010 ya identificó que status
-// mezcla dos dimensiones (workflow editorial + vigencia) — cuando
-// case_strategy migre a workflow_status + currency_status (diferido,
-// ver AUCIS_ARCHITECTURE_DECISIONS.md ADR-010), solo este función
-// necesita actualizarse.
+// Requiere AMBAS dimensiones (ADR-010, migración 023): editorialmente
+// válido (approved/locked) Y vigente (currency_status = 'current'). Un
+// Blueprint 'approved' construido sobre un criterion_assessment_id ya
+// superseded nunca debe llegar aquí — currency_status lo excluye
+// explícitamente, sin necesidad de re-consultar agent_intake_analysis.
 async function getApprovedBlueprint(db: ReturnType<typeof adminDb>, caseId: string) {
   const { data: strategy, error } = await db
     .from("case_strategy")
     .select("*")
     .eq("case_id", caseId)
     .in("status", ["approved", "locked"])
+    .eq("currency_status", "current")
     .order("version", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -282,22 +288,49 @@ export async function POST(req: NextRequest) {
     const { classification } = resolveCriteriaSet(visaType);
     const criteriaSet = criteriaSetForClassification(classification);
 
-    // ── 2. Group references by targetCriterionKey, restricted to
-    // criterios que el Blueprint efectivamente clasificó (dominant,
-    // supporting, o corroborative — A3 no decide cuáles participan,
-    // esa decisión ya la tomó A5; corroborative también genera
-    // documentos, no solo dominant/supporting). ────────────────────────
-    const blueprintCriteria = new Set<string>([
+    // ── 2. Group references by targetCriterionKey. Dos vías legítimas
+    // de entrada, no una sola (hallazgo real 2026-09-09, caso
+    // bb82d396 -- circularidad funcional: el Blueprint identificaba
+    // evidencia real y disponible para un criterio todavía no
+    // confirmado, y A3 no tenía forma de generarla):
+    //
+    // Vía A — argumentación de criterio ya confirmado por A1:
+    // targetCriterionKey ∈ dominant_criteria ∪ supporting_criteria ∪
+    // corroborative_criteria. A5 nunca clasifica ahí un criterio no
+    // confirmado (PROHIBICIÓN CRÍTICA de su propio system prompt).
+    //
+    // Vía B — desarrollo de evidencia para un criterio NO confirmado:
+    // targetCriterionKey aparece como clave en evidence_dependencies
+    // del Blueprint vigente. Coincidencia EXACTA reference.
+    // targetCriterionKey ↔ evidence_dependencies[key] únicamente --
+    // sin matching semántico, sin reasignar targetCriterionKey, sin
+    // inferir del texto del Blueprint que una referencia pertenece a
+    // otro criterio. La mera presencia de la clave en
+    // evidence_dependencies NUNCA implica que el criterio esté
+    // satisfecho -- ver criterionConfirmed en buildUserPrompt.
+    const confirmedCriteria = new Set<string>([
       ...(blueprint.dominant_criteria ?? []),
       ...(blueprint.supporting_criteria ?? []),
       ...(blueprint.corroborative_criteria ?? []),
     ]);
+    const developingCriteria = new Set<string>(
+      Object.keys(blueprint.evidence_dependencies ?? {}).filter(
+        (key) => !confirmedCriteria.has(key) && (blueprint.evidence_dependencies[key]?.length ?? 0) > 0
+      )
+    );
 
     const references: ReferenceEntry[] = m9.references ?? [];
     const grouped = new Map<string, ReferenceEntry[]>();
+    const groupEntryPath = new Map<string, "A" | "B">();
     for (const ref of references) {
       if (!ref.targetCriterionKey) continue;
-      if (!blueprintCriteria.has(ref.targetCriterionKey)) continue;
+      const path: "A" | "B" | null = confirmedCriteria.has(ref.targetCriterionKey)
+        ? "A"
+        : developingCriteria.has(ref.targetCriterionKey)
+          ? "B"
+          : null;
+      if (!path) continue;
+      groupEntryPath.set(ref.targetCriterionKey, path);
       const list = grouped.get(ref.targetCriterionKey) ?? [];
       list.push(ref);
       grouped.set(ref.targetCriterionKey, list);
@@ -305,7 +338,7 @@ export async function POST(req: NextRequest) {
 
     if (grouped.size === 0) {
       return NextResponse.json(
-        { error: "Ninguna referencia con targetCriterionKey coincide con los criterios clasificados en el Blueprint aprobado." },
+        { error: "Ninguna referencia con targetCriterionKey coincide con un criterio confirmado (vía A) ni con evidence_dependencies del Blueprint aprobado (vía B)." },
         { status: 400 }
       );
     }
@@ -342,7 +375,8 @@ export async function POST(req: NextRequest) {
         criterionCitation,
         group,
         criterionKey,
-        blueprint
+        blueprint,
+        groupEntryPath.get(criterionKey) === "A"
       );
 
       const modelLetters = await callClaude(systemPrompt, userPrompt);

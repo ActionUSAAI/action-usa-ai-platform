@@ -13,7 +13,7 @@
 | ID | Fuente | Estado | Unidades | Extraídas | Pendientes | Verificado |
 |---|---|---|---|---|---|---|
 | F001 | Immigration and Nationality Act (INA) | In Progress | 3 | 3 | 0 | No |
-| F002 | 8 CFR §214.2(o) | In Progress | — | 10 | — | No |
+| F002 | 8 CFR §214.2(o) | In Progress | — | 11 | — | No |
 | F003 | USCIS Policy Manual | Not Started | — | 0 | — | No |
 | F004 | Form I-129 | Not Started | — | 0 | — | No |
 | F005 | Instructions for Form I-129 | Not Started | — | 0 | — | No |
@@ -26,6 +26,8 @@
 | 2026-08-23 | F001 (INA) | 3 (LKA-000001, LKA-000002, LKA-000003) | Unidades identificadas y registradas; texto literal pendiente de inserción |
 | 2026-08-24 | F001 (INA), F002 (8 CFR §214.2(o)) | 13 total (LKA-000001 a LKA-000013) | Texto literal incorporado y siete campos derivados completados para LKA-000001 a LKA-000013; los trece registros se encuentran en estado Structurally Complete |
 | 2026-08-24 | F001 (INA) | 0 nuevas — corrección retroactiva de LKA-000001 | Campo Explicitly Mentioned Concepts alineado con la práctica del resto del corpus (commit 23eaa87); registro permanece Structurally Complete |
+| 2026-09-09 | F002 (8 CFR §214.2(o)) | 1 (LKA-000014 — 8CFR:214.2(o)(3)(iii)(B)(7)) | Unidad extraída conforme a LKAS-001 (texto literal verbatim vía eCFR Versioner API, "up_to_date_as_of" 2026-09-04); registro en estado Structurally Complete; verificación pendiente en sesión separada |
+| 2026-09-09 | F002 (8 CFR §214.2(o)) | 0 nuevas — verificación de LKA-000014 | Sesión separada de la adquisición (misma fecha, operación distinta): nueva obtención independiente del texto oficial (snapshot eCFR 2026-09-04) comparada carácter por carácter contra el "Texto literal" registrado; coincidencia exacta. Evidencia persistida en la sección "## Verificación" de LKA-000014.md. F002 permanece "In Progress" / Verificado "No" a nivel de fuente — solo 1 de 11 unidades del corpus tiene verificación registrada |
 
 ## Control de Integridad (por fuente)
 

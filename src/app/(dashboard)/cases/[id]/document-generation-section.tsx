@@ -46,6 +46,72 @@ interface DocumentGenerationSectionProps {
 
 const ALLOWED_ROLES = new Set(["admin", "supervisor", "agent"]);
 
+const LETTER_STATUS_LABEL: Record<string, string> = {
+  draft: "Borrador",
+  in_review: "En revisión",
+  approved: "Aprobada",
+  rejected: "Rechazada",
+  sent: "Enviada",
+};
+
+const LETTER_STATUS_CLASS: Record<string, string> = {
+  draft: "bg-gray-100 text-gray-600",
+  in_review: "bg-amber-100 text-amber-700",
+  approved: "bg-green-100 text-green-700",
+  rejected: "bg-red-100 text-red-700",
+  sent: "bg-blue-100 text-blue-700",
+};
+
+function LetterRow({
+  letter,
+  actionId,
+  onUpdateStatus,
+}: {
+  letter: RecommendationLetter;
+  actionId: string | null;
+  onUpdateStatus: (letterId: string, status: "in_review" | "approved" | "rejected") => void;
+}) {
+  const busy = actionId === letter.id;
+  return (
+    <div className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2 gap-2">
+      <span className="text-gray-700 flex-1">{letter.recommender_name} — {letter.criterion_covered}</span>
+      <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${LETTER_STATUS_CLASS[letter.status] ?? "bg-gray-100 text-gray-600"}`}>
+        {LETTER_STATUS_LABEL[letter.status] ?? letter.status}
+      </span>
+      {letter.status === "draft" && (
+        <button
+          onClick={() => onUpdateStatus(letter.id, "in_review")}
+          disabled={busy}
+          className="text-[#1B2B5E] font-medium disabled:opacity-40"
+        >
+          Enviar a revisión
+        </button>
+      )}
+      {letter.status === "in_review" && (
+        <>
+          <button
+            onClick={() => onUpdateStatus(letter.id, "approved")}
+            disabled={busy}
+            className="text-green-700 font-medium disabled:opacity-40"
+          >
+            Aprobar
+          </button>
+          <button
+            onClick={() => onUpdateStatus(letter.id, "rejected")}
+            disabled={busy}
+            className="text-red-700 font-medium disabled:opacity-40"
+          >
+            Rechazar
+          </button>
+        </>
+      )}
+      <button onClick={() => handleDownload(letter.docx_path)} className="flex items-center gap-1 text-[#1B2B5E]">
+        <Download size={12} /> Descargar
+      </button>
+    </div>
+  );
+}
+
 async function handleDownload(docxPath: string | null) {
   if (!docxPath) return;
   try {
@@ -79,11 +145,36 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
   const [loadingI129, setLoadingI129] = useState(false);
   const [errorI129, setErrorI129] = useState<string | null>(null);
 
+  const [letterActionId, setLetterActionId] = useState<string | null>(null);
+  const [letterActionError, setLetterActionError] = useState<string | null>(null);
+
   if (!ALLOWED_ROLES.has(userRole)) return null;
 
   async function refreshLetters() {
     const refreshed = await fetch(`/api/case-letters?case_id=${caseId}`).then(r => r.json()).catch(() => null);
     if (refreshed?.letters) setLetters(refreshed.letters);
+  }
+
+  async function updateLetterStatus(letterId: string, status: "in_review" | "approved" | "rejected") {
+    setLetterActionId(letterId);
+    setLetterActionError(null);
+    try {
+      const res = await fetch("/api/case-letters", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ letter_id: letterId, status }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLetterActionError(data.error ?? "Error al actualizar el estado de la carta");
+      } else {
+        await refreshLetters();
+      }
+    } catch {
+      setLetterActionError("Error de red al actualizar el estado de la carta");
+    } finally {
+      setLetterActionId(null);
+    }
   }
 
   async function refreshDrafts() {
@@ -194,6 +285,11 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-5 space-y-6">
       <h3 className="text-sm font-semibold text-gray-900">Generación de Cartas y Petición</h3>
+      {letterActionError && (
+        <div className="flex items-start gap-2 text-xs text-red-700 bg-red-50 border border-red-200 rounded p-2">
+          <AlertCircle size={13} className="mt-0.5 shrink-0" /> {letterActionError}
+        </div>
+      )}
 
       {/* Testimonial */}
       <div className="space-y-2 border-t border-gray-100 pt-4">
@@ -215,12 +311,7 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
           </div>
         )}
         {testimonialLetters.map(l => (
-          <div key={l.id} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
-            <span className="text-gray-700">{l.recommender_name} — {l.criterion_covered}</span>
-            <button onClick={() => handleDownload(l.docx_path)} className="flex items-center gap-1 text-[#1B2B5E]">
-              <Download size={12} /> Descargar
-            </button>
-          </div>
+          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} />
         ))}
       </div>
 
@@ -244,12 +335,7 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
           </div>
         )}
         {institutionalLetters.map(l => (
-          <div key={l.id} className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2">
-            <span className="text-gray-700">{l.recommender_name} — {l.criterion_covered}</span>
-            <button onClick={() => handleDownload(l.docx_path)} className="flex items-center gap-1 text-[#1B2B5E]">
-              <Download size={12} /> Descargar
-            </button>
-          </div>
+          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} />
         ))}
       </div>
 
