@@ -118,16 +118,17 @@ Una sola fuente de verdad por tipo de información. Ninguna entidad duplica la r
 ## Nivel 4 — Evidencia
 
 ### Evidence Item
-- **Propósito:** cada pieza individual de evidencia — premio, membresía, artículo, carta de referencia. Hoy vive como elementos de arrays dentro de JSON de Module9/Module10, sin identificador estable.
-- **Responsabilidad:** representar un hecho verificable con su documentación de soporte.
-- **Almacena:** tipo, criterio(s) al que aplica, descripción, fecha, organización relacionada, estado de verificación, archivo adjunto.
-- **Relaciones:** pertenece a un Case; puede vincularse a uno o más Criterion Assessment; puede ser referenciada por un Generated Document.
+- **Propósito:** una unidad probatoria controlada del Case que combina un hecho verificable con el documento o conjunto de documentos que lo respaldan, manteniendo ambos componentes — factual y documental — conceptualmente distinguibles para trazabilidad, procesamiento, verificación, y uso estratégico. Hoy vive como elementos de arrays dentro de JSON de Module9/Module10, sin identificador estable.
+- **Responsabilidad:** representar el hecho probatorio (componente factual) junto con su soporte documental (componente documental — uno o varios documentos) como partes distinguibles de la misma unidad. Un documento no constituye automáticamente un Evidence Item.
+- **Almacena:** tipo, criterio(s) al que aplica, descripción, fecha, organización relacionada, condición documental, condición de verificación humana, uno o más documentos de soporte.
+- **Relaciones:** pertenece al Case; puede vincularse a uno o más Criterion Assessment; su selección estratégica es una relación entre una versión específica de Case Blueprint y el Evidence Item — no un atributo propio de este.
 - **Por qué es crítica:** es la entidad que permite que Case Blueprint produzca referencias verificables (`evidence_item_id`) en vez de texto en prosa que otros motores deben reinterpretar. **No implementada todavía — es la brecha técnica #1 señalada en A5_CASE_BLUEPRINT_SPECIFICATION_V1.md.**
-- **Owner:** intake (Module9/Module10 hoy), o A0 (CV Extractor) en el futuro.
-- **Consumers:** A1 (evalúa), A5 (prioriza y referencia), A3/A4 (citan directamente).
-- **Lifecycle:** Reported → Documented (archivo adjunto) → Verified (staff confirmó) → Used (referenciado en un Generated Document).
-- **Versionado:** sí — actualizar el documento de soporte crea una nueva versión, no reemplaza silenciosamente.
+- **Owner:** el Case. Intake (Module9/Module10 hoy) es una fuente legítima entre varias, no su dueño exclusivo — Evidence puede originarse durante el Intake o después, a través de procesos gobernados del Case (envíos posteriores del solicitante, staff, CV Extractor/A0 en el futuro, u otros canales gobernados de captura). Ningún motor de IA modifica autónomamente el contenido factual de un Evidence Item.
+- **Consumers:** A1 (evalúa), A5 (determina uso estratégico), A3/A4 (citan, según lo que el Blueprint vigente ya determinó).
+- **Lifecycle:** reemplazado por dos dimensiones independientes, no secuenciales entre sí — **Documentary Condition:** `Reported | Partial | Documented`. **Human Verification Condition:** `Pending | Verified | Needs Attention` (`Needs Attention` no es necesariamente posterior a `Verified`). Las reglas de transición entre valores pertenecen al Workflow/Contracts correspondientes, no a este documento. `Used` deja de ser un estado del Evidence Item.
+- **Versionado/Trazabilidad:** sí — los cambios materiales del componente factual o documental deben preservar trazabilidad histórica y no sobrescribir silenciosamente información previamente utilizada por Criterion Assessments o Case Blueprints. El mecanismo físico de versionado/vigencia no se define en este documento y deberá evaluar primero patrones existentes y probados, incluido `status`/`currency_status` cuando resulte semánticamente apropiado.
 - **Auditoría:** sí.
+- **Referencia normativa:** esta entrada refleja `ADR-011 — Evidence Lifecycle, Reassessment and Strategic Consumption` (`docs/AUCIS_ARCHITECTURE_DECISIONS.md`) y su Detailed Normative Decision Record (`docs/ADR-011_EVIDENCE_LIFECYCLE_REASSESSMENT_AND_STRATEGIC_CONSUMPTION.md`).
 
 ### Criterion Assessment
 - **Propósito:** el veredicto de A1 sobre un criterio específico. Hoy vive como fila JSON dentro de `agent_intake_analysis.criteria_scores`/`criteria_met`.
