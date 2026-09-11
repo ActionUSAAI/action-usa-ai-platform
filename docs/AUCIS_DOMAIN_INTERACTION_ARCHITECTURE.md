@@ -171,3 +171,9 @@ Esta arquitectura separa explícitamente dos categorías de acontecimientos, que
 2. **Eventos ocurridos en agencias externas** — fuera del control de la firma, solo observados y registrados (recibo asignado, RFE emitido, decisión final). Se modelan como Case Event — un log inmutable, nunca como transición de estado de una entidad cuyo owner es la firma.
 
 Confundir ambas categorías dentro de una sola entidad viola la responsabilidad única: una entidad no puede ser dueña de transiciones que en realidad decide un tercero externo.
+
+---
+
+## Referencia normativa diferida (ADR-011)
+
+`ADR-011 — Evidence Lifecycle, Reassessment and Strategic Consumption` (`docs/AUCIS_ARCHITECTURE_DECISIONS.md`, Detailed Normative Decision Record en `docs/ADR-011_EVIDENCE_LIFECYCLE_REASSESSMENT_AND_STRATEGIC_CONSUMPTION.md`), materializado en commit `05e08b2adbca781183b132fe02164f91cae646ad`, es aplicable a las semánticas de Evidence afectadas por esa decisión — en particular, la sección Evidence Item y la Cascada completa de invalidación anterior. Cualquier semántica previa de este documento que resulte incompatible con ADR-011 debe interpretarse conforme a ADR-011. La reconciliación/versionado completo de este documento permanece diferida hasta el trigger correspondiente bajo `AUCIS_ARCHITECTURE_DOCUMENTATION_GOVERNANCE.md`.

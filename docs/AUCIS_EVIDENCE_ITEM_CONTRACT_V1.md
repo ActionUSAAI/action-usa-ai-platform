@@ -91,3 +91,5 @@ Evidence Item se formaliza como entidad tipada propia — en vez de permanecer c
 - `AUCIS_ARCHITECTURE_PRINCIPLES.md` — Principio 5 (Version Everything), Principio 7 (Canonical Catalogs).
 - `AUCIS_CRITERION_ASSESSMENT_CONTRACT_V1.md` — consumidor directo.
 - `AUCIS_BLUEPRINT_CONTRACT_V1.md` — consumidor indirecto (vía Case Strategy Engine).
+
+**Nota de aplicación diferida (ADR-011):** `ADR-011 — Evidence Lifecycle, Reassessment and Strategic Consumption` (`docs/AUCIS_ARCHITECTURE_DECISIONS.md`, Detailed Normative Decision Record en `docs/ADR-011_EVIDENCE_LIFECYCLE_REASSESSMENT_AND_STRATEGIC_CONSUMPTION.md`), materializado en commit `05e08b2adbca781183b132fe02164f91cae646ad`, es aplicable a las semánticas de Evidence afectadas por esa decisión. Cualquier semántica previa de este contrato que resulte incompatible con ADR-011 debe interpretarse conforme a ADR-011. La reconciliación/versionado completo de este contrato (v1 → v2) permanece diferida hasta el trigger correspondiente bajo `AUCIS_ARCHITECTURE_DOCUMENTATION_GOVERNANCE.md`.
