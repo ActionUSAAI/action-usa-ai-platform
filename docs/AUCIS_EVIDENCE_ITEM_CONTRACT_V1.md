@@ -6,7 +6,7 @@
 |---|---|
 | Contract ID | `EI-CONTRACT-V1` |
 | Version | v1 |
-| Contract Status | Frozen (Stage 0) |
+| Contract Status | Superseded (bounded — ver `AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md` §74) |
 | Implementation Status | No implementado. Hoy la evidencia vive sin tipar, como elementos de arrays dentro de JSON en `intake_submissions.module9`/`module10`, sin identificador estable. Es la Brecha Técnica #1 señalada en `A5_CASE_BLUEPRINT_SPECIFICATION_V1.md`. |
 | Scope | Case-scoped |
 

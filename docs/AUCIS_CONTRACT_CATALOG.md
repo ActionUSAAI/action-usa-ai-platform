@@ -13,7 +13,8 @@
 | `BP-CONTRACT-V2` | Blueprint Contract | v2 | Frozen | Core Legal Engine | Case Strategy Engine (A5) | Case-scoped |
 | `BP-CONTRACT-V1` | Blueprint Contract | v1 | Superseded | Core Legal Engine | Case Strategy Engine (A5) | Case-scoped |
 | `CA-CONTRACT-V1` | Criterion Assessment Contract | v1 | Frozen (Stage 0) | Core Legal Engine | Criterion Assessment Engine (A1) | Case-scoped |
-| `EI-CONTRACT-V1` | Evidence Item Contract | v1 | Frozen (Stage 0) | Evidence Layer | Intake (hoy) / CV Extractor A0 (futuro) | Case-scoped |
+| `EI-CONTRACT-V2` | Evidence Item Contract | v2 | Frozen | Evidence Layer | Single Evidence Producer Responsibility — physical implementing component not yet established | Case-scoped |
+| `EI-CONTRACT-V1` | Evidence Item Contract | v1 | Superseded | Evidence Layer | Intake (hoy) / CV Extractor A0 (futuro) | Case-scoped |
 | `WF-CONTRACT-V1` | Workflow State Machine Contract | v1 | Frozen (Stage 0) | Control Plane | Workflow Orchestration Service | Platform-scoped (reglas) / Case-scoped (ejecución) |
 
 **Nota de nomenclatura:** `BP-CONTRACT-V1` es el identificador corto asignado retroactivamente por este catálogo a `AUCIS_BLUEPRINT_CONTRACT_V1.md` — ese documento, aprobado antes de que existiera el formato `Contract Metadata` con campo `Contract ID` explícito, no contiene esta cadena en su propio texto. Ver hallazgo correspondiente en la revisión arquitectónica del cierre de Stage 0.
@@ -23,7 +24,7 @@
 ## Cadena de consumo entre contratos
 
 ```
-Evidence Item Contract (EI-CONTRACT-V1)
+Evidence Item Contract (EI-CONTRACT-V2)
     │  consumido por
     ▼
 Criterion Assessment Contract (CA-CONTRACT-V1)
@@ -61,7 +62,7 @@ Estas reglas no se repiten en cada contrato individual — se declaran aquí una
 
 - `AUCIS_BLUEPRINT_CONTRACT_V2.md`
 - `AUCIS_CRITERION_ASSESSMENT_CONTRACT_V1.md`
-- `AUCIS_EVIDENCE_ITEM_CONTRACT_V1.md`
+- `AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md`
 - `AUCIS_WORKFLOW_STATE_MACHINE_CONTRACT_V1.md`
 - `AUCIS_PLATFORM_ARCHITECTURE.md` — Architectural Invariants, Architectural Observation sobre Scope.
 - `AUCIS_ARCHITECTURE_DECISIONS.md`, `AUCIS_ARCHITECTURE_PRINCIPLES.md`
