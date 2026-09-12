@@ -16,6 +16,7 @@ import type { RecommendationLetter, PetitionDraft, I129Draft } from "./document-
 import { BlueprintLifecycleSection } from "./blueprint-lifecycle-section";
 import type { CaseStrategy } from "./blueprint-lifecycle-section";
 import { extractTranslatableFiles } from "./extract-files";
+import { getExpectedVsRegistered } from "@/lib/documents/reconcile-intake-documents";
 
 interface CasePageProps {
   params: { id: string };
@@ -104,6 +105,11 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const submissionId = submission?.id ?? null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const documentFiles = submission ? extractTranslatableFiles(submission as Record<string, any>) : [];
+
+  // Read-only detection (CRR-01) — reuses the submission already fetched
+  // above; never mutates, ordinary page render must not create canonical
+  // document registrations.
+  const registrationCompleteness = await getExpectedVsRegistered(supabase, params.id, submission);
 
   return (
     <div className="space-y-6">
@@ -259,7 +265,13 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             )}
           </div>
 
-          <DocumentsPanel documentFiles={documentFiles} translations={existingTranslations ?? []} />
+          <DocumentsPanel
+            documentFiles={documentFiles}
+            translations={existingTranslations ?? []}
+            caseId={params.id}
+            userRole={userRole}
+            registrationCompleteness={registrationCompleteness}
+          />
         </div>
 
         {/* Sidebar derecho */}

@@ -1,8 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { extractTranslatableFiles } from "@/app/(dashboard)/cases/[id]/extract-files";
+import { registerCanonicalDocument } from "@/lib/documents/register-canonical-document";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const INTAKE_BUCKET = "intake-documents";
 
 function adminDb() {
   return createClient(SUPABASE_URL, SERVICE_KEY, {
@@ -25,76 +28,79 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Nombre y email son requeridos." }, { status: 400 });
     }
 
-    // 1 — Create client record
-    const nameParts = fullName.split(/\s+/);
-    const firstName = nameParts[0] || "Sin";
-    const lastName  = nameParts.slice(1).join(" ") || "Apellido";
+    // invitationCaseId/invitationClientId are browser-supplied context only —
+    // never authoritative for Case/Client identity (MTCS-02B, CB-03). Case/Client
+    // ownership is resolved exclusively server-side, from the invitation row
+    // matched by invitationToken, inside submit_intake_for_invitation().
+    const invitationToken = (body.invitationToken || "").trim();
+    if (!invitationToken) {
+      return NextResponse.json({ error: "Falta el token de invitación." }, { status: 400 });
+    }
 
-    const { data: client, error: clientErr } = await db
-      .from("clients")
-      .insert({
-        first_name: firstName,
-        last_name:  lastName,
-        email,
-        phone: whatsapp,
-        country_of_origin: m1.nationalities || m1.countryOfBirth || null,
-        date_of_birth: m1.dateOfBirth || null,
-        city: m1.cityOfResidence || null,
-        notes: `AUCIS Intake — Profesión: ${profession}. Visa: ${m1.visaType || "no especificada"}.`,
-        preferred_language: "es",
-      })
-      .select()
+    const modules = {
+      module1:  body.module1  ?? {},
+      module2:  body.module2  ?? {},
+      module3:  body.module3  ?? {},
+      module4:  body.module4  ?? {},
+      module5:  body.module5  ?? {},
+      module6:  body.module6  ?? {},
+      module7:  body.module7  ?? {},
+      module8:  body.module8  ?? {},
+      module9:  body.module9  ?? {},
+      module10: body.module10 ?? {},
+      module11: body.module11 ?? {},
+      module12: body.module12 ?? {},
+      module14: body.module14 ?? {},
+      module15: body.module15 ?? {},
+      module_progress: body.moduleStatuses
+        ? Object.fromEntries((body.moduleStatuses as string[]).map((s, i) => [i + 1, s]))
+        : {},
+    };
+
+    // 1/2/3 — Atomically resolve the authoritative Case/Client from the
+    // invitation and persist the Intake Submission (MTCS-02B Bridge).
+    const { data: submitResult, error: submitErr } = await db
+      .rpc("submit_intake_for_invitation", { p_token: invitationToken, p_modules: modules })
       .single();
 
-    if (clientErr) throw new Error(`client: ${clientErr.message}`);
+    if (submitErr) {
+      const msg = submitErr.message || "";
+      if (msg.includes("invalid_invitation") || msg.includes("invitation_not_eligible") || msg.includes("invitation_expired")) {
+        return NextResponse.json({ error: "La invitación no es válida o ya fue utilizada." }, { status: 409 });
+      }
+      throw new Error(`intake: ${submitErr.message}`);
+    }
 
-    // 2 — Create case
-    const year      = new Date().getFullYear();
-    const rand      = String(Math.floor(1000 + Math.random() * 9000));
-    const caseNumber = `AUCIS-${year}-${rand}`;
+    const { submission_id: submissionId, case_id: caseIdResolved, client_id: clientIdResolved } =
+      submitResult as { submission_id: string; case_id: string; client_id: string };
 
-    const { data: newCase, error: caseErr } = await db
+    const { data: caseRow, error: caseLookupErr } = await db
       .from("cases")
-      .insert({
-        case_number:  caseNumber,
-        client_id:    client.id,
-        case_type:    "talento_extraordinario",
-        status:       "nuevo",
-        priority:     "normal",
-        title:        `Evaluación ${m1.visaType || "O-1/EB-1"} — ${fullName}`,
-        description:  `Profesión: ${profession}. Objetivo USA: ${m1.usaObjective || "no especificado"}.`,
-      })
-      .select()
+      .select("case_number")
+      .eq("id", caseIdResolved)
       .single();
+    if (caseLookupErr) throw new Error(`case lookup: ${caseLookupErr.message}`);
+    const caseNumber = caseRow.case_number as string;
 
-    if (caseErr) throw new Error(`case: ${caseErr.message}`);
-
-    // 3 — Store full intake in intake_submissions
-    const { error: intakeErr } = await db
-      .from("intake_submissions")
-      .insert({
-        client_id: client.id,
-        case_id:   newCase.id,
-        status:    "submitted",
-        module1:   body.module1  ?? {},
-        module2:   body.module2  ?? {},
-        module4:   body.module4  ?? {},
-        module5:   body.module5  ?? {},
-        module6:   body.module6  ?? {},
-        module7:   body.module7  ?? {},
-        module8:   body.module8  ?? {},
-        module9:   body.module9  ?? {},
-        module10:  body.module10 ?? {},
-        module11:  body.module11 ?? {},
-        module12:  body.module12 ?? {},
-        module14:  body.module14 ?? {},
-        module15:  body.module15 ?? {},
-        module_progress: body.moduleStatuses
-          ? Object.fromEntries((body.moduleStatuses as string[]).map((s, i) => [i + 1, s]))
-          : {},
-      });
-
-    if (intakeErr) throw new Error(`intake: ${intakeErr.message}`);
+    // Normal-path canonical document registration (MTCS-02B). Best-effort:
+    // a registration failure here never fails the Intake submission itself —
+    // the explicit staff reconciliation action (POST
+    // /api/cases/[id]/reconcile-documents) exists precisely to close any gap
+    // left by a failure at this step. Never creates Evidence, never invokes A2.
+    const expectedFiles = extractTranslatableFiles(modules);
+    for (const file of expectedFiles) {
+      try {
+        await registerCanonicalDocument(db, {
+          caseId: caseIdResolved,
+          storageBucket: INTAKE_BUCKET,
+          filePath: file.filePath,
+          fileName: file.fileName,
+          uploadedBy: null,
+        });
+      } catch (e) {
+        console.error("[intake] canonical registration failed:", file.filePath, e instanceof Error ? e.message : e);
+      }
+    }
 
     // 4 — Invite client to portal (sends email via Supabase Send Email Hook)
     await db.auth.admin
@@ -127,7 +133,7 @@ export async function POST(request: NextRequest) {
             <tr><td><b>Número de caso</b></td><td><b>${caseNumber}</b></td></tr>
           </table>
           <p style="margin-top:16px">
-            <a href="https://actionusaai.com/cases/${newCase.id}"
+            <a href="https://actionusaai.com/cases/${caseIdResolved}"
               style="background:#B22234;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;font-weight:bold">
               Ver caso en el portal →
             </a>
@@ -149,7 +155,7 @@ export async function POST(request: NextRequest) {
       }).catch((e: unknown) => console.error("[intake] admin email error:", e));
     }
 
-    return NextResponse.json({ success: true, caseNumber, clientId: client.id, caseId: newCase.id });
+    return NextResponse.json({ success: true, caseNumber, clientId: clientIdResolved, caseId: caseIdResolved, submissionId });
 
   } catch (error) {
     const msg   = error instanceof Error ? error.message : String(error);

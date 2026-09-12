@@ -1,9 +1,11 @@
 "use client";
 
-import { FileText, Download, Languages } from "lucide-react";
+import { useState } from "react";
+import { FileText, Download, Languages, RefreshCw, AlertTriangle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { downloadFile } from "@/lib/download-file";
 import type { DocumentFile } from "./extract-files";
+import type { RegistrationCompleteness } from "@/lib/documents/reconcile-intake-documents";
 
 export interface DocTranslationLite {
   original_file_path: string;
@@ -15,9 +17,42 @@ export interface DocTranslationLite {
 interface DocumentsPanelProps {
   documentFiles: DocumentFile[];
   translations: DocTranslationLite[];
+  caseId: string;
+  userRole: string;
+  registrationCompleteness: RegistrationCompleteness;
 }
 
-export function DocumentsPanel({ documentFiles, translations }: DocumentsPanelProps) {
+const RECONCILE_ALLOWED_ROLES = new Set(["admin", "supervisor", "agent"]);
+
+export function DocumentsPanel({ documentFiles, translations, caseId, userRole, registrationCompleteness }: DocumentsPanelProps) {
+  const [completeness, setCompleteness] = useState(registrationCompleteness);
+  const [reconciling, setReconciling]   = useState(false);
+  const [reconcileMsg, setReconcileMsg] = useState<string | null>(null);
+
+  async function handleReconcile() {
+    setReconciling(true);
+    setReconcileMsg(null);
+    try {
+      const res = await fetch(`/api/cases/${caseId}/reconcile-documents`, { method: "POST" });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al reconciliar documentos");
+      setReconcileMsg(
+        `Recuperados: ${json.recovered}. Ya registrados: ${json.already_registered}. ` +
+        `Sin archivo físico: ${json.missing_storage}. Fallidos: ${json.failed}.`
+      );
+      setCompleteness((prev) => ({
+        ...prev,
+        status: json.missing_storage > 0 || json.failed > 0 ? "incomplete" : "complete",
+        registered: prev.registered + json.recovered,
+        missing: prev.missing - json.recovered,
+      }));
+    } catch (err) {
+      setReconcileMsg(err instanceof Error ? err.message : "Error desconocido");
+    } finally {
+      setReconciling(false);
+    }
+  }
+
   function translationFor(filePath: string) {
     return translations.find((t) => t.original_file_path === filePath);
   }
@@ -49,6 +84,29 @@ export function DocumentsPanel({ documentFiles, translations }: DocumentsPanelPr
           {documentFiles?.length ?? 0}
         </span>
       </h3>
+
+      {completeness.status === "incomplete" && (
+        <div className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-amber-800">
+            <AlertTriangle size={14} />
+            Registro canónico incompleto — {completeness.missing} de {completeness.expected} documentos sin registrar.
+          </div>
+          {RECONCILE_ALLOWED_ROLES.has(userRole) && (
+            <button
+              onClick={handleReconcile}
+              disabled={reconciling}
+              className="flex shrink-0 items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700 disabled:opacity-60"
+            >
+              <RefreshCw size={12} className={reconciling ? "animate-spin" : ""} />
+              {reconciling ? "Reconciliando..." : "Reconciliar"}
+            </button>
+          )}
+        </div>
+      )}
+      {reconcileMsg && (
+        <p className="mb-4 text-xs text-gray-600">{reconcileMsg}</p>
+      )}
+
       {!documentFiles || documentFiles.length === 0 ? (
         <p className="text-sm text-gray-500 text-center py-6">No hay documentos cargados.</p>
       ) : (
