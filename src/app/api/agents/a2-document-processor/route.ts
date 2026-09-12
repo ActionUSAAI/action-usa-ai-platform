@@ -328,16 +328,44 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json();
-    const { case_id, file_path, file_name, document_type } = body as {
+    const { document_id, document_type } = body as {
+      document_id?: string;
+      document_type?: string;
+    };
+    let { case_id, file_path, file_name } = body as {
       case_id?: string;
       file_path?: string;
       file_name?: string;
-      document_type?: string;
     };
+
+    // Canonical mode (MTCS-02A): a document_id, when supplied, is authoritative
+    // for storage resolution — any caller-supplied case_id/file_path/file_name
+    // is ignored in favor of the canonical documents row, so a canonical id can
+    // never be paired with a conflicting legacy triple to create ambiguity.
+    let bucket = BUCKET;
+    if (document_id) {
+      const { data: canonical, error: canonicalErr } = await db
+        .from("documents")
+        .select("case_id, storage_bucket, file_path, name")
+        .eq("id", document_id)
+        .single();
+
+      if (canonicalErr || !canonical) {
+        return NextResponse.json(
+          { error: `Unknown document_id: ${document_id}` },
+          { status: 404 }
+        );
+      }
+
+      case_id = canonical.case_id;
+      file_path = canonical.file_path;
+      file_name = canonical.name;
+      bucket = canonical.storage_bucket;
+    }
 
     if (!case_id || !file_path || !file_name) {
       return NextResponse.json(
-        { error: "Missing required fields: case_id, file_path, file_name" },
+        { error: "Missing required fields: provide document_id, or case_id + file_path + file_name" },
         { status: 400 }
       );
     }
@@ -355,11 +383,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: true, translation: existing });
     }
 
-    // Create processing record
+    // Create processing record. document_id is populated only in canonical
+    // mode — legacy callers continue producing document_id = NULL, exactly as
+    // before; no Case Document is ever opportunistically created for legacy input.
     const { data: record, error: insertError } = await db
       .from("document_translations")
       .insert({
         case_id,
+        document_id: document_id ?? null,
         status: "processing",
         original_file_path: file_path,
         original_file_name: file_name,
@@ -373,9 +404,10 @@ export async function POST(request: NextRequest) {
     }
     recordId = record.id;
 
-    // Download source file from Storage
+    // Download source file from Storage (canonical mode resolves `bucket` from
+    // the documents row; legacy mode keeps the historical intake-documents default)
     const { data: blob, error: downloadError } = await db.storage
-      .from(BUCKET)
+      .from(bucket)
       .download(file_path);
 
     if (downloadError || !blob) {
@@ -399,7 +431,7 @@ export async function POST(request: NextRequest) {
       const uploadPath = `${case_id}/translations/${docxName}`;
 
       const { error: uploadError } = await db.storage
-        .from(BUCKET)
+        .from(bucket)
         .upload(uploadPath, docxBuffer, {
           contentType:
             "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

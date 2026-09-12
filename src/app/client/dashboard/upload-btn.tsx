@@ -48,6 +48,7 @@ export function UploadBtn({ caseId, clientId }: { caseId: string; clientId: stri
       uploaded_by: user.id,
       name: file.name,
       file_path: upload.path,
+      storage_bucket: "case-documents",
       file_size: file.size,
       mime_type: file.type,
       status: "pendiente",
