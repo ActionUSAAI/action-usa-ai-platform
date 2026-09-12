@@ -17,6 +17,8 @@ import { BlueprintLifecycleSection } from "./blueprint-lifecycle-section";
 import type { CaseStrategy } from "./blueprint-lifecycle-section";
 import { extractTranslatableFiles } from "./extract-files";
 import { getExpectedVsRegistered } from "@/lib/documents/reconcile-intake-documents";
+import { EvidenceSection } from "./evidence-section";
+import type { EvidenceComposition } from "@/lib/evidence/types";
 
 interface CasePageProps {
   params: { id: string };
@@ -41,7 +43,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   const caso = casoRaw as any;
 
   const { data: { user } } = await supabase.auth.getUser();
-  const [{ data: userProfile }, { data: notes }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }, { data: latestStrategy }] = await Promise.all([
+  const [{ data: userProfile }, { data: notes }, { data: statusHistory }, { data: invitations }, { data: submission }, { data: latestAnalysis }, { data: existingTranslations }, { data: recommendationLetters }, { data: petitionDrafts }, { data: i129Drafts }, { data: latestStrategy }, { data: evidenceCompositions }, { data: evidenceAssociations }, { data: caseDocuments }] = await Promise.all([
     supabase.from("profiles").select("role").eq("id", user?.id ?? "").maybeSingle(),
     supabase
       .from("case_notes")
@@ -99,6 +101,26 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),
+    supabase
+      .from("evidence_items")
+      .select("*")
+      .eq("case_id", params.id)
+      // Both current and superseded compositions — the UI must be able to render
+      // historical (superseded) Evidence as read-only, not just the current version
+      // (CR-IMP-04-02). Ordered by the authoritative version sequence (not inferred
+      // from timestamps), grouping every composition sharing the same evidence_id
+      // together in v1→v2→v3 order.
+      .order("evidence_id", { ascending: true })
+      .order("version", { ascending: true }),
+    supabase
+      .from("evidence_item_documents")
+      .select("evidence_item_id, document_id")
+      .eq("case_id", params.id),
+    supabase
+      .from("documents")
+      .select("id, name")
+      .eq("case_id", params.id)
+      .order("created_at", { ascending: false }),
   ]);
 
   const userRole    = userProfile?.role ?? "";
@@ -110,6 +132,12 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   // above; never mutates, ordinary page render must not create canonical
   // document registrations.
   const registrationCompleteness = await getExpectedVsRegistered(supabase, params.id, submission);
+
+  const evidenceAssociationMap: Record<string, string[]> = {};
+  for (const row of evidenceAssociations ?? []) {
+    const key = row.evidence_item_id as string;
+    (evidenceAssociationMap[key] ??= []).push(row.document_id as string);
+  }
 
   return (
     <div className="space-y-6">
@@ -271,6 +299,15 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             caseId={params.id}
             userRole={userRole}
             registrationCompleteness={registrationCompleteness}
+          />
+
+          {/* ── Evidence (MTCS-04) ── */}
+          <EvidenceSection
+            caseId={params.id}
+            userRole={userRole}
+            initialCompositions={(evidenceCompositions ?? []) as EvidenceComposition[]}
+            associations={evidenceAssociationMap}
+            caseDocuments={(caseDocuments ?? []) as { id: string; name: string }[]}
           />
         </div>
 
