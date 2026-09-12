@@ -370,13 +370,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Return existing completed translation (idempotency)
+    // Best-effort duplicate suppression (MTCS-05, CR-B — not strong atomic
+    // idempotency under true concurrent first-delivery, see route.ts's own comment
+    // below and the frozen Exact Design). Sequential re-delivery for the same
+    // identity is suppressed for both 'completed' (reuse the result) and
+    // 'processing' (don't start a second concurrent attempt) states. 'failed'
+    // deliberately falls through to a new attempt below.
     const { data: existing } = await db
       .from("document_translations")
       .select("*")
       .eq("case_id", case_id)
       .eq("original_file_path", file_path)
-      .eq("status", "completed")
+      .in("status", ["completed", "processing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
 
     if (existing) {

@@ -118,7 +118,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
       .eq("case_id", params.id),
     supabase
       .from("documents")
-      .select("id, name")
+      .select("id, name, file_path")
       .eq("case_id", params.id)
       .order("created_at", { ascending: false }),
   ]);
@@ -137,6 +137,16 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
   for (const row of evidenceAssociations ?? []) {
     const key = row.evidence_item_id as string;
     (evidenceAssociationMap[key] ??= []).push(row.document_id as string);
+  }
+
+  // MTCS-05 (G-05-03) — canonical documents.id lookup by filePath, reusing the same
+  // Case-scoped documents read already fetched above for EvidenceSection. Read-only;
+  // never reconstructs identity from Storage; source-agnostic (normal registration
+  // or reconciliation-recovered rows resolve identically — Canonical Entry
+  // Convergence Principle).
+  const documentIdByPath: Record<string, string> = {};
+  for (const row of caseDocuments ?? []) {
+    if (row.file_path) documentIdByPath[row.file_path as string] = row.id as string;
   }
 
   return (
@@ -242,6 +252,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             documentFiles={documentFiles}
             initialTranslations={(existingTranslations ?? []) as DocTranslation[]}
             userRole={userRole}
+            documentIdByPath={documentIdByPath}
           />
 
           {/* ── Blueprint Lifecycle ── */}

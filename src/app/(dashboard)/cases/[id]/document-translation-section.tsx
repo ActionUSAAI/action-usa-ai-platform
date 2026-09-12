@@ -28,13 +28,20 @@ interface DocumentTranslationSectionProps {
   documentFiles: DocumentFile[];
   initialTranslations: DocTranslation[];
   userRole: string;
+  // MTCS-05 (G-05-03): canonical documents.id by filePath, resolved server-side by
+  // the Case page from the same canonical documents read used elsewhere (EvidenceSection).
+  documentIdByPath: Record<string, string>;
 }
 
 const ALLOWED_ROLES = new Set(["admin", "supervisor", "agent"]);
 
-export function DocumentTranslationSection({ caseId, documentFiles, initialTranslations, userRole }: DocumentTranslationSectionProps) {
+export function DocumentTranslationSection({ caseId, documentFiles, initialTranslations, userRole, documentIdByPath }: DocumentTranslationSectionProps) {
   const [translationMap, setTranslationMap] = useState<Map<string, DocTranslation>>(
-    () => new Map(initialTranslations.map((t) => [t.original_file_path, t]))
+    // CR-05-02: initialTranslations is newest-first (page.tsx: .order("created_at",
+    // {ascending:false})). Map's last-write-wins-per-key means processing the array
+    // as-is would let the OLDEST duplicate win. Reverse a copy (oldest-to-newest)
+    // before mapping so the newest entry is set last and therefore wins.
+    () => new Map([...initialTranslations].reverse().map((t) => [t.original_file_path, t]))
   );
   const [translating, setTranslating]     = useState<Set<string>>(new Set());
   const [fileErrors, setFileErrors]       = useState<Map<string, string>>(new Map());
@@ -62,14 +69,19 @@ export function DocumentTranslationSection({ caseId, documentFiles, initialTrans
     setFileErrors((prev) => { const m = new Map(prev); m.delete(file.filePath); return m; });
 
     try {
+      // MTCS-05: canonical mode when the file's documents.id is resolvable (governed
+      // path) — the route resolves case_id/storage_bucket/file_path server-side from
+      // document_id, so no browser-supplied case_id is sent for this call. Legacy
+      // mode remains the compatibility fallback for files without a canonical row yet.
+      const documentId = documentIdByPath[file.filePath];
+      const payload = documentId
+        ? { document_id: documentId }
+        : { case_id: caseId, file_path: file.filePath, file_name: file.fileName };
+
       const res = await fetch("/api/agents/a2-document-processor", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          case_id:   caseId,
-          file_path: file.filePath,
-          file_name: file.fileName,
-        }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.error) throw new Error(data.error);
