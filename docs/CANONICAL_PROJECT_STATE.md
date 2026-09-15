@@ -18,6 +18,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         Reconciliation — KV/RAR Only
                        Final Source-Reconciled Patch
                        Final Delta MR — PASS
+                       Post-JSR-B Operational Sequencing Reconciliation
+                        (CR-CPS-07, CR-CPS-08)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -161,6 +163,26 @@ MTCS-07 — signed-URL hardening                   CLOSED
 CURRENT EXECUTION POSITION:
 POST-MTCS-07 HOLD
 
+NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
+Generated Work Product Re-entry
+
+FOLLOWING EXECUTION CANDIDATE:
+QA Engine
+
+HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
+PRESERVED — not superseded, not rewritten. JSR-B is a prospective
+sequencing decision under P-07 (Execution to Completion), not a
+correction of that historical record.
+
+NEXT EXECUTION GAP ≠ NEXT MTCS. No MTCS number is assigned by this
+statement.
+
+NEXT MTCS:
+NOT ESTABLISHED
+
+MTCS-08:
+NOT CREATED / NOT DESIGNED / NOT IMPLEMENTED / NOT AUTHORIZED
+
 MTCS-06 — "A1/A5 Historical Reliance"
   (verbatim, migration 024_evidence_items.sql:9)
   Purpose: preserve and materialize the exact Evidence composition/
@@ -286,10 +308,28 @@ External Return → New Case Document → A2 where applicable →
 Evidence Incorporation/Association → Human Verification where
 applicable → Authorized downstream consumption.
 
-Human Review Gate (agent_recommendation_letters lifecycle):   GAP / OPEN
+Human Review Gate (agent_recommendation_letters lifecycle):   PARTIAL
+  (CR-CPS-07) IMPLEMENTED: draft → in_review → approved/rejected,
+  via src/app/api/case-letters/route.ts — authenticated caller
+  identity, role/case-assignment authorization, allow-listed
+  transitions, optimistic-concurrency-safe update, approved_by/
+  approved_at, UI-wired (document-generation-section.tsx).
+  REMAINING: approved → sent is schema-supported
+  (letter_status_enum includes 'sent') but runtime-unwired.
+  SENT AS GWP RE-ENTRY PRECONDITION: NO — Evidence Item Contract V2
+  §49's frozen flow gates re-entry on Human Approval for External
+  Use (= approved), not on a persisted 'sent' state. Non-load-bearing
+  for loop closure (Tier 1 Operational Loop Reconciliation Gate).
 Returned Generated Work Product re-entry:                     GAP
+  (unchanged — no implementation found; remains the real gap)
 Current MCS:                                                  NOT INCLUDED
 Sequencing relative to MTCS-06:                                NOT ESTABLISHED
+  (unchanged — no MTCS-06 source ever sequenced this; sequencing was
+  separately established below, not via MTCS-06)
+Current prospective sequencing (CR-CPS-08, JSR-B):
+  Generated Work Product Re-entry = NEXT EXECUTION GAP
+  QA Engine = FOLLOWING EXECUTION CANDIDATE
+  See Section G.
 ```
 
 ---
@@ -408,11 +448,11 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | Evidence Item Contract V2 §46-47 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49) | None — remaining `sent` gap not currently actionable | NOT YET DETERMINABLE |
+| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | Evidence Item Contract V2 §46-49 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | **Scope B — NEXT EXECUTION GAP (CR-CPS-08, JSR-B)** | Not implemented; provenance/lineage between returned Case Document and originating GWP must be preserved where known — exact physical mechanism NOT ESTABLISHED | Exact Design / MCS materialization act (not yet authorized) | NOT YET DETERMINABLE |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
-| QA Engine | AUSCIS | Cross-document consistency check | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
+| QA Engine | AUSCIS | Cross-document consistency check | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **Scope B — FOLLOWING EXECUTION CANDIDATE, after GWP Re-entry (CR-CPS-08, JSR-B)**; historical A5→QA priority preserved | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | RFE Prediction Engine | AUSCIS | Predictive RFE analysis | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Learning Engine | AUSCIS | Tenant/Global/Governed-Knowledge learning | AUCIS_V2_STRATEGY_LAYER.md + Blueprint Contract consumer table | CURRENT DESIGN + FROZEN (consumer reference) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -445,6 +485,8 @@ RFE Prediction Engine
 Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved.
+
+**Current prospective execution sequence within Scope B (CR-CPS-08, Joint Sequencing Resolution JSR-B):** `Generated Work Product re-entry → QA Engine`, under P-07 (Execution to Completion) — GWP re-entry closes an already-active operational loop (Evidence Item Contract V2 §46-49) on substrate MTCS-01–05 already closed, at zero frozen-dependency or closed-MTCS conflict either direction. This is a bounded addition to the recovered list above, not a re-ranking of it: the historical `QA → Market Intelligence → RFE Prediction → Learning` order is preserved unchanged, and unrelated candidates (CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -530,15 +572,21 @@ ECOSYSTEM
     │   KR-03="AILA"
     │   implemented / authorization conflict
     │
-    ├── LATER CANONICAL PRODUCT SCOPE
-    │   ├── ○ Human Review Gate
-    │   ├── ○ Generated Work Product re-entry
+    ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
+    │   ├── ◐ Human Review Gate — PARTIAL (CR-CPS-07): draft→in_review→
+    │   │      approved/rejected implemented, UI-wired; sent unwired,
+    │   │      confirmed non-load-bearing
+    │   ├── ○ Generated Work Product re-entry — GAP;
+    │   │      → NEXT EXECUTION GAP (CR-CPS-08, JSR-B)
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
-    │   ├── ○ QA Engine
+    │   ├── ○ QA Engine — → FOLLOWING EXECUTION CANDIDATE (CR-CPS-08,
+    │   │      JSR-B); historical A5→QA priority preserved
     │   ├── ○ Market Intelligence Engine
     │   ├── ○ RFE Prediction Engine
     │   └── ○ Learning Engine
+    │   → Current prospective sequence: GWP re-entry → QA Engine.
+    │        NEXT MTCS still NOT ESTABLISHED; MTCS-08 NOT CREATED.
     │
     └── POST-COMPLETION / UNAPPROVED
         └── △ Agentic RAG exact mechanism
