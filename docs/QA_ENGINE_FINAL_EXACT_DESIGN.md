@@ -9,7 +9,13 @@ Identifier:            NOT ESTABLISHED (no act-specific Project Owner
 Materialized by:       QA Engine — MCS Materialization / Design-Entry
                         Gate, commit d06c007
 Governing CPS:         docs/CANONICAL_PROJECT_STATE.md
-Status of this document: FINAL EXACT DESIGN
+Status of this document: FINAL EXACT DESIGN — TARGETED PROVENANCE
+                        RECONCILIATION INCORPORATED (§9a)
+Prior SHA256 (superseded): 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df
+Superseded by:          Targeted Provenance Reconciliation (CR-01, CR-02) —
+                        commit 3f6ad03 was the prior frozen artifact;
+                        this revision supersedes it in place, historical
+                        SHA preserved above.
 Implementation status: NOT AUTHORIZED
 ```
 
@@ -171,7 +177,9 @@ ALGORITHM: DETERMINISTIC — set difference:
             (covered_by_letters ∪ covered_by_petition)
 PASS CONDITION: missing = ∅
 FINDING CONDITION: missing ≠ ∅ → one finding per missing criterion key
-OUTPUT: { missing_criteria: string[] }
+OUTPUT: see §9's evaluated-input manifest — missing_criteria is one
+  field of that larger, complete-input-set record (Targeted Provenance
+  Reconciliation, this section corrected accordingly)
 MUTATION: NONE
 
 CHECK: QA-MVP-02 — Blueprint Currency Precondition
@@ -185,7 +193,7 @@ FINDING CONDITION: zero current_blueprint rows exist → QA cannot
   (not a coverage finding) explaining that the case's Blueprint or its
   underlying Criterion Assessment is stale and requires human
   regeneration/re-approval — no QA-side correction.
-OUTPUT: { current_blueprint_found: boolean }
+OUTPUT: current_blueprint_found — see §9
 MUTATION: NONE
 ```
 
@@ -195,16 +203,100 @@ MUTATION: NONE
 OPTIONS EVALUATED: P-01 (run + child finding rows), P-02 (run row +
   structured JSONB), P-03 (document-local state), P-04 (case-level
   singleton), P-05 (no persistence)
-SELECTED: P-02 — one qa_runs row per execution, findings as a bounded
-  structured JSONB field.
-RATIONALE: the MVP's entire finding shape is exactly
-  { missing_criteria: string[], current_blueprint_found: boolean } —
-  small, bounded, fully known at design time. A child-finding table
-  (P-01) would be premature normalization for a shape this simple;
-  case_strategy itself uses the same JSONB-for-bounded-structured-data
-  convention (dominant_criteria, evidence_dependencies). P-04/P-05
-  reject auditability (§28's immutable-run precedent from A1/A5/
-  Evidence versioning).
+SELECTED: P-02 (PRESERVED WITH TARGETED PROVENANCE EXTENSION) — one
+  qa_runs row per execution, findings as a bounded structured JSONB
+  field, now carrying the complete evaluated-input manifest (§9a),
+  not only the missing-criteria finding.
+RATIONALE: the manifest is still small and fully bounded — a case's
+  letter/petition count is not large enough to justify a child table
+  (P-01) — so GD-01 (JSONB manifest) satisfies CR-02 without
+  restructuring the persistence model itself.
+```
+
+### 9a. Targeted Provenance Reconciliation (Class B correction)
+
+Direct repository verification (not assumption) found two real gaps in
+the originally frozen `findings` contract, both bounded and resolved
+without touching `case_strategy`, A3, A4, or A5:
+
+**CR-01 — Blueprint content, not just identity.** `case_strategy` rows
+are never physically deleted anywhere in the repository (verified: zero
+`.delete()` calls against `case_strategy` in any route) — supersession
+always inserts a new row and flips `currency_status`/`superseded_by` on
+the old one, which is why `ON DELETE SET NULL` is a dead-path default,
+not a live risk (mirrors the MTCS-08 precedent for an unreachable
+mutation). But `src/app/api/agents/a5-case-strategy/route.ts`'s PATCH
+handler builds its update payload as `Object.assign({}, updates)` from
+the raw request body, and only guards three Historical-Reliance fields
+(`foundational_evidence`/`evidence_dependencies`/`evidence_dependencies_
+reliance`) against post-`proposed`/`edited` mutation — `dominant_
+criteria`/`supporting_criteria` themselves carry no such guard. Since
+`status` and `currency_status` are independent dimensions (migration
+023's own documented rationale), a row QA legitimately reads as
+`currency_status='current'` can simultaneously be `status='proposed'`
+or `'edited'` — i.e., still open to in-place editing of the exact
+fields QA-MVP-01 evaluates. Row ID alone therefore does not guarantee
+content immutability for `case_strategy`.
+
+**CR-02 — Complete input set, not only findings.** The original
+`findings` shape (`{ missing_criteria, current_blueprint_found }`)
+recorded only criteria that failed coverage — it never recorded which
+specific letters/petition drafts were actually read, including the
+ones that passed. A later inspection of a historical QA run could not
+distinguish "these documents were evaluated and compliant" from
+"these documents didn't exist yet." `agent_recommendation_letters` and
+`agent_petition_drafts` were separately verified content-immutable in
+place (no update path anywhere touches `criterion_covered`,
+`letter_draft`, or `criteria_sections`/`criteria_covered`/`criteria_
+missing` after insert — case-letters' PATCH route only ever touches
+`status`/`approved_by`/`approved_at`, and no route updates
+`agent_petition_drafts` content at all), so their row IDs alone are
+sufficient version identity — only the *set membership* was missing,
+not per-document version integrity.
+
+```
+CORRECTION (Class B — bounded, additive, qa_runs-JSONB-only,
+  no schema/table change beyond the shape already frozen in §16):
+
+findings JSONB now contains:
+{
+  blueprint_snapshot: {
+    case_strategy_id: uuid,
+    dominant_criteria: string[],    // exact content read, not re-derived
+    supporting_criteria: string[]   // exact content read, not re-derived
+  },
+  evaluated_letters: [ { id: uuid, criterion_covered: string } ],
+  evaluated_petition_drafts: [ { id: uuid, criteria_covered: string[] } ],
+  missing_criteria: string[],
+  current_blueprint_found: boolean
+}
+```
+
+`blueprint_snapshot.dominant_criteria`/`supporting_criteria` are the
+literal values read at execution time, captured into the immutable
+`qa_runs` row — solving CR-01 without adding any guard to `case_
+strategy` itself (out of this act's authority) and without touching
+A5's route. `evaluated_letters`/`evaluated_petition_drafts` record
+every document actually read, whether or not it produced a finding,
+solving CR-02. When `current_blueprint_found = false`, `blueprint_
+snapshot`, `evaluated_letters`, and `evaluated_petition_drafts` are all
+empty/absent — no evaluation occurred to snapshot.
+
+REJECTED ALTERNATIVES: GD-02 (child relation table) — unnecessary
+normalization for a bounded per-case document count; BP-01 (RESTRICT
+delete on case_strategy) — solves a risk that repository verification
+shows doesn't exist (no delete path), and would not have solved the
+real in-place-mutation gap anyway; guarding dominant_criteria/
+supporting_criteria in A5's own PATCH route — would fix the gap at its
+root but modifies a file outside this act's authorized scope
+(case_strategy/A5 redesign is explicitly out of bounds here); full
+Blueprint JSON snapshot of the entire case_strategy row — rejected as
+overcorrection, only the two fields QA-MVP-01 actually reads are
+snapshotted.
+CLASS: B (bounded compatibility/provenance correction within frozen
+  architecture — no MVP scope change, no schema/table change beyond
+  the JSONB shape already declared in §16, no touching of case_
+  strategy/A3/A4/A5/Evidence/MTCS-08).
 ```
 
 ```
@@ -461,8 +553,12 @@ AC-QA-07  A case deliberately missing documentary coverage for one
           (Frozen Roadmap acceptance test)                    — SERVICE TEST
 AC-QA-08  QA consumes only agent_recommendation_letters and
           agent_petition_drafts for the authorized case.       — CODE INSPECTION
-AC-QA-09  QA records exact input identity (case_strategy_id) sufficient
-          to know what Blueprint was evaluated.                — STRUCTURAL DB
+AC-QA-09  QA records the complete exact input set — Blueprint identity
+          plus its evaluated criteria content (blueprint_snapshot), and
+          every letter/petition-draft ID actually read (evaluated_
+          letters/evaluated_petition_drafts) — sufficient to reconstruct
+          exactly what was evaluated, independent of later source
+          changes (§9a).                                        — STRUCTURAL DB
 AC-QA-10  QA does not modify Case Blueprint.                    — CODE INSPECTION
 AC-QA-11  QA does not modify Criterion Assessment.               — CODE INSPECTION
 AC-QA-12  QA does not modify Generated Documents.                — CODE INSPECTION
@@ -478,9 +574,13 @@ AC-QA-20  QA performs no automatic correction.                    — CODE INSPE
 AC-QA-21  Cross-case qa_runs composition is rejected at the DB level.
                                                               — STRUCTURAL DB / SERVICE TEST
 AC-QA-22  Historical QA execution remains attributable to the exact
-          case_strategy_id evaluated (immutable row).           — STRUCTURAL DB
-AC-QA-23  Subsequent Blueprint/Criterion-Assessment changes do not
-          rewrite prior qa_runs rows.                            — STRUCTURAL DB
+          Blueprint content and exact document set evaluated, even if
+          case_strategy is later edited in place while proposed/edited
+          (blueprint_snapshot is a captured value, not a live
+          re-derivation via the FK) (§9a).                       — STRUCTURAL DB
+AC-QA-23  Subsequent Blueprint/Criterion-Assessment/document changes,
+          including new documents created afterward, do not rewrite or
+          bleed into prior qa_runs rows' recorded manifest.       — STRUCTURAL DB
 AC-QA-24  A new QA execution requires the explicit Run API call, never
           an automatic side effect of any other mutation.        — CODE INSPECTION
 AC-QA-25  QA result exposes missing_criteria/current_blueprint_found

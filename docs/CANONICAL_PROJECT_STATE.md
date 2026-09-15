@@ -29,6 +29,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        QA Engine — MCS Materialization / Design-Entry
                         (CR-CPS-13)
                        QA Engine — Final Exact Design (CR-CPS-14)
+                       QA Engine — Final Exact Design Targeted
+                        Provenance Reconciliation (CR-CPS-15)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -177,14 +179,24 @@ NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
 Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
 FOLLOWING EXECUTION CANDIDATE:
-QA Engine — FINAL EXACT DESIGN APPROVED / FROZEN (CR-CPS-14),
-UNNUMBERED. Final Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md
-(SHA256 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df).
-Bounded MVP (criterion documentary coverage + Blueprint currency
-precondition) resolved fully deterministically from existing
-case_strategy/agent_intake_analysis/agent_recommendation_letters/
-agent_petition_drafts substrate — no new tables required beyond one
-additive qa_runs table; 0 architectural conflicts. Implementation NOT
+QA Engine — FINAL EXACT DESIGN APPROVED / FROZEN (CR-CPS-15,
+Targeted Provenance Reconciliation incorporated), UNNUMBERED. Final
+Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (current SHA256
+4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4;
+prior SHA256, superseded CR-CPS-14: 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df).
+Targeted correction (Class B): findings JSONB extended to a complete
+evaluated-input manifest (Blueprint criteria content snapshot + every
+evaluated letter/petition-draft ID, not only missing-criteria) — closes
+a real, verified gap (case_strategy's dominant_criteria/supporting_
+criteria are editable in place pre-approval via A5's unguarded PATCH
+route; the original findings shape recorded only failing criteria, not
+the complete evaluated set). No table/schema structural change; no
+touching of case_strategy/A3/A4/A5. Bounded MVP (criterion documentary
+coverage + Blueprint currency precondition) resolved fully
+deterministically from existing case_strategy/agent_intake_analysis/
+agent_recommendation_letters/agent_petition_drafts substrate — no new
+tables required beyond one additive qa_runs table; 0 architectural
+conflicts. Implementation NOT
 AUTHORIZED. Number assignment requires its own explicit, act-specific
 Project Owner grant, per MTCS-06/07/08 precedent (no standing rule of
 automatic sequential assignment upon materialization exists). Not yet
@@ -514,7 +526,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
-| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df) | FROZEN | FROZEN | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED (CR-CPS-14)**; historical A5→QA priority preserved | Zero runtime; deterministic MVP fully resolvable from existing case_strategy/agent_intake_analysis/agent_recommendation_letters/agent_petition_drafts substrate — no new dependency on A1–A8, Evidence, or MTCS-08 | QA Engine — Implementation Authorization / Execution Gate (not yet authorized) | NO |
+| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4) | FROZEN | FROZEN | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED, targeted provenance reconciliation incorporated (CR-CPS-15)**; historical A5→QA priority preserved | Zero runtime; deterministic MVP fully resolvable from existing case_strategy/agent_intake_analysis/agent_recommendation_letters/agent_petition_drafts substrate — no new dependency on A1–A8, Evidence, or MTCS-08 | QA Engine — Implementation Authorization / Execution Gate (not yet authorized) | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | RFE Prediction Engine | AUSCIS | Predictive RFE analysis | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Learning Engine | AUSCIS | Tenant/Global/Governed-Knowledge learning | AUCIS_V2_STRATEGY_LAYER.md + Blueprint Contract consumer table | CURRENT DESIGN + FROZEN (consumer reference) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -548,7 +560,7 @@ Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED (CR-CPS-14). Design MR: 30/30 PASS, 0 architectural conflicts. Bounded MVP narrowed during Final Exact Design (from materialization's 3-item candidate list to 2): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns) + Blueprint currency precondition (a single read of `case_strategy.currency_status`, already correctly maintained by migration 023's invariant — no new comparison logic required). General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED, per the Frozen Roadmap's own scope-creep guard. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED, targeted provenance reconciliation incorporated (CR-CPS-15). Design MR: 30/30 PASS (original) + 22/22 TPMR PASS (targeted); 0 architectural conflicts throughout. Bounded MVP narrowed during Final Exact Design (from materialization's 3-item candidate list to 2): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns) + Blueprint currency precondition (a single read of `case_strategy.currency_status`, already correctly maintained by migration 023's invariant — no new comparison logic required). Targeted correction: `findings` JSONB extended to a complete evaluated-input manifest (Blueprint criteria snapshot + every evaluated document ID), closing a verified gap that `case_strategy.dominant_criteria`/`supporting_criteria` are editable in place pre-approval via A5's own unguarded PATCH route. General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED, per the Frozen Roadmap's own scope-creep guard. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -647,7 +659,8 @@ ECOSYSTEM
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ◐ QA Engine — FINAL EXACT DESIGN APPROVED / FROZEN,
-    │   │      UNNUMBERED (CR-CPS-14); Design MR 30/30 PASS; historical
+    │   │      UNNUMBERED, provenance reconciliation incorporated
+    │   │      (CR-CPS-15); Design MR 30/30 + TPMR 22/22 PASS; historical
     │   │      A5→QA priority preserved; number assignment NOT
     │   │      ESTABLISHED; Implementation NOT AUTHORIZED
     │   ├── ○ Market Intelligence Engine
