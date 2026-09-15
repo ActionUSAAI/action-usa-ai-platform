@@ -37,6 +37,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         Reconciliation (CR-IA-01, CR-CPS-17)
                        QA Engine — Frozen Design Implementation,
                         TEST only (CR-CPS-19)
+                       QA Engine — Closure / Canonicalization
+                        (CR-CPS-20)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -185,64 +187,15 @@ NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
 Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
 FOLLOWING EXECUTION CANDIDATE:
-QA Engine — IMPLEMENTED (TEST only), UNNUMBERED (CR-CPS-19).
-Implementation commit 70c3818: migration 034 applied to TEST
-(utpsqevarnxscdqzywkk); qa_runs table, both triggers, both functions,
-and staff_select_qa_runs RLS all verified directly against live TEST
-DB state (not just migration SQL); 17/17 live assertions PASS via
-supabase/tests/qa-engine-validate.ts (independently re-verified live
-during the Implementation MR — the implementation act's own report had
-misstated this as 18/18), exercising the actual production
-service (src/lib/qa/run-qa-engine.ts) directly — coverage computation,
-Blueprint-currency signaling, complete evaluated-input manifest
-(including zero-finding documents), Blueprint-snapshot survival across
-a later Blueprint edit, same-case rejection, UPDATE/DELETE rejection
-with original row preserved, re-run creating a new immutable row,
-read-side non-mutation, and legitimate Case-cascade teardown.
-Implementation MR: PASS (independent conformance review; 60/60 IMR-QA
-gates PASS, 0 Class C deviations, 1 pre-existing unrelated build
-blocker correctly attributed to supabase/tests/mtcs08-validate.ts, not
-this implementation). Closure: NOT AUTHORIZED. Production: UNTOUCHED
-throughout.
-Final
-Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (current SHA256
-33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab;
-SHA history: 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df [pre-CR-01/CR-02] →
-4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4 [post-CR-01/CR-02, superseded CR-CPS-14/15]).
-Targeted immutability reconciliation (CR-IA-01, Class B): repository
-verification found that "qa_runs immutable after insert" cannot rely
-on absence of an application UPDATE route alone — this repository's
-own precedent (migration 032, a1_historical_reliance) already
-discovered and fixed the identical gap once (a REVOKE/GRANT-only
-convention did not stop a raw service_role UPDATE). qa_runs now
-carries trg_qa_runs_immutability, a role-independent BEFORE UPDATE OR
-DELETE trigger reusing that exact precedent, rejecting any mutation of
-a persisted row except the legitimate cases-CASCADE teardown case.
-Implementation Authorization / Execution Gate: IA 34/34 PASS, IAMR
-38/38 PASS, 0 Class C deviations, repository substrate re-verified
-with zero drift since design freeze. Authorization scope: TEST project
-(utpsqevarnxscdqzywkk) only — Production (slasbfepqovdsezmadjh)
-HARD-DENIED. Targeted provenance correction (Class B, CR-CPS-15):
-findings JSONB extended to a complete evaluated-input manifest
-(Blueprint criteria content snapshot + every evaluated letter/
-petition-draft ID, not only missing-criteria) — closes a real,
-verified gap (case_strategy's dominant_criteria/supporting_criteria
-are editable in place pre-approval via A5's unguarded PATCH route; the
-original findings shape recorded only failing criteria, not the
-complete evaluated set). No table/schema structural change beyond one
-additive trigger+function on the already-planned qa_runs table; no
-touching of case_strategy/A3/A4/A5. Bounded MVP (criterion documentary
-coverage + Blueprint currency precondition) resolved fully
-deterministically from existing case_strategy/agent_intake_analysis/
-agent_recommendation_letters/agent_petition_drafts substrate — no new
-tables required beyond one additive qa_runs table; 0 architectural
-conflicts. Implementation STATE: IMPLEMENTED (TEST only) — a separate
-Implementation MR is still required before closure, and closure
-requires a further separate act after that. Number assignment
-requires its own explicit, act-specific Project Owner grant, per
-MTCS-06/07/08 precedent (no standing rule of
-automatic sequential assignment upon materialization exists). Not yet
-promoted to NEXT EXECUTION GAP.
+NOT ESTABLISHED. QA Engine — CLOSED (CR-CPS-20), see QA Engine detail
+block below — it is no longer the active following execution
+candidate. No source promotes Market Intelligence Engine, RFE
+Prediction Engine, Learning Engine, or any other Scope B item to
+following-execution-candidate status; the historical
+`QA → Market Intelligence → RFE Prediction → Learning` order
+(AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27) does not itself authorize
+promotion (P-07, Execution to Completion, requires an explicit
+governed act, not sequence inference).
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -254,6 +207,91 @@ statement.
 
 NEXT MTCS:
 NOT ESTABLISHED unless separately governed
+
+QA Engine (CR-CPS-20, Closure — PASS):
+NAME: QA Engine — criterion documentary coverage + Blueprint currency
+  precondition (bounded MVP)
+IDENTIFIER: NOT ESTABLISHED — no MTCS number assigned; number
+  assignment requires its own explicit, act-specific Project Owner
+  grant, per MTCS-06/07/08 precedent (no standing rule of automatic
+  sequential assignment upon materialization/implementation/closure
+  exists).
+STATE: CLOSED
+Final Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md
+CURRENT GOVERNING SHA256: 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab
+SHA lineage: 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df
+  [pre-CR-01/CR-02] → 4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4
+  [post-CR-01/CR-02, CR-CPS-14/15] → 33d5f7f0...510ab [post-CR-IA-01,
+  CR-CPS-17, current — unmodified since]
+Design freeze commit: 3f6ad03; provenance reconciliation: 5c87042;
+  implementation authorization: eaa3687; immutability reconciliation:
+  a3261ea; implementation commit: 70c3818 ("feat(qa): implement frozen
+  QA Engine MVP"); Implementation MR commit: b5b7ace; closure commit:
+  (this act).
+Targeted provenance correction (Class B, CR-CPS-15): findings JSONB
+  extended to a complete evaluated-input manifest (Blueprint criteria
+  content snapshot + every evaluated letter/petition-draft ID, not
+  only missing-criteria).
+Targeted immutability reconciliation (CR-IA-01, Class B, CR-CPS-17):
+  qa_runs carries trg_qa_runs_immutability, a role-independent BEFORE
+  UPDATE OR DELETE trigger reusing migration 032's a1_historical_
+  reliance precedent verbatim, rejecting any mutation of a persisted
+  row except the legitimate cases-CASCADE teardown case.
+Implementation Authorization / Execution Gate: IA 34/34 PASS, IAMR
+  38/38 PASS, 0 Class C deviations.
+Implementation MR (b5b7ace): PASS — IMR-QA 60/60 PASS, 0 Class C
+  deviations, 0 runtime corrections required, 0 open load-bearing
+  questions. Independently corrected two Class A defects in the
+  implementation act's own report: live assertion count is 17/17 (not
+  the reported 18/18), and exactly 2 commits constitute the
+  implementation act (not the reported 4).
+Live assertions: 17/17 PASS (supabase/tests/qa-engine-validate.ts,
+  exercising src/lib/qa/run-qa-engine.ts directly against live
+  AUSCIS-TEST, utpsqevarnxscdqzywkk) — coverage computation (partial
+  and complete), Blueprint-currency signaling, complete evaluated-
+  input manifest (including zero-finding documents), Blueprint-
+  snapshot survival across a later Blueprint edit, same-case
+  rejection, UPDATE/DELETE rejection with original row preserved,
+  re-run creating a new immutable row, read-side non-mutation, and
+  legitimate Case-cascade teardown.
+Acceptance criteria: 25/25 PASS (mixed live-TEST / structural-DB /
+  code-inspection provenance, per Implementation MR).
+Implementation Validation Matrix: 31/32 PASS, 0 FAIL, 1 NOT EXECUTABLE
+  (IV-31 — global `npm run build` is blocked solely by a pre-existing,
+  unrelated null-safety issue in supabase/tests/mtcs08-validate.ts,
+  last touched by commit 6aff08d; 0 QA-attributable build errors,
+  compile phase succeeds before the unrelated failure), 0 NOT
+  VERIFIABLE. This exception is NON-BLOCKING for QA conformance and is
+  NOT a QA defect — see BUILD DEBT note below.
+BOUNDARY: criterion documentary coverage (deterministic set-difference,
+  case_strategy.dominant_criteria/supporting_criteria vs.
+  agent_recommendation_letters.criterion_covered +
+  agent_petition_drafts.criteria_sections) + Blueprint currency
+  precondition (a single read of case_strategy.currency_status).
+  Explicit staff-triggered only (POST /api/cases/[id]/qa-runs),
+  advisory only. Does not modify Blueprint, Criterion Assessment,
+  Generated Documents, or Evidence; does not automatically trigger
+  A1/A3/A4/A5; performs no external research, RFE prediction,
+  semantic/embedding matching, or automatic correction — all
+  explicitly DEFERRED, none implemented.
+BUILD DEBT: the pre-existing supabase/tests/mtcs08-validate.ts
+  null-safety issue is NOT QA-attributable and is NOT created, adopted,
+  or absorbed by this closure. It remains an MTCS-08-scoped artifact
+  issue; MTCS-08 itself is unaffected and remains CLOSED. No new
+  gap/technical-debt record is created here — resolving it, if ever
+  authorized, is a separate, explicitly out-of-scope act.
+FINAL EXACT DESIGN: APPROVED / FROZEN
+IMPLEMENTATION: IMPLEMENTED (TEST only) — Implementation MR: PASS
+PRODUCTION: UNTOUCHED throughout design, implementation, Implementation
+  MR, and closure — HARD-DENIED for any future deployment absent
+  separate, explicit authorization.
+STATUS: ARCHITECTURAL STATE FROZEN — IMPLEMENTATION STATE IMPLEMENTED
+  — IMPLEMENTATION MR PASS — CANONICAL STATE CLOSED.
+Remaining gap within QA Engine's bounded MVP scope: NONE. (The broader
+  vision — general Blueprint fidelity, the six-check model — remains
+  an unbuilt, unpromoted future candidate; not authorized by this
+  closure. AEPE promotion: NO — no source promotes any QA Engine
+  pattern to AEPE.)
 
 MTCS-08 (CR-CPS-12, Closure — PASS):
 NAME: Generated Work Product Re-entry
@@ -568,7 +606,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
-| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **IMPLEMENTED (TEST only)** | NOT ESTABLISHED | KEEP/RECONCILE | **IMPLEMENTED, UNNUMBERED (CR-CPS-19); Implementation MR PASS; closure NOT AUTHORIZED** | migration 034 applied to TEST (utpsqevarnxscdqzywkk) only; qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS (supabase/tests/qa-engine-validate.ts) | QA Engine — Closure / Canonicalization | NO |
+| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | RFE Prediction Engine | AUSCIS | Predictive RFE analysis | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Learning Engine | AUSCIS | Tenant/Global/Governed-Knowledge learning | AUCIS_V2_STRATEGY_LAYER.md + Blueprint Contract consumer table | CURRENT DESIGN + FROZEN (consumer reference) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -602,7 +640,7 @@ Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — IMPLEMENTED (TEST only), UNNUMBERED (CR-CPS-19). Implementation commit `70c3818`: migration 034 applied to TEST (`utpsqevarnxscdqzywkk`) only; `qa_runs` table + `trg_qa_runs_same_case` + `trg_qa_runs_immutability` + `staff_select_qa_runs` RLS all verified live; 17/17 live assertions PASS via `supabase/tests/qa-engine-validate.ts` (independently re-verified live during the Implementation MR). Bounded MVP (from materialization's 3-item candidate list, narrowed to 2 during Final Exact Design): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns, live-verified with both a partial-coverage and a complete-coverage case) + Blueprint currency precondition (a single read of `case_strategy.currency_status`, live-verified for both a current and an absent-current-Blueprint case). Targeted provenance correction (CR-CPS-15, Class B) live-verified: `findings` JSONB's complete evaluated-input manifest correctly preserves zero-finding documents and survives a later Blueprint edit without rewriting history. Targeted immutability reconciliation (CR-IA-01, CR-CPS-17, Class B) live-verified: UPDATE and direct DELETE both rejected with the original row preserved; a re-run creates a new immutable row; legitimate Case-cascade teardown still succeeds. General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED. Implementation MR: PASS (60/60 IMR-QA gates, 0 Class C deviations). Closure: NOT AUTHORIZED. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** NOT ESTABLISHED. `QA Engine` — CLOSED (CR-CPS-20), UNNUMBERED — see Section G detail block for the full record (Implementation MR PASS, 17/17 live assertions, 25/25 AC, IV 31/32 with 1 non-QA-attributable NOT EXECUTABLE). QA Engine is no longer the active following execution candidate; no source promotes a replacement. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -700,13 +738,11 @@ ECOSYSTEM
     │   │      confirmed non-load-bearing
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
-    │   ├── ◐ QA Engine — IMPLEMENTED (TEST only), UNNUMBERED
-    │   │      (CR-CPS-19); migration 034 applied to
-    │   │      utpsqevarnxscdqzywkk; 17/17 live assertions PASS
-    │   │      (qa-engine-validate.ts); commit 70c3818; historical
-    │   │      A5→QA priority preserved; number assignment NOT
-    │   │      ESTABLISHED; Implementation MR PASS; closure NOT
-    │   │      AUTHORIZED; Production untouched
+    │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
+    │   │      Implementation MR: PASS · 17/17 live assertions ·
+    │   │      25/25 AC · IV 31/32 (1 non-QA-attributable NOT
+    │   │      EXECUTABLE) · commit 70c3818 · number assignment NOT
+    │   │      ESTABLISHED · Production untouched/HARD-DENIED
     │   ├── ○ Market Intelligence Engine
     │   ├── ○ RFE Prediction Engine
     │   └── ○ Learning Engine
