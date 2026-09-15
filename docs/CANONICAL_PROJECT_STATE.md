@@ -22,6 +22,7 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         (CR-CPS-07, CR-CPS-08)
                        MTCS-08 Materialization / Design-Entry Gate
                         (CR-CPS-09)
+                       MTCS-08 Final Exact Design — PASS (CR-CPS-10)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -182,9 +183,14 @@ statement.
 NEXT MTCS:
 NOT ESTABLISHED
 
-MTCS-08 (CR-CPS-09, MCS Materialization / Design-Entry Gate — MCS-MAT-A):
+MTCS-08 (CR-CPS-10, Final Exact Design — PASS):
 NAME: Generated Work Product Re-entry
-STATE: MATERIALIZED / DESIGN ENTRY AUTHORIZED
+STATE: FINAL EXACT DESIGN APPROVED / FROZEN
+Final Exact Design: docs/MTCS-08_FINAL_EXACT_DESIGN.md
+  (SHA256 4e755e8b412119f0749215c759732eece948bebec0cb5a790cb3aecb4b078b46)
+Design freeze commit: 384bd0e
+Design review: 0 architectural conflicts, 24/24 acceptance criteria
+  PASS-DESIGN, all governing/closed-MTCS sources COMPATIBLE.
 BOUNDARY: registers a returned signed/modified/completed/transformed
   A3 Generated Work Product as a new canonical Case Document
   (reusing MTCS-02A registerCanonicalDocument), preserving provenance
@@ -196,8 +202,9 @@ BOUNDARY: registers a returned signed/modified/completed/transformed
 OUT OF SCOPE: dispatch mechanics/provenance, `sent` status,
   external-actor portal access, new authorization architecture, new
   storage bucket, automatic A1/A5/Blueprint triggering.
-FINAL EXACT DESIGN: NOT YET APPROVED
-IMPLEMENTATION: NOT AUTHORIZED
+FINAL EXACT DESIGN: APPROVED / FROZEN
+IMPLEMENTATION: NOT AUTHORIZED — a separate governed act must
+  authorize implementation against the frozen design.
 
 MTCS-06 — "A1/A5 Historical Reliance"
   (verbatim, migration 024_evidence_items.sql:9)
@@ -465,7 +472,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49) | None — remaining `sent` gap not currently actionable | NOT YET DETERMINABLE |
-| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | Evidence Item Contract V2 §46-49 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | **MTCS-08 — MATERIALIZED / DESIGN ENTRY AUTHORIZED (CR-CPS-09)** | Not implemented; provenance/lineage between returned Case Document and originating GWP must be preserved where known — physical mechanism classified LIN-B/DESIGN-LEVEL, resolvable in Exact Design | MTCS-08 Final Exact Design (not yet approved) | NOT YET DETERMINABLE |
+| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (SHA256 4e755e8b412119f0749215c759732eece948bebec0cb5a790cb3aecb4b078b46) | FROZEN | FROZEN | GAP | NOT INTEGRATED | KEEP | **MTCS-08 — FINAL EXACT DESIGN APPROVED / FROZEN (CR-CPS-10)** | Not implemented; lineage resolved as nullable documents.originating_recommendation_letter_id FK (L-01) | MTCS-08 Implementation Authorization / Execution Gate (not yet authorized) | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Cross-document consistency check | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **Scope B — FOLLOWING EXECUTION CANDIDATE, after GWP Re-entry (CR-CPS-08, JSR-B)**; historical A5→QA priority preserved | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -593,8 +600,8 @@ ECOSYSTEM
     │   │      approved/rejected implemented, UI-wired; sent unwired,
     │   │      confirmed non-load-bearing
     │   ├── ◐ Generated Work Product re-entry — GAP (impl.);
-    │   │      → MTCS-08 MATERIALIZED / DESIGN ENTRY AUTHORIZED
-    │   │      (CR-CPS-09) — Final Exact Design NOT YET APPROVED
+    │   │      → MTCS-08 FINAL EXACT DESIGN APPROVED / FROZEN
+    │   │      (CR-CPS-10) — Implementation NOT AUTHORIZED
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ○ QA Engine — → FOLLOWING EXECUTION CANDIDATE (CR-CPS-08,
@@ -603,8 +610,8 @@ ECOSYSTEM
     │   ├── ○ RFE Prediction Engine
     │   └── ○ Learning Engine
     │   → Current prospective sequence: GWP re-entry → QA Engine.
-    │        MTCS-08 = GWP Re-entry, MATERIALIZED / DESIGN ENTRY
-    │        AUTHORIZED. Implementation NOT AUTHORIZED.
+    │        MTCS-08 = GWP Re-entry, FINAL EXACT DESIGN APPROVED /
+    │        FROZEN. Implementation NOT AUTHORIZED.
     │
     └── POST-COMPLETION / UNAPPROVED
         └── △ Agentic RAG exact mechanism
