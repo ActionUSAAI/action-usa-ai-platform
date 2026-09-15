@@ -164,10 +164,12 @@ MTCS-06 — "A1/A5 Historical Reliance"
   (verbatim, migration 024_evidence_items.sql:9)
   Current known purpose: preserve and materialize the exact Evidence
   composition/version relied upon by the relevant reasoning/strategy
-  artifacts, to the extent already source-established. Exact Design
-  remains pending.
-  STATUS: NEXT — NOT DESIGNED — NOT IMPLEMENTED — NOT AUTHORIZED TO
-  BEGIN BY THIS CONSOLIDATION
+  artifacts, to the extent already source-established.
+  Final Exact Design: docs/MTCS-06_FINAL_EXACT_DESIGN.md
+  (SHA256 3fd7fb1a088db37e9d5f9fdc643de5554b6a342f175d26b25e073afef083eb2e)
+  Design MR: PASS
+  STATUS: NEXT — ARCHITECTURAL STATE FROZEN — IMPLEMENTATION GAP / NOT
+  IMPLEMENTED — IMPLEMENTATION AUTHORIZATION NOT GRANTED
 
 MTCS-07 — "signed-URL hardening"
   (verbatim, migration 025_canonical_documents.sql:33)
@@ -356,7 +358,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | MTCS-03 Evidence↔Document | AUSCIS | M:N association | commit `e78349f` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
 | MTCS-04 Producer + Verification | AUSCIS | Governed Evidence RPCs + human verification | commit `db893fb` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
 | MTCS-05 Entry Wiring | AUSCIS | A2 canonical identity closure | commit `bcdc0a7` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
-| MTCS-06 A1/A5 Historical Reliance | AUSCIS | Preserve exact Evidence composition/version relied upon | migration 024 comment | IMPLEMENTATION RECORD (scope only) | NOT YET DESIGNED — scope established/named only | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — NEXT | Exact Design not completed; implementation not started | Exact Design phase (not authorized by this Freeze Blocker Closure) | NOT APPLICABLE — initial Exact Design pending |
+| MTCS-06 A1/A5 Historical Reliance | AUSCIS | Preserve exact Evidence composition/version relied upon | docs/MTCS-06_FINAL_EXACT_DESIGN.md (SHA256 3fd7fb1a088db37e9d5f9fdc643de5554b6a342f175d26b25e073afef083eb2e) | FROZEN — Design MR: PASS | FROZEN | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — NEXT | Implementation not started | Separate MTCS-06 Implementation Authorization | NOT APPLICABLE — design already frozen |
 | MTCS-07 signed-URL hardening | AUSCIS | Security hardening | migration 025 comment | IMPLEMENTATION RECORD (scope only) | NOT YET DESIGNED — scope established/named only | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — PENDING | Exact Design not completed; implementation not started | After MTCS-06 closure, subject to the existing canonical execution sequence | NOT APPLICABLE — initial Exact Design pending |
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (no Evidence V2 read) | KEEP | LATER | No structured Evidence V2 consumption; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | MTCS-06 only to the extent required by its sourced "A1/A5 Historical Reliance" scope. Other listed gaps remain separately classified and are NOT absorbed into MTCS-06. | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | DISJOINT (no Evidence Items) | KEEP | LATER (MTCS-06) | ADR-011 D-014 Evidence consumption not materialized | MTCS-06 | NOT YET DETERMINABLE |
@@ -471,7 +473,8 @@ ECOSYSTEM
     │   ├── ✓ MTCS-04
     │   ├── ✓ MTCS-05
     │   ├── → PRE-MTCS-06 / CANONICAL STATE HOLD
-    │   ├── ○ MTCS-06 — A1/A5 Historical Reliance
+    │   ├── ○ MTCS-06 — A1/A5 Historical Reliance — DESIGN FROZEN
+    │   │      (docs/MTCS-06_FINAL_EXACT_DESIGN.md, Design MR: PASS)
     │   └── ○ MTCS-07 — signed-URL hardening
     │
     ├── ⚠ AKAE→AUSCIS runtime slice
