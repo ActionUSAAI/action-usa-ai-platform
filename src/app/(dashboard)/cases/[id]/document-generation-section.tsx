@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, Download, ChevronRight, RefreshCw, AlertCircle, Scale } from "lucide-react";
+import { useRef, useState } from "react";
+import { Loader2, Download, ChevronRight, RefreshCw, AlertCircle, Scale, Upload } from "lucide-react";
 
 export interface RecommendationLetter {
   id: string;
@@ -66,12 +66,15 @@ function LetterRow({
   letter,
   actionId,
   onUpdateStatus,
+  onUploadReturned,
 }: {
   letter: RecommendationLetter;
   actionId: string | null;
   onUpdateStatus: (letterId: string, status: "in_review" | "approved" | "rejected") => void;
+  onUploadReturned: (letterId: string, file: File) => void;
 }) {
   const busy = actionId === letter.id;
+  const returnedInputRef = useRef<HTMLInputElement>(null);
   return (
     <div className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2 gap-2">
       <span className="text-gray-700 flex-1">{letter.recommender_name} — {letter.criterion_covered}</span>
@@ -102,6 +105,28 @@ function LetterRow({
             className="text-red-700 font-medium disabled:opacity-40"
           >
             Rechazar
+          </button>
+        </>
+      )}
+      {letter.status === "approved" && (
+        <>
+          <input
+            ref={returnedInputRef}
+            type="file"
+            accept=".pdf,.jpg,.jpeg,.png,.doc,.docx"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              e.target.value = "";
+              if (file) onUploadReturned(letter.id, file);
+            }}
+          />
+          <button
+            onClick={() => returnedInputRef.current?.click()}
+            disabled={busy}
+            className="flex items-center gap-1 text-[#1B2B5E] font-medium disabled:opacity-40"
+          >
+            <Upload size={12} /> Subir documento devuelto
           </button>
         </>
       )}
@@ -172,6 +197,27 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
       }
     } catch {
       setLetterActionError("Error de red al actualizar el estado de la carta");
+    } finally {
+      setLetterActionId(null);
+    }
+  }
+
+  async function uploadReturnedDocument(letterId: string, file: File) {
+    setLetterActionId(letterId);
+    setLetterActionError(null);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      const res = await fetch(`/api/case-letters/${letterId}/returned-document`, {
+        method: "POST",
+        body,
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setLetterActionError(data.error ?? "Error al subir el documento devuelto");
+      }
+    } catch {
+      setLetterActionError("Error de red al subir el documento devuelto");
     } finally {
       setLetterActionId(null);
     }
@@ -311,7 +357,7 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
           </div>
         )}
         {testimonialLetters.map(l => (
-          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} />
+          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} onUploadReturned={uploadReturnedDocument} />
         ))}
       </div>
 
@@ -335,7 +381,7 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
           </div>
         )}
         {institutionalLetters.map(l => (
-          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} />
+          <LetterRow key={l.id} letter={l} actionId={letterActionId} onUpdateStatus={updateLetterStatus} onUploadReturned={uploadReturnedDocument} />
         ))}
       </div>
 

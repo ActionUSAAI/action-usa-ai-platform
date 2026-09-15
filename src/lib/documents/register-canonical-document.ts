@@ -8,6 +8,13 @@ export interface RegisterCanonicalDocumentParams {
   uploadedBy?: string | null;
   mimeType?: string | null;
   fileSize?: number | null;
+  // MTCS-08 (RC-02) — additive, optional, generic lineage reference.
+  // Omitted by every existing caller; when provided, persisted in the
+  // same upsert as canonical registration and validated same-Case by
+  // trg_documents_gwp_same_case (migration 033). This helper remains
+  // agnostic to what produced the id — it does not resolve, validate
+  // status, or otherwise reason about agent_recommendation_letters.
+  originatingRecommendationLetterId?: string | null;
 }
 
 export interface CanonicalDocument {
@@ -17,6 +24,7 @@ export interface CanonicalDocument {
   storage_bucket: string;
   file_path: string;
   name: string;
+  originating_recommendation_letter_id?: string | null;
 }
 
 /**
@@ -35,7 +43,7 @@ export async function registerCanonicalDocument(
   db: SupabaseClient,
   params: RegisterCanonicalDocumentParams
 ): Promise<CanonicalDocument> {
-  const { caseId, storageBucket, filePath, fileName, uploadedBy, mimeType, fileSize } = params;
+  const { caseId, storageBucket, filePath, fileName, uploadedBy, mimeType, fileSize, originatingRecommendationLetterId } = params;
 
   const { data: kase, error: caseErr } = await db
     .from("cases")
@@ -60,10 +68,11 @@ export async function registerCanonicalDocument(
         mime_type: mimeType ?? null,
         file_size: fileSize ?? null,
         status: "pendiente",
+        originating_recommendation_letter_id: originatingRecommendationLetterId ?? null,
       },
       { onConflict: "case_id,storage_bucket,file_path", ignoreDuplicates: true }
     )
-    .select("id, case_id, client_id, storage_bucket, file_path, name")
+    .select("id, case_id, client_id, storage_bucket, file_path, name, originating_recommendation_letter_id")
     .maybeSingle();
 
   if (upsertErr) {
@@ -78,7 +87,7 @@ export async function registerCanonicalDocument(
   // the already-canonical row rather than treat this as a new registration.
   const { data: existing, error: selectErr } = await db
     .from("documents")
-    .select("id, case_id, client_id, storage_bucket, file_path, name")
+    .select("id, case_id, client_id, storage_bucket, file_path, name, originating_recommendation_letter_id")
     .eq("case_id", caseId)
     .eq("storage_bucket", storageBucket)
     .eq("file_path", filePath)

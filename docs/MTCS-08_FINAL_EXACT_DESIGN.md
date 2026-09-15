@@ -95,9 +95,15 @@ documents (schema.sql + migration 025):
   'pendiente'), rejection_reason, verified_by, verified_at, expires_at,
   storage_bucket (TEXT NOT NULL DEFAULT 'case-documents'),
   UNIQUE (case_id, storage_bucket, file_path)
-  RLS: NONE — confirmed via full-repository grep; documents has never
-  carried a row-level security policy. Authorization on this table is
-  enforced entirely at the API layer (authorizeCaseStaff), consistent
+  RLS: three pre-existing policies from schema.sql ("Staff sube/
+  actualiza/ve documentos" — INSERT/UPDATE/SELECT), predating the
+  numbered MTCS sequence — CORRECTED during Implementation Authorization
+  execution (the original repository-wide grep covered
+  supabase/migrations/*.sql only, not schema.sql). No new policy is
+  needed: every existing write to documents, including this design's
+  own, uses a service-role client that bypasses RLS by design.
+  Authorization on this table is enforced at the API layer
+  (authorizeCaseStaff), consistent
   with every existing route that writes to it.
 
 document_translations (migration 025):
