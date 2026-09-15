@@ -39,6 +39,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         TEST only (CR-CPS-19)
                        QA Engine — Closure / Canonicalization
                         (CR-CPS-20)
+                       Project Owner Sequencing Decision — Human
+                        Review Gate selected (CR-CPS-21)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -186,24 +188,55 @@ POST-MTCS-08 HOLD
 NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
 Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
-FOLLOWING EXECUTION CANDIDATE:
-NOT ESTABLISHED. QA Engine — CLOSED (CR-CPS-20), see QA Engine detail
-block below — it is no longer the active following execution
-candidate. No source promotes Market Intelligence Engine, RFE
-Prediction Engine, Learning Engine, or any other Scope B item to
-following-execution-candidate status; the historical
+FOLLOWING EXECUTION CANDIDATE / NEXT GOVERNED GAP (CR-CPS-21, Project
+Owner Sequencing Decision): `Human Review Gate` (`approved → sent`).
+QA Engine — CLOSED (CR-CPS-20), see QA Engine detail block below — it
+is no longer the active following execution candidate. No source
+promotes Market Intelligence Engine, RFE Prediction Engine, Learning
+Engine, CV/A0/Coach, or Organization/Multi-Tenant to
+following-execution-candidate status; none was selected. The historical
 `QA → Market Intelligence → RFE Prediction → Learning` order
 (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27) does not itself authorize
-promotion (P-07, Execution to Completion, requires an explicit
-governed act, not sequence inference).
+promotion of any of those three (P-07, Execution to Completion,
+requires an explicit governed act, not sequence inference) — this
+sequencing decision is that explicit governed act, and it selected
+Human Review Gate, not that historical chain.
+
+SOURCE STATUS OF THE SELECTED GAP: as of the prior canonical record
+(Section P table row, below), `approved → sent` was classified "Next
+Approved Action: None — remaining `sent` gap not currently
+actionable." That classification was made specifically in the context
+of evaluating `sent` as a GWP Re-entry precondition (Evidence Item
+Contract V2 §49 gates re-entry on `approved`, not `sent` — see Human
+Review Gate detail note above) — it was never a general statement that
+the gap is architecturally blocked, unresolvable, or permanently
+out of scope; the existing endpoint's own code comment
+(src/app/api/case-letters/route.ts) states plainly that `sent` was
+left out "porque... no fue pedido" (because it was not requested).
+It has now been explicitly requested via this Project Owner sequencing
+decision. Per this act's own governing instruction, selecting a
+candidate whose current governance state carries a non-actionable
+classification does not automatically open a Materialization gate;
+it first requires reconciling that classification.
+
+NEXT GOVERNED ACT: Human Review Gate — Non-Actionable Status
+Reconciliation (CR-CPS-21). This reconciliation act determines whether
+the "not currently actionable" classification still holds now that
+the capability has been explicitly requested, before any Materialization
+/ Design-Entry Gate is opened. It is not itself a Materialization gate,
+a Final Exact Design, or an implementation authorization.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
 sequencing decision under P-07 (Execution to Completion), not a
-correction of that historical record.
+correction of that historical record. This new sequencing decision
+(CR-CPS-21) likewise does not correct or rewrite it — it selects
+Human Review Gate, entirely independent of that historical
+QA→Market Intelligence→RFE Prediction→Learning chain.
 
 NEXT EXECUTION GAP ≠ NEXT MTCS. No MTCS number is assigned by this
-statement.
+statement, and none is assigned by the Project Owner's sequencing
+selection itself.
 
 NEXT MTCS:
 NOT ESTABLISHED unless separately governed
@@ -602,7 +635,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49) | None — remaining `sent` gap not currently actionable | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49) | **Human Review Gate — Non-Actionable Status Reconciliation (CR-CPS-21) — selected as NEXT GOVERNED GAP by explicit Project Owner sequencing decision; `sent` gap's "not currently actionable" classification was scoped to the GWP re-entry precondition evaluation only and must be reconciled before Materialization** | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
@@ -640,7 +673,9 @@ Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** NOT ESTABLISHED. `QA Engine` — CLOSED (CR-CPS-20), UNNUMBERED — see Section G detail block for the full record (Implementation MR PASS, 17/17 live assertions, 25/25 AC, IV 31/32 with 1 non-QA-attributable NOT EXECUTABLE). QA Engine is no longer the active following execution candidate; no source promotes a replacement. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — CLOSED (CR-CPS-20), UNNUMBERED — see Section G detail block for the full record (Implementation MR PASS, 17/17 live assertions, 25/25 AC, IV 31/32 with 1 non-QA-attributable NOT EXECUTABLE). QA Engine is no longer the active following execution candidate. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged and was not promoted by this or any act.
+
+**Next governed gap (CR-CPS-21, Project Owner Sequencing Decision):** `Human Review Gate` (`approved → sent`) — explicitly selected by the Project Owner from the six open Scope B candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, Learning Engine) after the Post-QA Next Governed Gap Determination gate found none of the six source-established as NEXT. See Section G for the full record. CV/A0/Coach, Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, and Learning Engine remain NOT ESTABLISHED in sequence — not selected, not promoted, not demoted; each remains exactly as classified before this decision.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -735,7 +770,10 @@ ECOSYSTEM
     ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
     │   ├── ◐ Human Review Gate — PARTIAL (CR-CPS-07): draft→in_review→
     │   │      approved/rejected implemented, UI-wired; sent unwired,
-    │   │      confirmed non-load-bearing
+    │   │      confirmed non-load-bearing for GWP re-entry (§49) ·
+    │   │      NEXT GOVERNED GAP (CR-CPS-21, Project Owner Sequencing
+    │   │      Decision) · next act: Non-Actionable Status
+    │   │      Reconciliation, not yet Materialization
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
