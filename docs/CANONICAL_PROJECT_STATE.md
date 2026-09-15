@@ -618,8 +618,10 @@ ECOSYSTEM
     │   │      IMPLEMENTED · CLOSED (commit 3782fa2)
     │   ├── ✓ MTCS-08 — Generated Work Product Re-entry
     │   │      Design MR: PASS · Targeted MR (TC-01/TC-02): PASS ·
-    │   │      Implementation MR: PASS (28/28 AC, 7/7 DB matrix, live
-    │   │      TEST-verified) · IMPLEMENTED · CLOSED (commit 6aff08d)
+    │   │      Implementation MR: PASS — 28/28 AC (mixed live-TEST /
+    │   │      structural-DB / code-inspection provenance); same-case
+    │   │      DB matrix T01–T07: 7/7 PASS live in AUSCIS-TEST ·
+    │   │      IMPLEMENTED · CLOSED (commit 6aff08d)
     │   └── → POST-MTCS-08 HOLD · next MTCS NOT ESTABLISHED
     │
     ├── ⚠ AKAE→AUSCIS runtime slice
