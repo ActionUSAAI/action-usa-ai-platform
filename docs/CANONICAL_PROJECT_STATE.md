@@ -25,6 +25,7 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        MTCS-08 Final Exact Design — PASS (CR-CPS-10)
                        MTCS-08 Final Exact Design — Targeted MR
                         Correction (CR-CPS-11)
+                       MTCS-08 Implementation + Closure (CR-CPS-12)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -164,15 +165,18 @@ MTCS-04 — Producer + Human Verification          CLOSED
 MTCS-05 — Entry Wiring                           CLOSED
 MTCS-06 — A1/A5 Historical Reliance              CLOSED
 MTCS-07 — signed-URL hardening                   CLOSED
+MTCS-08 — Generated Work Product Re-entry        CLOSED
 
 CURRENT EXECUTION POSITION:
-POST-MTCS-07 HOLD
+POST-MTCS-08 HOLD
 
 NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
-Generated Work Product Re-entry
+Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
 FOLLOWING EXECUTION CANDIDATE:
-QA Engine
+QA Engine — remains a candidate only. Closure of MTCS-08 does not
+itself promote QA Engine to NEXT EXECUTION GAP or assign it an MTCS
+number; that requires its own governed sequencing/materialization act.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -183,21 +187,24 @@ NEXT EXECUTION GAP ≠ NEXT MTCS. No MTCS number is assigned by this
 statement.
 
 NEXT MTCS:
-NOT ESTABLISHED
+NOT ESTABLISHED unless separately governed
 
-MTCS-08 (CR-CPS-11, Final Exact Design — TARGETED MR CORRECTION INCORPORATED):
+MTCS-08 (CR-CPS-12, Closure — PASS):
 NAME: Generated Work Product Re-entry
-STATE: FINAL EXACT DESIGN APPROVED / FROZEN
+STATE: CLOSED
 Final Exact Design: docs/MTCS-08_FINAL_EXACT_DESIGN.md
-  (SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd)
-Prior SHA256 (superseded, CR-CPS-10): 4e755e8b412119f0749215c759732eece948bebec0cb5a790cb3aecb4b078b46
-Design freeze commit: 384bd0e; targeted correction commit: 76206e7
+IMPLEMENTATION-ENTRY GOVERNING SHA256 (what implementation was verified
+  against and executed to): ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd
+CURRENT CORRECTED FINAL DESIGN SHA256 (same frozen design semantics,
+  factual RLS statement corrected during implementation's repository
+  reality check — not a new design, not a reopening):
+  7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01
+Design freeze commit: 384bd0e; targeted correction commit: 76206e7;
+  implementation commit: 6aff08d
 Targeted MR: PASS — TC-01 (same-case DB invariant, now enforced via
   trg_documents_gwp_same_case, not application-only), TC-02 (storage
   bucket reconciled against MTCS-02A's own CD-13 — intake-documents
   confirmed correct, case-documents' provisioning remains unconfirmed).
-Design review: 0 architectural conflicts, 28/28 acceptance criteria
-  PASS-DESIGN, all governing/closed-MTCS sources COMPATIBLE.
 BOUNDARY: registers a returned signed/modified/completed/transformed
   A3 Generated Work Product as a new canonical Case Document
   (reusing MTCS-02A registerCanonicalDocument), preserving provenance
@@ -210,8 +217,21 @@ OUT OF SCOPE: dispatch mechanics/provenance, `sent` status,
   external-actor portal access, new authorization architecture, new
   storage bucket, automatic A1/A5/Blueprint triggering.
 FINAL EXACT DESIGN: APPROVED / FROZEN
-IMPLEMENTATION: NOT AUTHORIZED — a separate governed act must
-  authorize implementation against the frozen design.
+IMPLEMENTATION: IMPLEMENTED — Implementation MR: PASS
+  Acceptance criteria: 28/28 PASS (mixed live-TEST / structural-DB /
+  code-inspection provenance, per implementation report)
+  Same-case DB matrix (T01–T07): 7/7 PASS, executed live against
+  AUSCIS-TEST (utpsqevarnxscdqzywkk) via supabase/tests/mtcs08-validate.ts
+  Security review: PASS
+  Material deviations: 0. Architectural conflicts: 0.
+RLS CORRECTION (CR-CPS-12, Class A): public.documents carries three
+  pre-existing policies from schema.sql, missed by the design's
+  migrations/*.sql-only grep; no MTCS-08 RLS delta created, modified,
+  or removed; every write already uses a service-role client bypassing
+  RLS, consistent with all existing precedent. Design semantics
+  unaffected; no redesign required.
+PRODUCTION: UNTOUCHED throughout design, implementation, and closure.
+Remaining gap within MTCS-08 scope: NONE.
 
 MTCS-06 — "A1/A5 Historical Reliance"
   (verbatim, migration 024_evidence_items.sql:9)
@@ -479,7 +499,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49) | None — remaining `sent` gap not currently actionable | NOT YET DETERMINABLE |
-| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | GAP | NOT INTEGRATED | KEEP | **MTCS-08 — FINAL EXACT DESIGN APPROVED / FROZEN, targeted MR correction incorporated (CR-CPS-11)** | Not implemented; lineage = nullable documents.originating_recommendation_letter_id FK (L-01) + trg_documents_gwp_same_case DB-level same-case enforcement | MTCS-08 Implementation Authorization / Execution Gate (not yet authorized) | NO |
+| Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Cross-document consistency check | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **Scope B — FOLLOWING EXECUTION CANDIDATE, after GWP Re-entry (CR-CPS-08, JSR-B)**; historical A5→QA priority preserved | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -498,15 +518,15 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 **SCOPE A — CURRENT MCS**
 ```
 CLOSED:  MTCS-01, MTCS-02, MTCS-02A, MTCS-02B, MTCS-03, MTCS-04, MTCS-05,
-         MTCS-06 — A1/A5 Historical Reliance, MTCS-07 — signed-URL hardening
-CURRENT POINT: POST-MTCS-07 HOLD
+         MTCS-06 — A1/A5 Historical Reliance, MTCS-07 — signed-URL hardening,
+         MTCS-08 — Generated Work Product Re-entry
+CURRENT POINT: POST-MTCS-08 HOLD
 NEXT:    NOT ESTABLISHED — no authoritative source names a next MTCS
 ```
 
 **SCOPE B — LATER CANONICAL AUSCIS PRODUCT SCOPE**
 ```
 Human Review Gate
-Generated Work Product re-entry
 CV / A0 / Structured Profile / Prefill / Coach
 Organization / Multi-Tenant
 QA Engine
@@ -514,9 +534,9 @@ Market Intelligence Engine
 RFE Prediction Engine
 Learning Engine
 ```
-*A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved.
+*A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Current prospective execution sequence within Scope B (CR-CPS-08, Joint Sequencing Resolution JSR-B):** `Generated Work Product re-entry → QA Engine`, under P-07 (Execution to Completion) — GWP re-entry closes an already-active operational loop (Evidence Item Contract V2 §46-49) on substrate MTCS-01–05 already closed, at zero frozen-dependency or closed-MTCS conflict either direction. This is a bounded addition to the recovered list above, not a re-ranking of it: the historical `QA → Market Intelligence → RFE Prediction → Learning` order is preserved unchanged, and unrelated candidates (CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` remains the following execution candidate under P-07 (Execution to Completion). Its promotion to NEXT EXECUTION GAP or materialization into a numbered MTCS is NOT ESTABLISHED by this closure act and requires its own governed sequencing/materialization act. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -596,7 +616,11 @@ ECOSYSTEM
     │   │      Design MR: PASS · Implementation MR: PASS
     │   │      ID-07-01: Class B compatibility deviation, RECONCILED
     │   │      IMPLEMENTED · CLOSED (commit 3782fa2)
-    │   └── → POST-MTCS-07 HOLD · next MTCS NOT ESTABLISHED
+    │   ├── ✓ MTCS-08 — Generated Work Product Re-entry
+    │   │      Design MR: PASS · Targeted MR (TC-01/TC-02): PASS ·
+    │   │      Implementation MR: PASS (28/28 AC, 7/7 DB matrix, live
+    │   │      TEST-verified) · IMPLEMENTED · CLOSED (commit 6aff08d)
+    │   └── → POST-MTCS-08 HOLD · next MTCS NOT ESTABLISHED
     │
     ├── ⚠ AKAE→AUSCIS runtime slice
     │   KR-03="AILA"
@@ -606,20 +630,16 @@ ECOSYSTEM
     │   ├── ◐ Human Review Gate — PARTIAL (CR-CPS-07): draft→in_review→
     │   │      approved/rejected implemented, UI-wired; sent unwired,
     │   │      confirmed non-load-bearing
-    │   ├── ◐ Generated Work Product re-entry — GAP (impl.);
-    │   │      → MTCS-08 FINAL EXACT DESIGN APPROVED / FROZEN,
-    │   │      targeted MR correction incorporated (CR-CPS-11) —
-    │   │      Implementation NOT AUTHORIZED
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ○ QA Engine — → FOLLOWING EXECUTION CANDIDATE (CR-CPS-08,
-    │   │      JSR-B); historical A5→QA priority preserved
+    │   │      JSR-B, fulfilled by MTCS-08 closure); historical A5→QA
+    │   │      priority preserved; not yet promoted or materialized
     │   ├── ○ Market Intelligence Engine
     │   ├── ○ RFE Prediction Engine
     │   └── ○ Learning Engine
-    │   → Current prospective sequence: GWP re-entry → QA Engine.
-    │        MTCS-08 = GWP Re-entry, FINAL EXACT DESIGN APPROVED /
-    │        FROZEN. Implementation NOT AUTHORIZED.
+    │   → Generated Work Product re-entry graduated to Scope A as
+    │        MTCS-08 (CLOSED) — no longer listed here.
     │
     └── POST-COMPLETION / UNAPPROVED
         └── △ Agentic RAG exact mechanism
