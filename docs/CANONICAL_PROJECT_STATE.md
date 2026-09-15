@@ -28,6 +28,7 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        MTCS-08 Implementation + Closure (CR-CPS-12)
                        QA Engine — MCS Materialization / Design-Entry
                         (CR-CPS-13)
+                       QA Engine — Final Exact Design (CR-CPS-14)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -176,8 +177,15 @@ NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
 Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
 FOLLOWING EXECUTION CANDIDATE:
-QA Engine — MATERIALIZED (CR-CPS-13), DESIGN ENTRY AUTHORIZED,
-UNNUMBERED. Number assignment requires its own explicit, act-specific
+QA Engine — FINAL EXACT DESIGN APPROVED / FROZEN (CR-CPS-14),
+UNNUMBERED. Final Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md
+(SHA256 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df).
+Bounded MVP (criterion documentary coverage + Blueprint currency
+precondition) resolved fully deterministically from existing
+case_strategy/agent_intake_analysis/agent_recommendation_letters/
+agent_petition_drafts substrate — no new tables required beyond one
+additive qa_runs table; 0 architectural conflicts. Implementation NOT
+AUTHORIZED. Number assignment requires its own explicit, act-specific
 Project Owner grant, per MTCS-06/07/08 precedent (no standing rule of
 automatic sequential assignment upon materialization exists). Not yet
 promoted to NEXT EXECUTION GAP.
@@ -506,7 +514,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
-| QA Engine | AUSCIS | Blueprint-fidelity verification of Generated Documents (MVP: criterion documentary coverage) | AUCIS_PLATFORM_ARCHITECTURE.md (FROZEN); blueprint-contract.md (FROZEN, level 4); AUCIS_CRITERION_ASSESSMENT_CONTRACT_V1.md (FROZEN); AUCIS_IMPLEMENTATION_ROADMAP_PHASE_2.md (FROZEN — bounded MVP + explicit scope-creep guard); AUCIS_DOMAIN_INTERACTION_ARCHITECTURE.md (FROZEN); AUCIS_V2_STRATEGY_LAYER.md (CURRENT DESIGN — broader future scope only) | FROZEN (MVP boundary) / CURRENT DESIGN (broader six-check vision) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **MATERIALIZED (CR-CPS-13) — DESIGN ENTRY AUTHORIZED, UNNUMBERED**; historical A5→QA priority preserved | Zero runtime; extensive reusable substrate (Blueprint, Criterion Assessment, Generated Documents all closed/stable) | QA Engine — Final Exact Design | NO |
+| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df) | FROZEN | FROZEN | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED (CR-CPS-14)**; historical A5→QA priority preserved | Zero runtime; deterministic MVP fully resolvable from existing case_strategy/agent_intake_analysis/agent_recommendation_letters/agent_petition_drafts substrate — no new dependency on A1–A8, Evidence, or MTCS-08 | QA Engine — Implementation Authorization / Execution Gate (not yet authorized) | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | RFE Prediction Engine | AUSCIS | Predictive RFE analysis | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Learning Engine | AUSCIS | Tenant/Global/Governed-Knowledge learning | AUCIS_V2_STRATEGY_LAYER.md + Blueprint Contract consumer table | CURRENT DESIGN + FROZEN (consumer reference) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -540,7 +548,7 @@ Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — MATERIALIZED, DESIGN ENTRY AUTHORIZED, UNNUMBERED (CR-CPS-13). Source recovery for this materialization act found five additional FROZEN sources beyond `AUCIS_V2_STRATEGY_LAYER.md` (see §P row), converging on a narrow, bounded MVP: Blueprint-fidelity verification of Generated Documents, scoped at FROZEN authority to criterion documentary coverage (`AUCIS_IMPLEMENTATION_ROADMAP_PHASE_2.md`, with an explicit Project-Owner scope-creep guard against the broader six-check vision). Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED — number assignment requires its own explicit, act-specific Project Owner grant per MTCS-06/07/08 precedent. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — FINAL EXACT DESIGN APPROVED / FROZEN, UNNUMBERED (CR-CPS-14). Design MR: 30/30 PASS, 0 architectural conflicts. Bounded MVP narrowed during Final Exact Design (from materialization's 3-item candidate list to 2): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns) + Blueprint currency precondition (a single read of `case_strategy.currency_status`, already correctly maintained by migration 023's invariant — no new comparison logic required). General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED, per the Frozen Roadmap's own scope-creep guard. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -638,9 +646,10 @@ ECOSYSTEM
     │   │      confirmed non-load-bearing
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
-    │   ├── ◐ QA Engine — MATERIALIZED / DESIGN ENTRY AUTHORIZED,
-    │   │      UNNUMBERED (CR-CPS-13); historical A5→QA priority
-    │   │      preserved; number assignment NOT ESTABLISHED
+    │   ├── ◐ QA Engine — FINAL EXACT DESIGN APPROVED / FROZEN,
+    │   │      UNNUMBERED (CR-CPS-14); Design MR 30/30 PASS; historical
+    │   │      A5→QA priority preserved; number assignment NOT
+    │   │      ESTABLISHED; Implementation NOT AUTHORIZED
     │   ├── ○ Market Intelligence Engine
     │   ├── ○ RFE Prediction Engine
     │   └── ○ Learning Engine
