@@ -13,6 +13,7 @@ import type { DocTranslation } from "./document-translation-section";
 import { DocumentsPanel } from "./documents-panel";
 import { DocumentGenerationSection } from "./document-generation-section";
 import type { RecommendationLetter, PetitionDraft, I129Draft } from "./document-generation-section";
+import { QaPanel } from "./qa-panel";
 import { BlueprintLifecycleSection } from "./blueprint-lifecycle-section";
 import type { CaseStrategy } from "./blueprint-lifecycle-section";
 import { extractTranslatableFiles } from "./extract-files";
@@ -273,6 +274,9 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             initialI129Drafts={(i129Drafts ?? []) as I129Draft[]}
             userRole={userRole}
           />
+
+          {/* ── QA Engine (bounded MVP) ── */}
+          <QaPanel caseId={params.id} userRole={userRole} />
 
           {/* Notas */}
           <div className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
