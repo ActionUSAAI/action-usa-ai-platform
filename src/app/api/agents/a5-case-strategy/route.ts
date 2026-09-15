@@ -47,10 +47,36 @@ interface ReasoningProvenance {
   reference_id: string | null;
 }
 
+// MTCS-06.3 Reliance Input Snapshot Moment (Part VI) — A5's own,
+// independent Evidence + Document read, same pattern as A1's
+// (a1-intake-analyzer/route.ts), never derived from A1's set.
+interface EvidenceSnapshotItem {
+  evidence_item_id: string;
+  probative_revision_at_reliance: number;
+  fact_at_reliance: string;
+  documentary_condition_at_reliance: string;
+  verification_condition_at_reliance: string;
+  document_ids_at_reliance: string[];
+}
+
+// Historical Reliance pointer attached to a Blueprint evidence
+// reference — same five fields as EvidenceSnapshotItem, app-validated
+// (Part IX: A5 -> Evidence is APP-VALIDATED, not DB-authoritative)
+// against this Case's own Reliance Input Snapshot before being trusted.
+type RelianceRecord = EvidenceSnapshotItem;
+
 interface FoundationalEvidenceItem {
   evidence_item_id: string | null;
   description: string;
   why_foundational: string;
+  // MTCS-06.3 (Part X, foundational_evidence amendment) — present only
+  // when evidence_item_id resolves to a same-case entry in this A5 run's
+  // Reliance Input Snapshot; absent for the description-only fallback.
+  probative_revision_at_reliance?: number;
+  fact_at_reliance?: string;
+  documentary_condition_at_reliance?: string;
+  verification_condition_at_reliance?: string;
+  document_ids_at_reliance?: string[];
 }
 
 interface CrossReference {
@@ -67,6 +93,14 @@ interface A5Response {
   corroborative_criteria: string[];
   foundational_evidence: FoundationalEvidenceItem[];
   evidence_dependencies: Record<string, string[]>;
+  // MTCS-06.3 — index-aligned with evidence_dependencies[criterion_key]:
+  // entry i is the evidence_item_id backing evidence_dependencies[key][i],
+  // or null when that entry is free narrative text with no specific typed
+  // Evidence composition identified. Never changes evidence_dependencies'
+  // own string shape (see migration 030 — four live consumers depend on
+  // it remaining string[]). Optional: absent entirely on older/adapted
+  // callers, treated the same as an all-null array.
+  evidence_dependencies_evidence_item_ids?: Record<string, (string | null)[]>;
   evidence_priority: Record<string, string[]> | null;
   argument_sequence: string[];
   cross_references: CrossReference[];
@@ -103,8 +137,8 @@ Con eso, construye:
 2. **Primary Narrative** — la historia principal que conecta los criterios dominantes entre sí, no como compartimentos aislados. Mismo criterio que Theory of the Case: OBLIGATORIO SIN EXCEPCIÓN — si no hay criterios dominantes confirmados todavía, describe la narrativa de desarrollo probatorio (qué historia podría construirse y qué falta para sostenerla), nunca lo dejes null.
 3. **Secondary Narrative** — hilos de apoyo, si existen (puede ser null si no aplica).
 4. **Dominant / Supporting / Corroborative Criteria** — clasifica cada criterio activo en una de estas tres categorías, según su función real dentro del caso.
-5. **Foundational Evidence** — la pieza (o pocas piezas) de evidencia sobre la que descansa la teoría completa del caso. Cada elemento: description (texto), why_foundational (por qué ancla la teoría). evidence_item_id siempre null hoy (no existe esa entidad todavía).
-6. **Evidence Dependencies** — para cada criterio, qué evidencia específica mejor lo respalda. Sé específico, cita los hechos reales que recibiste.
+5. **Foundational Evidence** — la pieza (o pocas piezas) de evidencia sobre la que descansa la teoría completa del caso. Cada elemento: description (texto), why_foundational (por qué ancla la teoría). Si recibiste, en la sección "EVIDENCIA TIPIFICADA REGISTRADA" del mensaje del usuario, un elemento de esa lista que corresponde exactamente a esta pieza fundacional, usa su evidence_item_id exacto (cópialo tal cual, nunca lo inventes ni lo adivines); si no hay una correspondencia exacta y clara, deja evidence_item_id en null y usa solo description.
+6. **Evidence Dependencies** — para cada criterio, qué evidencia específica mejor lo respalda. Sé específico, cita los hechos reales que recibiste. Adicionalmente, en evidence_dependencies_evidence_item_ids, para cada criterio, un array del MISMO largo y EN EL MISMO ORDEN que evidence_dependencies[ese criterio]: en la posición i, el evidence_item_id exacto (de "EVIDENCIA TIPIFICADA REGISTRADA") si esa entrada i corresponde exactamente a una pieza de esa lista, o null si no hay correspondencia exacta. Nunca inventes un evidence_item_id.
 7. **Evidence Priority** (opcional) — solo si hay más de una evidencia por criterio y su orden de importancia es relevante. Map criterion_key → array ordenado. Si no aplica, omite el campo o usa null.
 8. **Argument Sequence** — secuencia lógica de argumentos, en el orden en que deberían razonarse. NUNCA capítulos de documento ni estructura de Attorney Letter — eso lo decide A4, no tú.
 9. **Cross-References Between Criteria** — array de objetos {criteria: [key, key], connection: string} — conexiones narrativas explícitas entre criterios.
@@ -134,8 +168,9 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
   "dominant_criteria": ["criterion_key", ...],
   "supporting_criteria": ["criterion_key", ...],
   "corroborative_criteria": ["criterion_key", ...],
-  "foundational_evidence": [{ "evidence_item_id": null, "description": "string", "why_foundational": "string" }],
+  "foundational_evidence": [{ "evidence_item_id": "uuid exacto de EVIDENCIA TIPIFICADA REGISTRADA, o null si no hay correspondencia exacta", "description": "string", "why_foundational": "string" }],
   "evidence_dependencies": { "criterion_key": ["evidencia específica 1", "evidencia específica 2"] },
+  "evidence_dependencies_evidence_item_ids": { "criterion_key": ["uuid exacto o null, misma posición que evidence_dependencies[criterion_key]", "..."] },
   "evidence_priority": { "criterion_key": ["evidencia más fuerte primero", "..."] } o null,
   "argument_sequence": ["string", ...],
   "cross_references": [{ "criteria": ["key1", "key2"], "connection": "string" }],
@@ -165,13 +200,42 @@ Responde ÚNICAMENTE con este JSON, sin texto adicional ni markdown:
 // esa validación. Fix propuesto, no implementado: pasar
 // visaType/classification a buildUserPrompt, similar a como ya lo
 // hace a1-intake-analyzer/route.ts.
+const DOCUMENTARY_CONDITION_LABEL: Record<string, string> = {
+  reported: "Reportado", partial: "Parcialmente documentado", documented: "Documentado",
+};
+const VERIFICATION_CONDITION_LABEL: Record<string, string> = {
+  pending: "Pendiente", verified: "Verificado", needs_attention: "Requiere atención",
+};
+
+// Unlike A1's equivalent (which never asks Claude to select specific
+// entries — every CURRENT composition simply is A1's reliance set), A5
+// prints each evidence_item_id explicitly so Claude can copy an exact ID
+// when a foundational_evidence/evidence_dependencies entry corresponds to
+// one of these typed compositions (surfaced as context only — DD-06-01/
+// DD-06-02, never a gate; no A5 reasoning/threshold change).
+function formatEvidenceSnapshotForPrompt(snapshot: EvidenceSnapshotItem[]): string {
+  const lines: string[] = ["\n=== EVIDENCIA TIPIFICADA REGISTRADA (Evidence V2) ==="];
+  if (snapshot.length === 0) {
+    lines.push("Sin evidencia tipificada registrada para este caso.");
+  } else {
+    lines.push("Si una pieza de foundational_evidence o evidence_dependencies corresponde exactamente a una de estas entradas, usa su evidence_item_id tal cual aparece abajo. Nunca inventes un evidence_item_id que no esté en esta lista.");
+    snapshot.forEach(e => {
+      lines.push(`- evidence_item_id: ${e.evidence_item_id}`);
+      lines.push(`  Hecho: ${e.fact_at_reliance}`);
+      lines.push(`  Estado documental: ${DOCUMENTARY_CONDITION_LABEL[e.documentary_condition_at_reliance] ?? e.documentary_condition_at_reliance} | Estado de verificación: ${VERIFICATION_CONDITION_LABEL[e.verification_condition_at_reliance] ?? e.verification_condition_at_reliance}`);
+    });
+  }
+  return lines.join("\n");
+}
+
 function buildUserPrompt(
   criteriaMet: Record<string, boolean>,
   criteriaScores: Record<string, number>,
   criteriaGaps: Record<string, string | null>,
   m9: Record<string, unknown>,
   m10: Record<string, unknown>,
-  classification: string
+  classification: string,
+  evidenceSnapshot: EvidenceSnapshotItem[]
 ): string {
   const lines: string[] = [];
   lines.push(`CLASIFICACIÓN JURÍDICA VIGENTE DEL CASO (Case.active_legal_petition): ${classification}`);
@@ -193,6 +257,7 @@ function buildUserPrompt(
   }
   lines.push("");
   lines.push(formatEvidenceForPrompt(m9, m10));
+  lines.push(formatEvidenceSnapshotForPrompt(evidenceSnapshot));
   return lines.join("\n");
 }
 
@@ -336,9 +401,87 @@ export async function POST(request: NextRequest) {
     }
     const { classification: classificationForA5 } = resolveCriteriaSet(caseRowForA5.active_legal_petition);
 
+    // ── MTCS-06.3: Evidence + Document read at the Reliance Input Snapshot
+    // Moment (Part VI) — A5's own, independent capture, not derived from
+    // A1's set (Part XVI). Every CURRENT Evidence composition for this Case
+    // is read here, once, regardless of Documentary/Verification Condition
+    // (DD-06-01/DD-06-02 — surfaced as context, never a gate). Threaded
+    // through the Claude call unchanged; never re-queried at persistence
+    // time (Part VII Race-Integrity Rule).
+    const { data: currentEvidenceForA5, error: evidenceErrForA5 } = await db
+      .from("evidence_items")
+      .select("id, fact, version, documentary_condition, verification_condition")
+      .eq("case_id", case_id)
+      .eq("currency_status", "current");
+    if (evidenceErrForA5) throw new Error(`Error fetching evidence: ${evidenceErrForA5.message}`);
+
+    const evidenceIdsForA5 = (currentEvidenceForA5 ?? []).map(e => e.id as string);
+    const evidenceDocumentIdsForA5 = new Map<string, string[]>();
+    if (evidenceIdsForA5.length > 0) {
+      const { data: assocForA5, error: assocErrForA5 } = await db
+        .from("evidence_item_documents")
+        .select("evidence_item_id, document_id")
+        .in("evidence_item_id", evidenceIdsForA5);
+      if (assocErrForA5) throw new Error(`Error fetching evidence documents: ${assocErrForA5.message}`);
+      for (const row of assocForA5 ?? []) {
+        const key = row.evidence_item_id as string;
+        const arr = evidenceDocumentIdsForA5.get(key) ?? [];
+        arr.push(row.document_id as string);
+        evidenceDocumentIdsForA5.set(key, arr);
+      }
+    }
+
+    const evidenceSnapshot: EvidenceSnapshotItem[] = (currentEvidenceForA5 ?? []).map(e => ({
+      evidence_item_id: e.id as string,
+      probative_revision_at_reliance: e.version as number,
+      fact_at_reliance: e.fact as string,
+      documentary_condition_at_reliance: e.documentary_condition as string,
+      verification_condition_at_reliance: e.verification_condition as string,
+      document_ids_at_reliance: evidenceDocumentIdsForA5.get(e.id as string) ?? [],
+    }));
+    const evidenceSnapshotById = new Map(evidenceSnapshot.map(e => [e.evidence_item_id, e]));
+
+    // Part IX: A5 -> Evidence is APP-VALIDATED, not DB-authoritative — an
+    // evidence_item_id Claude returns is only trusted if it resolves to a
+    // same-case entry in this run's own Reliance Input Snapshot above.
+    // Anything else (hallucinated, stale, or cross-case) is silently
+    // dropped back to the description-only fallback (AC-05/AC-22).
+    const resolveReliance = (evidenceItemId: string | null | undefined): RelianceRecord | null =>
+      evidenceItemId ? evidenceSnapshotById.get(evidenceItemId) ?? null : null;
+
     const systemPrompt = buildSystemPrompt();
-    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, sourceAssessment.criteria_gaps ?? {}, m9, m10, classificationForA5);
+    const userPrompt = buildUserPrompt(criteria_met, criteria_scores, sourceAssessment.criteria_gaps ?? {}, m9, m10, classificationForA5, evidenceSnapshot);
     result = await callClaude(userPrompt, systemPrompt);
+
+    // ── MTCS-06.3: attach Historical Reliance to Blueprint evidence
+    // references, using exactly the values captured above — never
+    // re-derived (Part VII). foundational_evidence keeps its existing
+    // shape (additive optional fields, Part X); evidence_dependencies
+    // itself is left untouched (four live consumers depend on it staying
+    // string[] — migration 030) and gets a sibling, index-aligned
+    // evidence_dependencies_reliance map instead.
+    const foundationalEvidenceWithReliance: FoundationalEvidenceItem[] = (result.foundational_evidence ?? []).map(
+      (item: FoundationalEvidenceItem) => {
+        const reliance = resolveReliance(item.evidence_item_id);
+        if (!reliance) return { ...item, evidence_item_id: null };
+        return {
+          ...item,
+          evidence_item_id: reliance.evidence_item_id,
+          probative_revision_at_reliance: reliance.probative_revision_at_reliance,
+          fact_at_reliance: reliance.fact_at_reliance,
+          documentary_condition_at_reliance: reliance.documentary_condition_at_reliance,
+          verification_condition_at_reliance: reliance.verification_condition_at_reliance,
+          document_ids_at_reliance: reliance.document_ids_at_reliance,
+        };
+      }
+    );
+
+    const evidenceDependenciesReliance: Record<string, (RelianceRecord | null)[]> = {};
+    const dependencyEvidenceItemIds = result.evidence_dependencies_evidence_item_ids ?? {};
+    for (const [criterionKey, items] of Object.entries(result.evidence_dependencies ?? {}) as [string, string[]][]) {
+      const ids: (string | null)[] = dependencyEvidenceItemIds[criterionKey] ?? [];
+      evidenceDependenciesReliance[criterionKey] = items.map((_, idx) => resolveReliance(ids[idx]));
+    }
 
     // ── Determine current version chain for this case ──────────────────────
     // status (proposed/edited/approved/locked/superseded) es la dimensión
@@ -371,8 +514,9 @@ export async function POST(request: NextRequest) {
         dominant_criteria: result.dominant_criteria,
         supporting_criteria: result.supporting_criteria,
         corroborative_criteria: result.corroborative_criteria,
-        foundational_evidence: result.foundational_evidence,
+        foundational_evidence: foundationalEvidenceWithReliance,
         evidence_dependencies: result.evidence_dependencies,
+        evidence_dependencies_reliance: evidenceDependenciesReliance,
         evidence_priority: result.evidence_priority,
         argument_sequence: result.argument_sequence,
         criteria_cross_references: result.cross_references,
@@ -467,6 +611,39 @@ export async function PATCH(request: NextRequest) {
   const { strategy_id, updates, approve } = body;
   if (!strategy_id) {
     return NextResponse.json({ error: "Missing required field: strategy_id" }, { status: 400 });
+  }
+
+  // ── MTCS-06.4: Narrow Historical Reliance Mutation Guard (Part XV) ─────
+  // foundational_evidence/evidence_dependencies/evidence_dependencies_reliance
+  // carry Historical Reliance provenance (fact_at_reliance,
+  // document_ids_at_reliance, etc.) that Part XIV requires stay immutable
+  // once persisted. Checked against the raw parsed body, not just the TS
+  // type above — request.json() is not runtime-validated, so a caller could
+  // still pass evidence_dependencies_reliance even though the type omits
+  // it. No general Blueprint lock-enforcement change — only these three
+  // fields are guarded here.
+  const RELIANCE_GUARDED_FIELDS = ["foundational_evidence", "evidence_dependencies", "evidence_dependencies_reliance"] as const;
+  const touchesGuardedField = !!updates && RELIANCE_GUARDED_FIELDS.some(f => f in (updates as Record<string, unknown>));
+  if (touchesGuardedField) {
+    const { data: currentStrategy, error: statusErr } = await db
+      .from("case_strategy")
+      .select("status")
+      .eq("id", strategy_id)
+      .maybeSingle();
+    if (statusErr) {
+      return NextResponse.json({ error: `Error fetching case_strategy status: ${statusErr.message}` }, { status: 500 });
+    }
+    if (!currentStrategy) {
+      return NextResponse.json({ error: "case_strategy not found for strategy_id" }, { status: 404 });
+    }
+    if (currentStrategy.status !== "proposed" && currentStrategy.status !== "edited") {
+      return NextResponse.json(
+        {
+          error: `Historical Reliance fields (foundational_evidence/evidence_dependencies/evidence_dependencies_reliance) cannot be modified once the Blueprint has left proposed/edited status (current status='${currentStrategy.status}').`,
+        },
+        { status: 409 }
+      );
+    }
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any

@@ -88,8 +88,46 @@ ${gapsSchema}
 
 // ── Prompt builder ───────────────────────────────────────────────────────────
 
+// MTCS-06 Reliance Input Snapshot Moment (Part VI) — captured once by the
+// route handler from evidence_items/evidence_item_documents, before the
+// Claude call, and threaded through unchanged. Never re-derived at
+// persistence time (Part VII Race-Integrity Rule).
+interface EvidenceSnapshotItem {
+  evidence_item_id: string;
+  probative_revision_at_reliance: number;
+  fact_at_reliance: string;
+  documentary_condition_at_reliance: string;
+  verification_condition_at_reliance: string;
+  document_ids_at_reliance: string[];
+}
+
+const DOCUMENTARY_CONDITION_LABEL: Record<string, string> = {
+  reported: "Reportado", partial: "Parcialmente documentado", documented: "Documentado",
+};
+const VERIFICATION_CONDITION_LABEL: Record<string, string> = {
+  pending: "Pendiente", verified: "Verificado", needs_attention: "Requiere atención",
+};
+
+// Surfaced as context only — never a gate on criteria eligibility or scoring
+// (Part III Governing Principles, DD-06-01/DD-06-02). No A1 scoring/threshold
+// change: this section is purely additive informational context for Claude.
+function formatEvidenceSnapshotForPrompt(snapshot: EvidenceSnapshotItem[]): string {
+  const lines: string[] = ["\n=== EVIDENCIA TIPIFICADA REGISTRADA (Evidence V2) ==="];
+  if (snapshot.length === 0) {
+    lines.push("Sin evidencia tipificada registrada para este caso.");
+  } else {
+    snapshot.forEach(e => {
+      lines.push(`- Hecho: ${e.fact_at_reliance}`);
+      lines.push(`  Estado documental: ${DOCUMENTARY_CONDITION_LABEL[e.documentary_condition_at_reliance] ?? e.documentary_condition_at_reliance} | Estado de verificación: ${VERIFICATION_CONDITION_LABEL[e.verification_condition_at_reliance] ?? e.verification_condition_at_reliance}`);
+      lines.push(`  Documentos de soporte adjuntos: ${e.document_ids_at_reliance.length}`);
+    });
+    lines.push("\nEsta evidencia se presenta como contexto adicional; no condiciona ni reemplaza la evaluación de los módulos de intake anteriores.");
+  }
+  return lines.join("\n");
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function buildUserPrompt(sub: Record<string, any>): string {
+function buildUserPrompt(sub: Record<string, any>, evidenceSnapshot: EvidenceSnapshotItem[]): string {
   const m1  = sub.module1  ?? {};
   const m5  = sub.module5  ?? {};
   const m6  = sub.module6  ?? {};
@@ -163,6 +201,7 @@ function buildUserPrompt(sub: Record<string, any>): string {
   }
 
   lines.push(formatEvidenceForPrompt(m9, m10));
+  lines.push(formatEvidenceSnapshotForPrompt(evidenceSnapshot));
 
   // ── Strategic self-assessment (Module 11)
   lines.push("\n=== AUTOEVALUACIÓN ESTRATÉGICA (MÓDULO 11) ===");
@@ -345,8 +384,49 @@ export async function POST(request: NextRequest) {
 
     const systemPrompt = buildSystemPrompt(classification, criteria, criticalRoleGovernedKnowledge);
 
+    // ── MTCS-06.1: Evidence + Document read at the Reliance Input Snapshot
+    // Moment (Part VI) ───────────────────────────────────────────────────
+    // Every CURRENT Evidence composition for this Case is read here, once,
+    // regardless of Documentary/Verification Condition (DD-06-01/DD-06-02 —
+    // surfaced as context, never a gate; no A1 scoring/threshold/criteria
+    // change). The captured values are threaded through the Claude call
+    // unchanged and are exactly what gets persisted as Historical Reliance
+    // in step 5 below — never re-queried at persistence time (Part VII
+    // Race-Integrity Rule).
+    const { data: currentEvidence, error: evidenceErr } = await db
+      .from("evidence_items")
+      .select("id, fact, version, documentary_condition, verification_condition")
+      .eq("case_id", case_id)
+      .eq("currency_status", "current");
+    if (evidenceErr) throw new Error(`Error fetching evidence: ${evidenceErr.message}`);
+
+    const evidenceIds = (currentEvidence ?? []).map(e => e.id as string);
+    const evidenceDocumentIds = new Map<string, string[]>();
+    if (evidenceIds.length > 0) {
+      const { data: assoc, error: assocErr } = await db
+        .from("evidence_item_documents")
+        .select("evidence_item_id, document_id")
+        .in("evidence_item_id", evidenceIds);
+      if (assocErr) throw new Error(`Error fetching evidence documents: ${assocErr.message}`);
+      for (const row of assoc ?? []) {
+        const key = row.evidence_item_id as string;
+        const arr = evidenceDocumentIds.get(key) ?? [];
+        arr.push(row.document_id as string);
+        evidenceDocumentIds.set(key, arr);
+      }
+    }
+
+    const evidenceSnapshot: EvidenceSnapshotItem[] = (currentEvidence ?? []).map(e => ({
+      evidence_item_id: e.id as string,
+      probative_revision_at_reliance: e.version as number,
+      fact_at_reliance: e.fact as string,
+      documentary_condition_at_reliance: e.documentary_condition as string,
+      verification_condition_at_reliance: e.verification_condition as string,
+      document_ids_at_reliance: evidenceDocumentIds.get(e.id as string) ?? [],
+    }));
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const userPrompt = buildUserPrompt(submission as Record<string, any>);
+    const userPrompt = buildUserPrompt(submission as Record<string, any>, evidenceSnapshot);
     const result = await callClaude(userPrompt, systemPrompt);
 
     // ── 4. Determine current version chain for this case ───────────────────
@@ -368,31 +448,31 @@ export async function POST(request: NextRequest) {
 
     const nextVersion = previousCurrent ? previousCurrent.version + 1 : 1;
 
-    // ── 5. Insert agent_intake_analysis ────────────────────────────────────
-    const { data: analysis, error: insertErr } = await db
-      .from("agent_intake_analysis")
-      .insert({
-        case_id,
-        submission_id: submission.id,
-        run_id: runId,
-        status: "completed",
-        currency_status: "current",
-        version: nextVersion,
-        recommended_visa_type: result.visa_recommendation,  // existing column name
-        classification_used: classification,
-        visa_confidence: result.visa_confidence,
-        overall_strength: result.overall_strength,
-        criteria_scores: result.criteria_scores,
-        criteria_met: result.criteria_met,
-        criteria_gaps: result.criteria_gaps,
-        strengths: result.strengths,
-        weaknesses: result.weaknesses,
-        strategy_notes: result.strategic_notes,             // existing column name
-        recommended_actions: result.recommended_actions,
-        raw_response: JSON.stringify(result),
-      })
-      .select("*")
-      .single();
+    // ── 5. Insert agent_intake_analysis + A1 Historical Reliance ────────────
+    // MTCS-06.2: one governed, transactional Postgres function (migration
+    // 029) performs the agent_intake_analysis insert together with the A1
+    // Historical Reliance + Historical Reliance Document rows, using exactly
+    // the values captured at the Reliance Input Snapshot Moment above —
+    // never re-derived. All-or-nothing (Part XIII Atomicity).
+    const { data: analysis, error: insertErr } = await db.rpc("create_a1_assessment_with_reliance", {
+      p_case_id: case_id,
+      p_submission_id: submission.id,
+      p_run_id: runId,
+      p_version: nextVersion,
+      p_recommended_visa_type: result.visa_recommendation,  // existing column name
+      p_classification_used: classification,
+      p_visa_confidence: result.visa_confidence,
+      p_overall_strength: result.overall_strength,
+      p_criteria_scores: result.criteria_scores,
+      p_criteria_met: result.criteria_met,
+      p_criteria_gaps: result.criteria_gaps,
+      p_strengths: result.strengths,
+      p_weaknesses: result.weaknesses,
+      p_strategy_notes: result.strategic_notes,             // existing column name
+      p_recommended_actions: result.recommended_actions,
+      p_raw_response: JSON.stringify(result),
+      p_reliance: evidenceSnapshot,
+    });
 
     if (insertErr || !analysis) {
       throw new Error(`Failed to save analysis: ${insertErr?.message}`);
