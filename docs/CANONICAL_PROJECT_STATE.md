@@ -155,25 +155,40 @@ MTCS-02B                                         CLOSED
 MTCS-03 — Evidence ↔ Document                    CLOSED
 MTCS-04 — Producer + Human Verification          CLOSED
 MTCS-05 — Entry Wiring                           CLOSED
+MTCS-06 — A1/A5 Historical Reliance              CLOSED
 
 CURRENT EXECUTION POSITION:
-PRE-MTCS-06 / CANONICAL PROJECT STATE CONSOLIDATION / HOLD
+POST-MTCS-06 / PRE-MTCS-07 HOLD
 
-NEXT IN EXISTING MCS:
 MTCS-06 — "A1/A5 Historical Reliance"
   (verbatim, migration 024_evidence_items.sql:9)
-  Current known purpose: preserve and materialize the exact Evidence
-  composition/version relied upon by the relevant reasoning/strategy
-  artifacts, to the extent already source-established.
+  Purpose: preserve and materialize the exact Evidence composition/
+  version relied upon by the relevant reasoning/strategy artifacts.
   Final Exact Design: docs/MTCS-06_FINAL_EXACT_DESIGN.md
   (SHA256 3fd7fb1a088db37e9d5f9fdc643de5554b6a342f175d26b25e073afef083eb2e)
+  — byte-identical, unmodified by implementation or closure.
   Design MR: PASS
-  STATUS: NEXT — ARCHITECTURAL STATE FROZEN — IMPLEMENTATION GAP / NOT
-  IMPLEMENTED — IMPLEMENTATION AUTHORIZATION NOT GRANTED
+  Implementation commit: 32b9b80311b9dd42464b3525ae330ecd1fa84d40
+  ("feat(mtcs-06): implement A1/A5 historical reliance")
+  Implementation MR (Implementation Deviation Reconciliation): PASS
+  Reconciled deviation: evidence_dependencies itself unchanged
+  (Record<criterion_key,string[]>, 4 live consumers preserved);
+  Historical Reliance for it carried by a new sibling field,
+  case_strategy.evidence_dependencies_reliance (migration 030) —
+  classification C (COMPATIBILITY-PRESERVING IMPLEMENTATION
+  DEVIATION), architectural equivalence PASS, not DD-06-08.
+  STATUS: ARCHITECTURAL STATE FROZEN — IMPLEMENTATION STATE
+  IMPLEMENTED — IMPLEMENTATION MR PASS — CANONICAL STATE CLOSED.
+  Remaining gap within MTCS-06 scope: NONE. (Broader A1/A5 gaps
+  outside this sourced scope are unaffected — see their own rows.)
 
+NEXT IN EXISTING MCS:
 MTCS-07 — "signed-URL hardening"
   (verbatim, migration 025_canonical_documents.sql:33)
-  STATUS: PENDING
+  STATUS: NEXT — ARCHITECTURAL STATE NOT YET DESIGNED — IMPLEMENTATION
+  STATE GAP / NOT IMPLEMENTED — IMPLEMENTATION AUTHORIZATION NOT
+  GRANTED. NEXT names sequence only; it does not authorize Exact
+  Design or implementation.
 ```
 
 **MTCS-06 SCOPE GUARD** (clarification of already-approved scope, not a new decision): MTCS-06 = A1/A5 Historical Reliance only. This Canonical Project State **may not be read as authorization** for: Agentic RAG · CV/A0 integration generally · Coach · Market Intelligence · Learning · Multi-Tenant · Human Review · Generated Work Product re-entry · generic A1 rewrite · generic A5 rewrite · new agent creation · AEPE work · AKAE redesign.
@@ -358,11 +373,11 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | MTCS-03 Evidence↔Document | AUSCIS | M:N association | commit `e78349f` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
 | MTCS-04 Producer + Verification | AUSCIS | Governed Evidence RPCs + human verification | commit `db893fb` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
 | MTCS-05 Entry Wiring | AUSCIS | A2 canonical identity closure | commit `bcdc0a7` | IMPLEMENTATION RECORD | APPROVED | CLOSED | INTEGRATED | KEEP | CURRENT MCS | None | — | NO |
-| MTCS-06 A1/A5 Historical Reliance | AUSCIS | Preserve exact Evidence composition/version relied upon | docs/MTCS-06_FINAL_EXACT_DESIGN.md (SHA256 3fd7fb1a088db37e9d5f9fdc643de5554b6a342f175d26b25e073afef083eb2e) | FROZEN — Design MR: PASS | FROZEN | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — NEXT | Implementation not started | Separate MTCS-06 Implementation Authorization | NOT APPLICABLE — design already frozen |
-| MTCS-07 signed-URL hardening | AUSCIS | Security hardening | migration 025 comment | IMPLEMENTATION RECORD (scope only) | NOT YET DESIGNED — scope established/named only | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — PENDING | Exact Design not completed; implementation not started | After MTCS-06 closure, subject to the existing canonical execution sequence | NOT APPLICABLE — initial Exact Design pending |
-| A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (no Evidence V2 read) | KEEP | LATER | No structured Evidence V2 consumption; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | MTCS-06 only to the extent required by its sourced "A1/A5 Historical Reliance" scope. Other listed gaps remain separately classified and are NOT absorbed into MTCS-06. | NOT YET DETERMINABLE |
-| A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | DISJOINT (no Evidence Items) | KEEP | LATER (MTCS-06) | ADR-011 D-014 Evidence consumption not materialized | MTCS-06 | NOT YET DETERMINABLE |
-| Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no immutability enforcement; incomplete Evidence references | NOT ESTABLISHED | NOT YET DETERMINABLE |
+| MTCS-06 A1/A5 Historical Reliance | AUSCIS | Preserve exact Evidence composition/version relied upon | docs/MTCS-06_FINAL_EXACT_DESIGN.md (SHA256 3fd7fb1a088db37e9d5f9fdc643de5554b6a342f175d26b25e073afef083eb2e); commit `32b9b80311b9dd42464b3525ae330ecd1fa84d40` | FROZEN — Design MR: PASS | FROZEN | IMPLEMENTED — Implementation MR: PASS | INTEGRATED | KEEP | CURRENT MCS | None within MTCS-06 scope | — | NO |
+| MTCS-07 signed-URL hardening | AUSCIS | Security hardening | migration 025 comment | IMPLEMENTATION RECORD (scope only) | NOT YET DESIGNED — scope established/named only | GAP | NOT INTEGRATED | KEEP | CURRENT MCS — NEXT | Exact Design not completed; implementation not started | MTCS-07 — Exact Design | NOT APPLICABLE — initial Exact Design pending |
+| A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
+| A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
+| Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | Evidence Item Contract V2 §46-47 | FROZEN (concept) | FROZEN (concept only) | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
@@ -382,10 +397,10 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 
 **SCOPE A — CURRENT MCS**
 ```
-CLOSED:  MTCS-01, MTCS-02, MTCS-02A, MTCS-02B, MTCS-03, MTCS-04, MTCS-05
-CURRENT POINT: PRE-MTCS-06 — CANONICAL STATE HOLD
-NEXT:    MTCS-06 — A1/A5 Historical Reliance
-PENDING: MTCS-07 — signed-URL hardening
+CLOSED:  MTCS-01, MTCS-02, MTCS-02A, MTCS-02B, MTCS-03, MTCS-04, MTCS-05,
+         MTCS-06 — A1/A5 Historical Reliance
+CURRENT POINT: POST-MTCS-06 / PRE-MTCS-07 HOLD
+NEXT:    MTCS-07 — signed-URL hardening (Exact Design pending)
 ```
 
 **SCOPE B — LATER CANONICAL AUSCIS PRODUCT SCOPE**
@@ -472,10 +487,12 @@ ECOSYSTEM
     │   ├── ✓ MTCS-03
     │   ├── ✓ MTCS-04
     │   ├── ✓ MTCS-05
-    │   ├── → PRE-MTCS-06 / CANONICAL STATE HOLD
-    │   ├── ○ MTCS-06 — A1/A5 Historical Reliance — DESIGN FROZEN
-    │   │      (docs/MTCS-06_FINAL_EXACT_DESIGN.md, Design MR: PASS)
+    │   ├── ✓ MTCS-06 — A1/A5 Historical Reliance
+    │   │      Design MR: PASS · Implementation MR: PASS
+    │   │      IMPLEMENTED · CLOSED (commit 32b9b80)
+    │   ├── → POST-MTCS-06 / PRE-MTCS-07 HOLD
     │   └── ○ MTCS-07 — signed-URL hardening
+    │          NEXT · Exact Design pending · not implemented
     │
     ├── ⚠ AKAE→AUSCIS runtime slice
     │   KR-03="AILA"
