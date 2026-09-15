@@ -8,7 +8,13 @@ Name:                  Generated Work Product Re-entry
 Materialized by:       MCS Materialization / Design-Entry Gate,
                         decision MCS-MAT-A, commit eee1495
 Governing CPS:          docs/CANONICAL_PROJECT_STATE.md
-Status of this document: FINAL EXACT DESIGN
+Status of this document: FINAL EXACT DESIGN — TARGETED MR CORRECTION INCORPORATED
+Prior SHA256 (superseded): 4e755e8b412119f0749215c759732eece948bebec0cb5a790cb3aecb4b078b46
+Superseded by:           Targeted Correction / MR Reconciliation
+                        (TC-01 same-case DB invariant, TC-02 storage
+                        bucket reconciliation) — commit 384bd0e was the
+                        prior frozen artifact; this revision supersedes
+                        it in place, historical SHA preserved above.
 Implementation status:  NOT AUTHORIZED
 ```
 
@@ -189,9 +195,90 @@ UNIQUE CONSTRAINT:   NONE on this column — one GWP may have 0..N
 
 **Rationale:** exactly one precedent exists anywhere in this repository for this class of relationship — `document_translations.document_id`, an additive nullable FK from a derived artifact back to its canonical source, added by migration 025 after MTCS-02 had already closed. L-01 applies that same precedent in the mirror direction. A dedicated relation table (L-02) is not justified: cardinality is 0..1 on the returned-document side (a returned letter has at most one origin), so a single nullable column fully and minimally represents it. This choice also collapses the transactional-integrity question (§26 of the governing gate) to a non-issue: because lineage is a column on the same row being inserted, canonical registration and lineage persistence are the same atomic single-row upsert — not two operations requiring a wrapper.
 
-## 11. Same-Case Invariant
+## 11. Same-Case Invariant — TC-01 CORRECTED (Targeted MR Reconciliation)
 
-`documents.case_id` for the returned artifact is never client-supplied — it is derived server-side from `agent_recommendation_letters.case_id` via the letter row fetched by the route (§14 below), then passed into `registerCanonicalDocument`, which itself re-derives `client_id` from `cases` server-side. There is no code path by which a returned document's `case_id` could diverge from its originating letter's `case_id`. Enforcement is **application-level, server-derived binding** — the same mechanism MTCS-02A already uses for every other canonical registration; no database trigger is introduced, consistent with `registerCanonicalDocument`'s existing design (CD-14: never infers or fabricates Case ownership from client input).
+**Prior design relied on application-level derivation only. The independent MR correctly identified that the FK alone permits a theoretical DB state where `documents.case_id ≠ agent_recommendation_letters.case_id` for a lineage-linked row, if any future write path bypassed the application layer. This section replaces the prior enforcement with a database-level invariant.**
+
+**Schema facts (verified):** `documents.case_id UUID NOT NULL REFERENCES public.cases(id) ON DELETE CASCADE`; `agent_recommendation_letters.case_id UUID NOT NULL REFERENCES public.cases(id) ON DELETE CASCADE` (migration 002) — identical type, both NOT NULL, both reference `cases.id`. No type mismatch.
+
+**Precedent (MTCS-03, migration 027):** same-Case membership between `evidence_items` and `documents` is enforced via composite FKs against additive `UNIQUE(id, case_id)` constraints on both sides (`evidence_items_id_case_id_key`, `documents_id_case_id_key` — the latter already exists on `documents` today), described in that migration's own comment as "defense in depth, not a replacement" for the governed function's own validation.
+
+**Why the composite-FK pattern (SC-03) is rejected here, unlike MTCS-03:** MTCS-03's association rows use `ON DELETE CASCADE` on both composite FKs — an association row is expected to die with either parent. MTCS-08 requires the opposite behavior for GWP deletion: per the frozen rule (§47) and this design's own §10, a returned Case Document must **survive** deletion of its originating GWP (`ON DELETE SET NULL` on the lineage column only). A composite FK `(originating_recommendation_letter_id, case_id) → agent_recommendation_letters(id, case_id)` with `ON DELETE SET NULL` would null **every column in the FK**, including `case_id` — which is `NOT NULL`, so the delete would either fail outright or (on a hypothetical nullable `case_id`) corrupt the document's own Case ownership. Postgres 15+ supports column-scoped `ON DELETE SET NULL (column)` on composite FKs, but no precedent for that syntax exists anywhere in this repository's 33 migrations, and relying on it would be a novel, version-dependent mechanism — inconsistent with "fits existing repository patterns." SC-03 is therefore rejected for this specific relationship, not because composite FKs are wrong in general (MTCS-03 proves otherwise), but because this relationship's required `ON DELETE` semantics differ from MTCS-03's.
+
+**Selected model: SC-02 — a BEFORE INSERT OR UPDATE trigger on `documents`**, matching this repository's own second established same-case-adjacent pattern (migration 027's `reject_immutable_evidence_document_mutation` trigger, same file, same migration):
+
+```sql
+CREATE OR REPLACE FUNCTION public.enforce_gwp_document_same_case()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE
+  v_gwp_case_id UUID;
+BEGIN
+  IF NEW.originating_recommendation_letter_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT case_id INTO v_gwp_case_id
+  FROM public.agent_recommendation_letters
+  WHERE id = NEW.originating_recommendation_letter_id;
+
+  IF v_gwp_case_id IS NULL THEN
+    RAISE EXCEPTION 'originating_recommendation_letter_id % does not reference an existing agent_recommendation_letters row', NEW.originating_recommendation_letter_id
+      USING ERRCODE = 'GW001';
+  END IF;
+
+  IF v_gwp_case_id IS DISTINCT FROM NEW.case_id THEN
+    RAISE EXCEPTION 'documents.case_id (%) must match originating GWP case_id (%) for MTCS-08 lineage', NEW.case_id, v_gwp_case_id
+      USING ERRCODE = 'GW002';
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_documents_gwp_same_case ON public.documents;
+CREATE TRIGGER trg_documents_gwp_same_case
+  BEFORE INSERT OR UPDATE OF originating_recommendation_letter_id, case_id
+  ON public.documents
+  FOR EACH ROW EXECUTE FUNCTION public.enforce_gwp_document_same_case();
+```
+
+**Mutation-case results:**
+```
+CASE 1  new document, case_id=A, GWP.case_id=A                → ALLOW
+CASE 2  new document, case_id=A, GWP.case_id=B                → REJECT (GW002)
+CASE 3  ordinary document, lineage=NULL                        → ALLOW (trigger short-circuits)
+CASE 4  lineage re-pointed GWP-A→GWP-B, same Case               → ALLOW
+CASE 5  lineage re-pointed to a GWP in another Case              → REJECT (GW002)
+CASE 6  documents.case_id changed while lineage still attached,
+        resulting Cases differ                                  → REJECT (GW002)
+CASE 7  originating GWP deleted (ON DELETE SET NULL, single
+        column only — case_id untouched)                        → returned Case
+                                                                    Document
+                                                                    survives
+```
+
+**GWP-side (parent) mutation:** verified via full-repository grep — no migration and no application code anywhere ever issues `UPDATE ... SET case_id = ...` against any table; `case_id` is architecturally treated repository-wide as set-once-at-insert, never mutated, on every Case-scoped table inspected (`documents`, `evidence_items`, `agent_recommendation_letters`, etc.). `agent_recommendation_letters.case_id` is therefore:
+```
+GWP CASE_ID MUTABLE:                    NOT IN NORMAL FLOW (verified, not assumed)
+PARENT-SIDE INVARIANT PROTECTION REQUIRED: NO — no mutation path exists to protect
+  against. If any future capability ever introduces case_id mutation on any
+  table, that would be a repository-wide concern to revisit, not one specific
+  to MTCS-08.
+```
+
+**Enforcement summary:**
+```
+DB-LEVEL ENFORCEMENT:            YES (BEFORE INSERT OR UPDATE trigger)
+INSERT PROTECTED:                YES
+LINEAGE UPDATE PROTECTED:        YES (trigger fires on UPDATE OF this column)
+DOCUMENT CASE_ID UPDATE PROTECTED: YES (trigger fires on UPDATE OF this column)
+GWP CASE_ID UPDATE PROTECTED:    NOT APPLICABLE — verified unreachable
+ON DELETE SET NULL:              PRESERVED — untouched, single-column FK only
+APPLICATION CHECK ALSO RETAINED: YES — the route/service still derives case_id
+  server-side (§13) as the primary path; the trigger is the authoritative,
+  defense-in-depth backstop, matching MTCS-03's own stated rationale for its
+  composite FK ("defense in depth, not a replacement").
+```
 
 ## 12. Q2 — Multiplicity RESOLVED
 
@@ -307,21 +394,42 @@ SEPARATION: mirrors the existing repository pattern of
 
 ## 14. Q4 — Storage Design RESOLVED
 
+**TC-02 Targeted MR Reconciliation.** The MR correctly reframed the question from "which bucket is confirmed to exist" to "which bucket is architecturally correct for a returned canonical Case Document." Re-inspecting MTCS-02A's own frozen text (migration 025's governing comment) resolves this directly:
+
+> "storage_bucket carries no governed business-provenance semantics (CD-13, corrected per C-02) — it is physical-location metadata only."
+
+This is **BKT-SEM-04**: MTCS-02A explicitly did not declare a canonical bucket and explicitly disclaimed bucket-level semantic meaning. There is no frozen architectural distinction between "an intake bucket" and "a case-document bucket" to adjudicate — CD-13 forecloses that question at the source. The decision therefore correctly reduces to physical/operational fitness, which was the prior design's basis and remains correct, now with its source justification made explicit rather than implicit.
+
 ```
 SELECTED EXISTING BUCKET: "intake-documents"
-RATIONALE: the only bucket in this repository with multiple confirmed,
-  currently-functioning real callers (A1/A2/A3/A4/intake-upload) —
-  already the repository's de facto general document-storage bucket
-  despite its name. The column-default alternative, "case-documents",
-  has exactly one real caller (upload-btn.tsx) whose own code comment
-  flags that its provisioning in Supabase Storage is unconfirmed. Design
-  correctness requires selecting the bucket known to exist. This is a
-  deployment/configuration-level choice, not an identity-level one
-  (Part VII precedent) — MTCS-07's signed-URL resolution is already
-  bucket-agnostic (§9 above), so this choice can be revisited later
-  without any architectural consequence if "case-documents"'s
-  provisioning is later confirmed.
+PHYSICALLY CONFIRMED: YES — multiple confirmed, currently-functioning
+  real callers (A1/A2/A3/A4/intake-upload)
+SEMANTIC BASIS: CD-13 (migration 025) — bucket carries no governed
+  business-provenance semantics; "intake" naming is not a governed
+  restriction on document class
+MTCS-02A BASIS: documents.storage_bucket + file_path is the complete,
+  bucket-agnostic physical locator (TD2-02, CD-03/CD-13); documents.id
+  remains the sole logical identity regardless of bucket
+MTCS-07 BASIS: resolveCanonicalDocument reads storage_bucket/file_path
+  generically off documents.id with no bucket-specific branching —
+  equally compatible with any provisioned bucket
+CANDIDATE REJECTED: "case-documents" — BKT-C applies: its provisioning
+  in Supabase Storage is not confirmed by any source or migration
+  inspected (no `storage.buckets` insert anywhere; its one real caller,
+  upload-btn.tsx, carries its own inline warning that the bucket may
+  not exist). Selecting it now would risk depending on infrastructure
+  that is not established to exist — functionally equivalent to
+  requiring new infrastructure, which the frozen scope (§30, this
+  document) forbids. If its provisioning is independently confirmed
+  before implementation, CD-13 means switching to it later carries
+  zero architectural cost — this is a deployment detail, not a design
+  dependency.
 NEW BUCKET: NO
+NEW STORAGE POLICY REQUIRED: NOT ESTABLISHED — no bucket-level storage
+  policy was inspected in this pass; classified as an implementation-
+  level verification item, not architecturally blocking (intake-
+  documents already accepts writes from every existing agent/upload
+  route using the same service-role client pattern this design reuses).
 PATH PATTERN: {case_id}/gwp-returns/{originating_letter_id}/
               {timestamp}_{sanitized_filename}
   — case-scoped first segment (matches upload-btn.tsx's own
@@ -395,7 +503,7 @@ documents.id REMAINS CANONICAL CASE DOCUMENT ID: YES — unchanged.
 
 ## 17. Transaction / Failure Semantics
 
-See §14's Failure/Recovery block. Canonical registration and lineage persistence are one atomic row-level upsert under L-01 (§10) — no two-phase commit or transactional wrapper is required, and none is introduced.
+See §14's Failure/Recovery block. Canonical registration and lineage persistence are one atomic row-level upsert under L-01 (§10) — no two-phase commit or transactional wrapper is required, and none is introduced. The §11 trigger runs as part of that same INSERT statement (BEFORE trigger), so a same-Case violation aborts the entire upsert — no state can be reported as successful with either known provenance unpersisted or a cross-Case lineage recorded.
 
 ## 18. A2 Handoff
 
@@ -455,9 +563,20 @@ COLUMNS ADDED: originating_recommendation_letter_id UUID
 CONSTRAINTS: FOREIGN KEY REFERENCES public.agent_recommendation_letters(id)
   ON DELETE SET NULL
 INDEXES: idx_documents_originating_recommendation_letter_id (btree)
-TRIGGERS: none
+TRIGGERS (TC-01 correction): enforce_gwp_document_same_case()
+  (SECURITY INVOKER, search_path pinned, matching migration 027's
+  function-security precedent) + trg_documents_gwp_same_case,
+  BEFORE INSERT OR UPDATE OF originating_recommendation_letter_id,
+  case_id ON public.documents — exact SQL in §11 above.
+SAME-CASE DB OBJECT: the trigger above. No composite FK / no new
+  UNIQUE(id, case_id) constraint on agent_recommendation_letters is
+  added — rejected per §11's ON DELETE analysis.
+PARENT-SIDE PROTECTION: none added — verified unreachable mutation
+  path (§11).
 RLS DELTA: none — documents carries no RLS policy today (confirmed);
   none is introduced.
+STORAGE DELTA: none — reuses the existing intake-documents bucket
+  (§14); no bucket creation, no storage.buckets mutation.
 ```
 This migration is specified, not created. No SQL file is written by this act.
 
@@ -560,6 +679,20 @@ AC-22  MTCS-01–07 remain closed; their responsibilities are reused,
 AC-23  Production is untouched during design.                      PASS-DESIGN
 AC-24  registerCanonicalDocument's behavior for every existing caller
        is unchanged when the new parameter is omitted.             PASS-DESIGN
+AC-25  The database cannot persist a non-null GWP lineage where
+       documents.case_id ≠ agent_recommendation_letters.case_id —
+       enforced by trg_documents_gwp_same_case (§11).               PASS-DESIGN
+AC-26  No update to either side of the persisted relationship may
+       silently convert a valid lineage into a cross-Case one — the
+       trigger fires on UPDATE OF both originating_recommendation_
+       letter_id and case_id; the GWP-parent side has no mutation
+       path to protect (verified, §11).                             PASS-DESIGN
+AC-27  The selected storage bucket (intake-documents) is supported by
+       existing AUSCIS storage architecture per CD-13 and does not
+       create a parallel document identity — documents.id remains
+       sole and bucket-agnostic.                                    PASS-DESIGN
+AC-28  The selected bucket remains compatible with MTCS-07's hardened
+       signed-URL path with zero changes required (§26).            PASS-DESIGN
 ```
 
 ## 30. Explicit Out-of-Scope
@@ -569,7 +702,8 @@ Dispatch mechanics/provenance; `sent` as a status or precondition; external-acto
 ## 31. Implementation Authorization State
 
 ```
-FINAL EXACT DESIGN: APPROVED / FROZEN (pending review in §32/Part XIII)
+FINAL EXACT DESIGN: APPROVED / FROZEN — TARGETED MR CORRECTION
+                     INCORPORATED (TC-01, TC-02)
 IMPLEMENTATION:      NOT AUTHORIZED — a separate governed act must
                      authorize implementation against this frozen
                      design.
