@@ -33,6 +33,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         Provenance Reconciliation (CR-CPS-15)
                        QA Engine — Implementation Authorization /
                         Execution Gate (CR-CPS-16)
+                       QA Engine — Targeted Immutability
+                        Reconciliation (CR-IA-01, CR-CPS-17)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -181,32 +183,43 @@ NEXT EXECUTION GAP (CR-CPS-08, Joint Sequencing Resolution JSR-B):
 Generated Work Product Re-entry — FULFILLED, see MTCS-08 CLOSED below.
 
 FOLLOWING EXECUTION CANDIDATE:
-QA Engine — IMPLEMENTATION AUTHORIZED (CR-CPS-16), UNNUMBERED. Final
+QA Engine — IMPLEMENTATION AUTHORIZED (CR-CPS-17), UNNUMBERED. Final
 Exact Design: docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (current SHA256
-4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4;
-prior SHA256, superseded CR-CPS-14: 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df).
+33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab;
+SHA history: 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df [pre-CR-01/CR-02] →
+4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4 [post-CR-01/CR-02, superseded CR-CPS-14/15]).
+Targeted immutability reconciliation (CR-IA-01, Class B): repository
+verification found that "qa_runs immutable after insert" cannot rely
+on absence of an application UPDATE route alone — this repository's
+own precedent (migration 032, a1_historical_reliance) already
+discovered and fixed the identical gap once (a REVOKE/GRANT-only
+convention did not stop a raw service_role UPDATE). qa_runs now
+carries trg_qa_runs_immutability, a role-independent BEFORE UPDATE OR
+DELETE trigger reusing that exact precedent, rejecting any mutation of
+a persisted row except the legitimate cases-CASCADE teardown case.
 Implementation Authorization / Execution Gate: IA 34/34 PASS, IAMR
 38/38 PASS, 0 Class C deviations, repository substrate re-verified
 with zero drift since design freeze. Authorization scope: TEST project
 (utpsqevarnxscdqzywkk) only — Production (slasbfepqovdsezmadjh)
-HARD-DENIED. Targeted correction (Class B, CR-CPS-15): findings JSONB
-extended to a complete evaluated-input manifest (Blueprint criteria
-content snapshot + every evaluated letter/petition-draft ID, not only
-missing-criteria) — closes a real, verified gap (case_strategy's
-dominant_criteria/supporting_criteria are editable in place
-pre-approval via A5's unguarded PATCH route; the original findings
-shape recorded only failing criteria, not the complete evaluated set).
-No table/schema structural change; no touching of case_strategy/A3/
-A4/A5. Bounded MVP (criterion documentary coverage + Blueprint
-currency precondition) resolved fully deterministically from existing
-case_strategy/agent_intake_analysis/agent_recommendation_letters/
-agent_petition_drafts substrate — no new tables required beyond one
-additive qa_runs table; 0 architectural conflicts. Implementation
-STATE remains GAP — authorization ≠ implementation; a separate
-Implementation MR is required after code exists, and closure requires
-a further separate act. Number assignment requires its own explicit,
-act-specific Project Owner grant, per MTCS-06/07/08 precedent (no
-standing rule of
+HARD-DENIED. Targeted provenance correction (Class B, CR-CPS-15):
+findings JSONB extended to a complete evaluated-input manifest
+(Blueprint criteria content snapshot + every evaluated letter/
+petition-draft ID, not only missing-criteria) — closes a real,
+verified gap (case_strategy's dominant_criteria/supporting_criteria
+are editable in place pre-approval via A5's unguarded PATCH route; the
+original findings shape recorded only failing criteria, not the
+complete evaluated set). No table/schema structural change beyond one
+additive trigger+function on the already-planned qa_runs table; no
+touching of case_strategy/A3/A4/A5. Bounded MVP (criterion documentary
+coverage + Blueprint currency precondition) resolved fully
+deterministically from existing case_strategy/agent_intake_analysis/
+agent_recommendation_letters/agent_petition_drafts substrate — no new
+tables required beyond one additive qa_runs table; 0 architectural
+conflicts. Implementation STATE remains GAP — authorization ≠
+implementation; a separate Implementation MR is required after code
+exists, and closure requires a further separate act. Number assignment
+requires its own explicit, act-specific Project Owner grant, per
+MTCS-06/07/08 precedent (no standing rule of
 automatic sequential assignment upon materialization exists). Not yet
 promoted to NEXT EXECUTION GAP.
 
@@ -534,7 +547,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
-| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4) | FROZEN | FROZEN | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **IMPLEMENTATION AUTHORIZED, UNNUMBERED (CR-CPS-16)**; TEST-only; historical A5→QA priority preserved | Zero runtime; IA 34/34 PASS, IAMR 38/38 PASS, 0 Class C deviations | QA Engine — Frozen Design Implementation (TEST only; Production hard-denied) | NO |
+| QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | GAP | NOT ESTABLISHED | KEEP/RECONCILE | **IMPLEMENTATION AUTHORIZED, UNNUMBERED, targeted immutability reconciliation incorporated (CR-CPS-17)**; TEST-only; historical A5→QA priority preserved | Zero runtime; IA 34/34 PASS, IAMR 38/38 PASS, CR-IA-01 resolved via trg_qa_runs_immutability, 0 Class C deviations | QA Engine — Frozen Design Implementation (TEST only; Production hard-denied) | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | RFE Prediction Engine | AUSCIS | Predictive RFE analysis | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Learning Engine | AUSCIS | Tenant/Global/Governed-Knowledge learning | AUCIS_V2_STRATEGY_LAYER.md + Blueprint Contract consumer table | CURRENT DESIGN + FROZEN (consumer reference) | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -568,7 +581,7 @@ Learning Engine
 ```
 *A5↔Evidence Items consumption (ADR-011 D-014) already absorbed into the sourced MTCS-06 "Historical Reliance" scope — not double-counted.* Boundary caveat for QA/Market Intelligence/RFE Prediction/Learning preserved. Generated Work Product re-entry has graduated to Scope A as MTCS-08 (CLOSED, CR-CPS-12) — no longer listed here.
 
-**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — IMPLEMENTATION AUTHORIZED (CR-CPS-16), UNNUMBERED. Implementation Authorization / Execution Gate: IA 34/34 PASS, IAMR 38/38 PASS, 0 Class C deviations; repository substrate (case_strategy, agent_intake_analysis, agent_recommendation_letters, agent_petition_drafts, authorizeCaseStaff) re-verified unchanged since design freeze. Authorization scope strictly bounded to the frozen design, TEST project (utpsqevarnxscdqzywkk) only, Production (slasbfepqovdsezmadjh) hard-denied. Bounded MVP (from materialization's 3-item candidate list, narrowed to 2 during Final Exact Design): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns) + Blueprint currency precondition (a single read of `case_strategy.currency_status`). Targeted provenance correction (CR-CPS-15, Class B): `findings` JSONB extended to a complete evaluated-input manifest. General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED. Implementation STATE remains GAP — a separate Implementation MR and, later, a separate Closure act are still required. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
+**Following execution candidate (CR-CPS-08, Joint Sequencing Resolution JSR-B, fulfilled by MTCS-08's closure):** `QA Engine` — IMPLEMENTATION AUTHORIZED (CR-CPS-17), UNNUMBERED. Implementation Authorization / Execution Gate: IA 34/34 PASS, IAMR 38/38 PASS, 0 Class C deviations; repository substrate (case_strategy, agent_intake_analysis, agent_recommendation_letters, agent_petition_drafts, authorizeCaseStaff) re-verified unchanged since design freeze. Authorization scope strictly bounded to the frozen design, TEST project (utpsqevarnxscdqzywkk) only, Production (slasbfepqovdsezmadjh) hard-denied. Bounded MVP (from materialization's 3-item candidate list, narrowed to 2 during Final Exact Design): criterion documentary coverage (deterministic set-difference over existing `agent_recommendation_letters`/`agent_petition_drafts` columns) + Blueprint currency precondition (a single read of `case_strategy.currency_status`). Targeted provenance correction (CR-CPS-15, Class B): `findings` JSONB extended to a complete evaluated-input manifest. Targeted immutability reconciliation (CR-IA-01, CR-CPS-17, Class B): `qa_runs` gains `trg_qa_runs_immutability`, a role-independent trigger reusing migration 032's already-proven a1_historical_reliance pattern, closing the exact service-role-write-plane gap that migration found and fixed once before — TIMR 24/24 PASS. General Blueprint-fidelity-beyond-coverage and the broader six-check vision both explicitly DEFERRED. Implementation STATE remains GAP — a separate Implementation MR and, later, a separate Closure act are still required. Promotion to NEXT EXECUTION GAP and any MTCS number assignment remain NOT ESTABLISHED. The historical `QA → Market Intelligence → RFE Prediction → Learning` order remains preserved unchanged, and unrelated candidates (Human Review Gate, CV/A0/Coach, Organization/Multi-Tenant) remain NOT ESTABLISHED in sequence, exactly as before.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -667,7 +680,9 @@ ECOSYSTEM
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ◐ QA Engine — IMPLEMENTATION AUTHORIZED, UNNUMBERED
-    │   │      (CR-CPS-16); IA 34/34 + IAMR 38/38 PASS; TEST-only,
+    │   │      (CR-CPS-17); IA 34/34 + IAMR 38/38 + TIMR 24/24 PASS;
+    │   │      qa_runs immutability DB-enforced (trg_qa_runs_immutability,
+    │   │      reuses migration 032's proven pattern); TEST-only,
     │   │      Production hard-denied; historical A5→QA priority
     │   │      preserved; number assignment NOT ESTABLISHED;
     │   │      implementation STATE remains GAP

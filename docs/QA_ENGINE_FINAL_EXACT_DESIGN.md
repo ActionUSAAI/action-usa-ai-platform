@@ -10,13 +10,14 @@ Materialized by:       QA Engine — MCS Materialization / Design-Entry
                         Gate, commit d06c007
 Governing CPS:         docs/CANONICAL_PROJECT_STATE.md
 Status of this document: FINAL EXACT DESIGN — TARGETED PROVENANCE
-                        RECONCILIATION INCORPORATED (§9a)
-Prior SHA256 (superseded): 6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df
-Superseded by:          Targeted Provenance Reconciliation (CR-01, CR-02) —
-                        commit 3f6ad03 was the prior frozen artifact;
-                        this revision supersedes it in place, historical
-                        SHA preserved above.
-Implementation status: NOT AUTHORIZED
+                        RECONCILIATION (§9a) + TARGETED IMMUTABILITY
+                        RECONCILIATION (§9b, CR-IA-01) INCORPORATED
+Prior SHA256 history (oldest first, all superseded):
+                        6df478e9d19dbd621d333f11664fc6830c1fbdf72b210bba1e8c0ef39baf48df (pre-CR-01/CR-02, commit 3f6ad03)
+                        4d40f136dbe4bd951a6ca6246691e076a1fda440a48ae9f5e05d13624825bce4 (post-CR-01/CR-02, commit 5c87042)
+Implementation status: AUTHORIZED (TEST only, commit eaa3687);
+                        IMPLEMENTATION EXECUTION on HOLD pending
+                        CR-IA-01 resolution — see §9b
 ```
 
 ## 2. Governing Sources
@@ -318,9 +319,98 @@ QA FINDING IDENTITY: not a separate entity — represented as JSONB keys
 
 HISTORICAL IMMUTABILITY: qa_runs rows are never updated after insert —
   mirrors A1/A5/Evidence composition versioning precedent. A re-run
-  creates a new row.
+  creates a new row. Enforcement level: DB-level trigger (§9b) — see
+  CR-IA-01 correction; the "convention only" reading of this precedent
+  was itself the exact gap migration 032 already found and closed for
+  a1_historical_reliance, so this design reuses that closed gap's
+  resolution rather than repeating it.
 DQ-01: RESOLVED
 ```
+
+### 9b. Implementation-Authorization Targeted Immutability Reconciliation (CR-IA-01, Class B)
+
+Direct repository verification found that "qa_runs rows are never
+updated after insert" (§9) cannot rely on absence-of-application-route
+alone. `evidence_items` (migration 024) already carries a real
+`BEFORE UPDATE` trigger rejecting mutation of superseded rows, and —
+more directly on point — `a1_historical_reliance` (migration 032) was
+originally protected only by a REVOKE/GRANT convention on its creation
+function (migration 029), and that was later found, during TEST
+validation, to be insufficient: *"a raw service_role UPDATE could
+still mutate an already-persisted row"* (migration 032's own comment).
+The fix applied there — a role-independent `BEFORE UPDATE OR DELETE`
+trigger — is this repository's own established, hard-won precedent for
+exactly this data shape (insert-only, immutable-after-persistence,
+one CASCADE parent). `qa_runs`' planned RLS (§16) only adds a SELECT
+policy for ordinary staff; RLS is bypassed by the service-role write
+plane the QA service itself uses (`adminDb()`, same pattern as every
+other agent route), so RLS alone does not close this gap either —
+exactly the distinction migration 032 already drew.
+
+```
+CORRECTION (Class B — bounded, reuses an existing repository-proven
+  mechanism verbatim in shape, no new pattern invented):
+
+CREATE OR REPLACE FUNCTION public.reject_immutable_qa_run_mutation()
+RETURNS TRIGGER LANGUAGE plpgsql SET search_path = public, pg_temp AS $$
+DECLARE
+  v_case_exists BOOLEAN;
+BEGIN
+  IF TG_OP = 'UPDATE' THEN
+    RAISE EXCEPTION 'qa_runs is insert-only and immutable once persisted (id=%)', OLD.id
+      USING ERRCODE = 'QA002';
+  END IF;
+
+  -- TG_OP = 'DELETE'. Allowed only as a legitimate downstream effect of
+  -- the row's own cases ON DELETE CASCADE parent already being removed
+  -- in the same statement (whole-Case teardown) — mirrors migration
+  -- 032's exact FOUND-based technique, simplified to qa_runs' single
+  -- CASCADE parent (case_strategy_id is ON DELETE SET NULL, not a
+  -- CASCADE parent, so only `cases` need be checked).
+  SELECT EXISTS (SELECT 1 FROM public.cases WHERE id = OLD.case_id) INTO v_case_exists;
+  IF v_case_exists THEN
+    RAISE EXCEPTION 'qa_runs is insert-only and immutable once persisted (id=%)', OLD.id
+      USING ERRCODE = 'QA002';
+  END IF;
+
+  RETURN OLD;
+END;
+$$;
+
+DROP TRIGGER IF EXISTS trg_qa_runs_immutability ON public.qa_runs;
+CREATE TRIGGER trg_qa_runs_immutability
+  BEFORE UPDATE OR DELETE ON public.qa_runs
+  FOR EACH ROW EXECUTE FUNCTION public.reject_immutable_qa_run_mutation();
+```
+
+qa_runs has no "current"/mutable phase at all (unlike `evidence_items`,
+whose rows are genuinely mutable while `currency_status='current'`) —
+every row is immutable from the instant of insert, so this trigger
+unconditionally rejects UPDATE, matching `a1_historical_reliance`'s
+shape rather than `evidence_items`' conditional-on-status shape.
+
+**Case-cascade retention semantics (§16 of the governing gate):**
+`qa_runs.case_id` retains `ON DELETE CASCADE` (§16 below, unchanged).
+"Historical result preserved permanently" is read consistently with
+every other Case-scoped historical table in this repository (Evidence,
+A1 Historical Reliance, case_strategy, documents, etc.) — permanence
+means immutable *while the Case exists*, not survival of whole-Case
+deletion, which is a global teardown operation nothing else in this
+schema treats differently. Not load-bearing, not blocking, not a new
+architectural question — consistent application of the already-
+universal convention.
+
+REJECTED ALTERNATIVES: IMM-A (RLS-only) — confirmed insufficient
+against the service-role write plane, exactly the gap migration 032
+found; IMM-C (privilege/GRANT model) — this is precisely what migration
+029 originally tried and migration 032 found broken; a new audit/event-
+sourcing framework — rejected as overcorrection, a single trigger fully
+satisfies the already-frozen invariant.
+CLASS: B (enforces an already-frozen invariant — "immutable after
+  insert" was already stated in §9 before this correction; this
+  section corrects only its enforcement mechanism, reusing an existing
+  repository pattern verbatim, no MVP/scope/schema-shape change beyond
+  one additive trigger+function on the already-planned qa_runs table).
 
 ## 10. Severity / Quality Score
 
@@ -458,7 +548,10 @@ NEW TABLE: public.qa_runs
 INDEXES: idx_qa_runs_case_id ON qa_runs(case_id, executed_at DESC)
 UNIQUE CONSTRAINTS: none — multiple runs per case are expected (§53/54)
 CHECK CONSTRAINTS: status IN ('completed')
-TRIGGERS: trg_qa_runs_same_case (§15)
+TRIGGERS: trg_qa_runs_same_case (§15); trg_qa_runs_immutability (§9b,
+  CR-IA-01 — BEFORE UPDATE OR DELETE, role-independent, closes the
+  same service-role-write-plane gap migration 032 already found and
+  fixed for a1_historical_reliance)
 FOREIGN KEYS: case_id → cases(id) ON DELETE CASCADE (matches every
   other Case-scoped table's convention); case_strategy_id → case_strategy(id)
   ON DELETE SET NULL (a QA run remains historically valid even if its
@@ -580,7 +673,10 @@ AC-QA-22  Historical QA execution remains attributable to the exact
           re-derivation via the FK) (§9a).                       — STRUCTURAL DB
 AC-QA-23  Subsequent Blueprint/Criterion-Assessment/document changes,
           including new documents created afterward, do not rewrite or
-          bleed into prior qa_runs rows' recorded manifest.       — STRUCTURAL DB
+          bleed into prior qa_runs rows' recorded manifest; DB-level
+          trigger rejects any UPDATE or non-cascade DELETE against a
+          persisted qa_runs row, regardless of caller role (§9b).
+                                                                     — STRUCTURAL DB / LIVE TEST
 AC-QA-24  A new QA execution requires the explicit Run API call, never
           an automatic side effect of any other mutation.        — CODE INSPECTION
 AC-QA-25  QA result exposes missing_criteria/current_blueprint_found
