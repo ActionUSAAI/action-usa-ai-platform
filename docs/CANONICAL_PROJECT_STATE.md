@@ -50,6 +50,10 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        Human Review Gate — Approved-to-Sent
                         Transition — Final Exact Design —
                         APPROVED / FROZEN (CR-CPS-24)
+                       Human Review Gate — Approved-to-Sent
+                        Transition — Implementation Authorization
+                        Gate — BLOCKED, IAB-07 design defect
+                        (CR-CPS-25)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -319,16 +323,43 @@ from source or compatibility default with existing draft/in_review/
 approved/rejected behavior (identical authorization, concurrency,
 idempotency, API endpoint reuse). Persistence delta: two additive
 nullable columns only (sent_by, sent_at), mirroring approved_by/
-approved_at exactly — no other schema change. GWP re-entry's
-`approved` gate (MTCS-08) unaffected; no automatic A1/A5/Blueprint/
-Evidence/QA/AKAE/AEPE behavior. 0 open load-bearing questions, 0
-architectural conflicts.
-FINAL EXACT DESIGN: APPROVED / FROZEN
+approved_at exactly — no other schema change. No automatic
+A1/A5/Blueprint/Evidence/QA/AKAE/AEPE behavior. 0 open load-bearing
+questions at freeze time.
+FINAL EXACT DESIGN: APPROVED / FROZEN (governing SHA unchanged;
+  content defect recorded below, not yet corrected)
 IMPLEMENTATION: NOT AUTHORIZED
 NEXT MTCS: NOT ESTABLISHED
 
+IMPLEMENTATION AUTHORIZATION GATE (CR-CPS-25, Human Review Gate —
+Approved-to-Sent Transition): BLOCKED — IAB-07, LOAD-BEARING DESIGN
+DEFECT. Direct repository verification found the frozen design's §25
+GWP-compatibility claim ("a returned approved GWP remains eligible
+for MTCS-08 re-entry regardless of whether sent has been recorded")
+is false against actual repository behavior: src/lib/documents/
+register-returned-gwp.ts (line 94) enforces `letter.status !==
+"approved"` as a hard rejection — `if (letter.status !== "approved")
+... "not eligible for GWP re-entry"` — and the frozen design's own
+§11 state machine makes `sent` terminal (no route back to
+`approved`). Therefore a letter marked `sent` under the frozen
+design becomes PERMANENTLY ineligible for MTCS-08 GWP re-entry at
+the server level, directly contradicting §25's own stated invariant.
+The frozen design's §17 UI Contract independently confirms the same
+defect from the UI side ("once status === 'sent', no further action
+renders... except the universal Descargar action" — meaning the
+existing "Subir documento devuelto" action, gated on
+`status === "approved"` in document-generation-section.tsx, also
+disappears once sent). This is an internal contradiction within the
+frozen design itself (§11/§17 vs. §25), not a repository-drift issue
+and not resolvable within an Implementation Authorization Gate.
+IMPLEMENTATION AUTHORIZATION: NOT GRANTED.
+FINAL EXACT DESIGN SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23
+  remains unchanged by this record (defect identification only, not
+  correction — correction requires its own separate, targeted design
+  reconciliation act).
+
 NEXT GOVERNED ACT: Human Review Gate — Approved-to-Sent Transition —
-Implementation Authorization Gate.
+Targeted Final Exact Design Reconciliation.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -739,7 +770,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN** (CR-CPS-24) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED, NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` designed (Model A, status-only); implementation NOT AUTHORIZED | **Human Review Gate — Approved-to-Sent Transition — Final Exact Design PASS (CR-CPS-24), UNNUMBERED** | Human Review Gate — Approved-to-Sent Transition — Implementation Authorization Gate | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/lib/documents/register-returned-gwp.ts; src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN** (CR-CPS-24, content defect identified — CR-CPS-25) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED WITH DEFECT, NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` design (§25) contradicts §11/§17 and actual register-returned-gwp.ts behavior — sent is terminal yet §25 claims GWP re-entry stays available regardless; register-returned-gwp.ts hard-rejects any status ≠ 'approved' | **Human Review Gate — Approved-to-Sent Transition — Implementation Authorization BLOCKED (IAB-07 design defect, CR-CPS-25), UNNUMBERED** | Human Review Gate — Approved-to-Sent Transition — Targeted Final Exact Design Reconciliation | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
@@ -785,7 +816,9 @@ Learning Engine
 
 **MCS Materialization (CR-CPS-23):** PASS. `Human Review Gate — Approved-to-Sent Transition` is MATERIALIZED / DESIGN ENTRY AUTHORIZED, UNNUMBERED (per QA Engine's own precedent, CR-CPS-13 — no standing rule of automatic sequential assignment).
 
-**Final Exact Design (CR-CPS-24):** APPROVED / FROZEN. Artifact: `docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md` (SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). Project Owner decision: Model A (status-only `sent` marker). See Section G for the full record. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Implementation Authorization Gate. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
+**Final Exact Design (CR-CPS-24):** APPROVED / FROZEN. Artifact: `docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md` (SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). Project Owner decision: Model A (status-only `sent` marker).
+
+**Implementation Authorization Gate (CR-CPS-25):** BLOCKED — IAB-07, load-bearing design defect. The frozen design's §25 GWP-compatibility claim is contradicted by its own §11 (sent is terminal) and §17 (UI action disappears once sent), and independently by live repository behavior: `src/lib/documents/register-returned-gwp.ts` hard-rejects GWP re-entry for any letter status other than `approved`. A letter marked `sent` becomes permanently ineligible for MTCS-08 re-entry, contradicting the frozen design's own stated invariant. See Section G for the full record. Implementation Authorization: NOT GRANTED. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Targeted Final Exact Design Reconciliation. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -879,11 +912,13 @@ ECOSYSTEM
     │
     ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
     │   ├── ◐ Human Review Gate — Approved-to-Sent Transition —
-    │   │      Final Exact Design APPROVED/FROZEN (CR-CPS-24),
-    │   │      UNNUMBERED · Model A (status-only marker) ·
-    │   │      draft/in_review/approved/rejected remain implemented,
-    │   │      UI-wired, unchanged · implementation NOT AUTHORIZED ·
-    │   │      next act: Implementation Authorization Gate
+    │   │      Final Exact Design FROZEN (CR-CPS-24) but with a
+    │   │      LOAD-BEARING DEFECT found at Implementation
+    │   │      Authorization (CR-CPS-25, IAB-07): §25's GWP-
+    │   │      compatibility claim contradicts §11/§17 and live
+    │   │      register-returned-gwp.ts behavior · implementation
+    │   │      NOT AUTHORIZED · next act: Targeted Final Exact
+    │   │      Design Reconciliation
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
