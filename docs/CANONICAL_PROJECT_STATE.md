@@ -205,19 +205,32 @@ Human Review Gate, not that historical chain.
 SOURCE STATUS OF THE SELECTED GAP: as of the prior canonical record
 (Section P table row, below), `approved → sent` was classified "Next
 Approved Action: None — remaining `sent` gap not currently
-actionable." That classification was made specifically in the context
-of evaluating `sent` as a GWP Re-entry precondition (Evidence Item
-Contract V2 §49 gates re-entry on `approved`, not `sent` — see Human
-Review Gate detail note above) — it was never a general statement that
-the gap is architecturally blocked, unresolvable, or permanently
-out of scope; the existing endpoint's own code comment
-(src/app/api/case-letters/route.ts) states plainly that `sent` was
-left out "porque... no fue pedido" (because it was not requested).
-It has now been explicitly requested via this Project Owner sequencing
-decision. Per this act's own governing instruction, selecting a
-candidate whose current governance state carries a non-actionable
-classification does not automatically open a Materialization gate;
-it first requires reconciling that classification.
+actionable." Two distinct facts bear on this, independently verified
+and kept separate rather than blended into one justification chain:
+(1) CANONICAL GOVERNANCE FACT — CPS's own stated reason for that
+classification is explicitly and only the GWP Re-entry precondition
+finding: Evidence Item Contract V2 §49's frozen flow gates re-entry on
+Human Approval for External Use (= `approved`), not on a persisted
+`sent` state (verified directly against the contract's actual §46-49
+text, not only CPS's paraphrase) — nothing in the governed GWP
+Re-entry loop required `sent`, and CPS states no other canonical
+reason for non-actionability anywhere.
+(2) IMPLEMENTATION-LOCAL FACT, distinct in time and authority — the
+case-letters endpoint's own code comment (src/app/api/case-letters/
+route.ts) records a general, earlier build-time scoping decision:
+`sent` was left unimplemented because it was "not requested" and is
+"not related to Evidence/A1." This is evidence of implementation
+intent at that code location, not a canonical governance
+determination, and is a separate fact from — not the stated reason
+for — the later "not currently actionable" classification.
+Neither fact establishes that `sent` is architecturally blocked or
+permanently out of scope; both are consistent with a status that
+changes once explicitly requested — which has now occurred via this
+Project Owner sequencing decision. Per this act's own governing
+instruction, selecting a candidate whose current governance state
+carries a non-actionable classification does not automatically open a
+Materialization gate; it first requires reconciling that
+classification.
 
 NEXT GOVERNED ACT: Human Review Gate — Non-Actionable Status
 Reconciliation (CR-CPS-21). This reconciliation act determines whether
