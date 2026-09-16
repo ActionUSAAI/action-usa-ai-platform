@@ -47,6 +47,9 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        Human Review Gate — Approved-to-Sent
                         Transition — MCS Materialization /
                         Design-Entry Gate — PASS (CR-CPS-23)
+                       Human Review Gate — Approved-to-Sent
+                        Transition — Final Exact Design —
+                        APPROVED / FROZEN (CR-CPS-24)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -304,8 +307,28 @@ STANDALONE MATERIALIZATION ARTIFACT: NONE — consistent with both
   Transformation Persistence Principle is not imported here absent
   AUSCIS adoption).
 
+FINAL EXACT DESIGN (CR-CPS-24, Human Review Gate — Approved-to-Sent
+Transition — Final Exact Design): APPROVED / FROZEN.
+Artifact: docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md
+SHA256: 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23
+Project Owner decision (DDR-01): Model A — status-only marker; `sent`
+records that staff confirmed external delivery occurred outside
+AUSCIS, consistent with MTCS-08's own treatment of external delivery
+as occurring outside the system. All other design surfaces resolved
+from source or compatibility default with existing draft/in_review/
+approved/rejected behavior (identical authorization, concurrency,
+idempotency, API endpoint reuse). Persistence delta: two additive
+nullable columns only (sent_by, sent_at), mirroring approved_by/
+approved_at exactly — no other schema change. GWP re-entry's
+`approved` gate (MTCS-08) unaffected; no automatic A1/A5/Blueprint/
+Evidence/QA/AKAE/AEPE behavior. 0 open load-bearing questions, 0
+architectural conflicts.
+FINAL EXACT DESIGN: APPROVED / FROZEN
+IMPLEMENTATION: NOT AUTHORIZED
+NEXT MTCS: NOT ESTABLISHED
+
 NEXT GOVERNED ACT: Human Review Gate — Approved-to-Sent Transition —
-Final Exact Design.
+Implementation Authorization Gate.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -716,7 +739,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; src/app/api/case-letters/route.ts | FROZEN (concept) | FROZEN (concept only) | **PARTIAL** (CR-CPS-07) | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` unimplemented; confirmed non-load-bearing for GWP re-entry (§49); actionability ESTABLISHED (CR-CPS-22) | **Human Review Gate — Approved-to-Sent Transition — MATERIALIZED / DESIGN ENTRY AUTHORIZED (CR-CPS-23), UNNUMBERED** | Human Review Gate — Approved-to-Sent Transition — Final Exact Design | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN** (CR-CPS-24) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED, NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` designed (Model A, status-only); implementation NOT AUTHORIZED | **Human Review Gate — Approved-to-Sent Transition — Final Exact Design PASS (CR-CPS-24), UNNUMBERED** | Human Review Gate — Approved-to-Sent Transition — Implementation Authorization Gate | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
@@ -760,7 +783,9 @@ Learning Engine
 
 **Actionability reconciliation (CR-CPS-22):** ESTABLISHED — no architectural, frozen-contract, governance, or source-established-dependency blocker found for `approved → sent`; remaining unknowns are design-surface questions only.
 
-**MCS Materialization (CR-CPS-23):** PASS. `Human Review Gate — Approved-to-Sent Transition` is MATERIALIZED / DESIGN ENTRY AUTHORIZED, UNNUMBERED (per QA Engine's own precedent, CR-CPS-13 — no standing rule of automatic sequential assignment). See Section G for the full record. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Final Exact Design. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
+**MCS Materialization (CR-CPS-23):** PASS. `Human Review Gate — Approved-to-Sent Transition` is MATERIALIZED / DESIGN ENTRY AUTHORIZED, UNNUMBERED (per QA Engine's own precedent, CR-CPS-13 — no standing rule of automatic sequential assignment).
+
+**Final Exact Design (CR-CPS-24):** APPROVED / FROZEN. Artifact: `docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md` (SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). Project Owner decision: Model A (status-only `sent` marker). See Section G for the full record. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Implementation Authorization Gate. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -854,10 +879,11 @@ ECOSYSTEM
     │
     ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
     │   ├── ◐ Human Review Gate — Approved-to-Sent Transition —
-    │   │      MATERIALIZED / DESIGN ENTRY AUTHORIZED (CR-CPS-23),
-    │   │      UNNUMBERED · draft/in_review/approved/rejected
-    │   │      remain implemented, UI-wired, unchanged · next act:
-    │   │      Final Exact Design
+    │   │      Final Exact Design APPROVED/FROZEN (CR-CPS-24),
+    │   │      UNNUMBERED · Model A (status-only marker) ·
+    │   │      draft/in_review/approved/rejected remain implemented,
+    │   │      UI-wired, unchanged · implementation NOT AUTHORIZED ·
+    │   │      next act: Implementation Authorization Gate
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
