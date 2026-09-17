@@ -80,6 +80,8 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        CV/A0/Structured Profile/Prefill/Coach — Post-
                         Materialization Architectural Reconciliation —
                         AUTHORIZED ARCHITECTURAL EVOLUTION (CR-CPS-33)
+                       AUSCIS Intake Intelligence Layer — Final Exact
+                        Design — FROZEN (CR-CPS-34)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -686,8 +688,62 @@ alternatives) at Final Exact Design.
 IMPLEMENTATION: ZERO. AKAE/AEPE: UNTOUCHED. MTCS NUMBER: NOT
 INFERRED. PRODUCTION: HARD-DENIED, untouched.
 
-NEXT GOVERNED ACT: AUSCIS Intake Intelligence Layer (Coach / CV / A0
-/ Structured Profile / Prefill Engine) — Final Exact Design.
+FINAL EXACT DESIGN (CR-CPS-34): FROZEN. Governing artifact:
+docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md.
+CURRENT GOVERNING SHA256:
+51928f1d53a6249a8a5117ac8d8b58dac037645314ee658ff83fbfc7d1eef981.
+PROCESS NOTE: a prior draft of this act (commit b045287) was executed
+without authorization by a subagent dispatched for read-only source
+recovery only; it was independently audited (sources found accurate,
+not fabricated, but several design-detail gaps identified against
+this act's own governing requirements), then reverted in full
+(commit c0b2cca) at the Project Owner's explicit direction, and this
+act was re-executed directly, from the reverted clean state, with all
+three Project Owner decisions asked and answered live in this
+session.
+TOPOLOGY REFINEMENT: CR-CPS-33's linear `Coach → CV → A0 → ...`
+chain is refined (CR-CPS-33's own text preserved unchanged) per live
+Project Owner clarification obtained in this act: Module0's CV/
+résumé upload gate and Coach's conversational discovery are two
+decoupled mandatory tracks, not a single linear dependency — an
+existing beneficiary CV (not only a Coach-generated PDF) satisfies
+the Module0 gate, and Coach discovery is never bypassed regardless of
+CV source. See docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_
+DESIGN.md §4.
+Source recovery decisively resolved the Evidence-relationship
+question via the FROZEN Evidence Item Contract V2 (§7 names "A0 CV
+extraction" as an authorized origination channel; §8/§18/§19 give the
+exact deterministic-vs-ambiguous incorporation rule applied here) —
+no Project Owner choice was required for that question. Intake
+Complete is represented by the existing, currently-unused `intake_
+submissions.status = 'complete'` enum value (migration 001) — zero
+schema change, zero A1 modification (A1 already reads
+intake_submissions unconditionally). Structured Profile persists as
+an additive `structured_profile` JSONB column on intake_submissions
+(Model SP-B), consistent with migrations 007/026 precedent, with an
+explicit per-field `status` enum (not_yet_acquired /
+acquired_unconfirmed / beneficiary_confirmed / conflicting) so that
+absence and uncertainty are never collapsed into `null`. Three
+genuine, source-flagged, no-default Project Owner decisions were
+resolved live, each with an explicit clarifying constraint: DDR-CV-01
+(Module0 CV/résumé entry MANDATORY; Coach-generated PDF OR an
+existing beneficiary CV both satisfy it; Coach discovery never
+bypassed), DDR-TRIGGER-01 (A0 extraction AUTOMATIC on upload of
+either accepted CV source; automatic extraction does not itself
+constitute confirmation, verification, or adjudication), DDR-CONFIRM-
+01 (BENEFICIARY reviews first, then staff under its existing
+professional-review authority; beneficiary confirmation does not
+itself constitute Evidence Verification, legal assessment, criterion
+satisfaction, eligibility determination, or staff approval). Working
+name `AUSCIS Intake Intelligence Layer` CANONIZED — no conflicting
+term found. Zero load-bearing open items remain; CV version-handling
+and Coach session-retention policy are explicitly flagged NOT
+ESTABLISHED, non-blocking, deferred to Implementation. A1–A5, AKAE,
+AEPE: untouched. IMPLEMENTATION: NOT AUTHORIZED — a separate
+Implementation Authorization Gate is required.
+
+NEXT GOVERNED ACT: AUSCIS Intake Intelligence Layer — Implementation
+Authorization Gate.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -1118,7 +1174,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| AUSCIS Intake Intelligence Layer — Coach / CV / A0 / Structured Profile / Prefill Engine (reconciled from CR-CPS-32's "A0 — CV Extractor & Intake Prefill", per CR-CPS-33 Project Owner architectural clarification) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + résumé-PDF extraction, prior to A1 handoff | AUCIS_CV_COACH_INTEGRATION.md; AUCIS_V2_STRATEGY_LAYER.md; Section K (Client Experience State); CR-CPS-33 Project Owner clarification | CURRENT DESIGN | DESIGNED (CONCEPTUAL + partial INTEGRATION; not Final-Exact-Design-ready) | GAP — PARTIALLY CONFIRMED (unwired exact; "design complete" overstated, 7 open questions remain) | NOT INTEGRATED | KEEP | **RECONCILED / AUTHORIZED ARCHITECTURAL EVOLUTION (CR-CPS-33)** | Coach conversational-discovery mechanics, Structured Profile schema, Prefill Engine mapping, and Intake Complete runtime representation all unresolved; Evidence-Item-vs-prefill framing tension carried forward (DESIGN DETAIL MISSING, not blocking) | AUSCIS Intake Intelligence Layer — Final Exact Design | NO |
+| AUSCIS Intake Intelligence Layer — Coach / CV / A0 / Structured Profile / Prefill Engine (Final Exact Design frozen CR-CPS-34, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + CV extraction, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md; AUCIS_CV_COACH_INTEGRATION.md | FROZEN | FROZEN (design only) | GAP — Final Exact Design frozen, zero implementation | NOT INTEGRATED | KEEP | **FINAL EXACT DESIGN FROZEN (CR-CPS-34)** | Zero load-bearing open items; CV version-handling and Coach session-retention policy explicitly NOT ESTABLISHED (non-blocking); exact Module10 per-field mapping and Coach question-generation mechanism deferred to Implementation | AUSCIS Intake Intelligence Layer — Implementation Authorization Gate | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1180,7 +1236,11 @@ Learning Engine
 
 **MCS Materialization / Design-Entry Gate (CR-CPS-32):** PASS, PRESERVED AS HISTORICAL TRUTH. Materialized subject (corrected canonical name, as of CR-CPS-32): `A0 — CV Extractor & Intake Prefill` — "CV" is an external input artifact, "Coach" is entirely external (out of AUSCIS's system boundary), and "Structured Profile" is not a source-established separate entity (resolves to the existing `intake_submissions.module1`/`.module10` columns). This finding was accurate for the two design documents CR-CPS-32 consulted; it did not cross-reference Section K's pre-existing "Structured Profile"/topology note.
 
-**Post-Materialization Architectural Reconciliation (CR-CPS-33):** AUTHORIZED ARCHITECTURAL EVOLUTION. The Project Owner, acting directly within this governed act, reclassified Coach as an INTEGRATED AUSCIS Stage 1 capability (conversational discovery only, no adjudication authority — P-14 preserved) and established Structured Profile and Prefill Engine as real architectural components. Reconciled topology: `Coach → CV → A0 → Structured Profile → Prefill Engine → Intake → [Intake Complete] → A1 → A2 → A3 → A4 → A5`, with A1–A5 completely unchanged. Reconciled subject: `AUSCIS Intake Intelligence Layer` (Stage 1 grouping; name not yet canonized). Decomposition test failed independent-governability — one coordinated Final Exact Design, not a decomposition. Canonical GAP claim, Evidence-Item-vs-prefill tension, A0/A1 boundary cleanliness, and zero dependencies all carried forward unchanged from CR-CPS-32. See Section G and Section K for the full record. Next governed act: `AUSCIS Intake Intelligence Layer` — Final Exact Design. NEXT MTCS remains NOT ESTABLISHED, not inferred; AKAE/AEPE untouched; Production remains HARD-DENIED.
+**Post-Materialization Architectural Reconciliation (CR-CPS-33):** AUTHORIZED ARCHITECTURAL EVOLUTION, PRESERVED AS HISTORICAL TRUTH. The Project Owner, acting directly within this governed act, reclassified Coach as an INTEGRATED AUSCIS Stage 1 capability (conversational discovery only, no adjudication authority — P-14 preserved) and established Structured Profile and Prefill Engine as real architectural components. Reconciled topology (as stated at that time): `Coach → CV → A0 → Structured Profile → Prefill Engine → Intake → [Intake Complete] → A1 → A2 → A3 → A4 → A5`, with A1–A5 completely unchanged. Reconciled subject: `AUSCIS Intake Intelligence Layer` (Stage 1 grouping; name not yet canonized). Decomposition test failed independent-governability — one coordinated Final Exact Design, not a decomposition. Canonical GAP claim, Evidence-Item-vs-prefill tension, A0/A1 boundary cleanliness, and zero dependencies all carried forward unchanged from CR-CPS-32. See Section G and Section K for the full record.
+
+**Final Exact Design (CR-CPS-34):** FROZEN. `docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md`, SHA256 `51928f1d53a6249a8a5117ac8d8b58dac037645314ee658ff83fbfc7d1eef981`. Refines CR-CPS-33's linear topology (text above unchanged) per live Project Owner clarification: Module0 CV/résumé upload and Coach discovery are decoupled mandatory tracks — an existing beneficiary CV, not only a Coach-generated PDF, satisfies the Module0 gate, and Coach is never bypassed. The Evidence-relationship question resolved SOURCE-DETERMINED via the FROZEN Evidence Item Contract V2 (§7/§8/§18/§19) — no Project Owner choice required. Intake Complete represented by the existing, currently-unused `intake_submissions.status = 'complete'` value — zero schema change, zero A1 modification. Structured Profile persists as an additive `structured_profile` JSONB column (Model SP-B) with an explicit per-field `status` enum (not_yet_acquired/acquired_unconfirmed/beneficiary_confirmed/conflicting) so absence/uncertainty is never collapsed into `null`. Three genuine Project Owner decisions resolved live, each with an explicit clarifying constraint: DDR-CV-01 (Module0 MANDATORY, either CV source, Coach never bypassed), DDR-TRIGGER-01 (A0 trigger AUTOMATIC, extraction ≠ confirmation/verification/adjudication), DDR-CONFIRM-01 (beneficiary reviews first, beneficiary confirmation ≠ Evidence Verification/legal assessment/staff approval; staff review follows under its existing authority). Name `AUSCIS Intake Intelligence Layer` CANONIZED. Zero load-bearing open items; CV version-handling and Coach session-retention explicitly NOT ESTABLISHED, non-blocking. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation Authorization Gate. NEXT MTCS remains NOT ESTABLISHED, not inferred; AKAE/AEPE untouched; Production remains HARD-DENIED; IMPLEMENTATION NOT AUTHORIZED.
+
+**PROCESS NOTE:** an earlier draft of this act (commit b045287) was executed without authorization by a subagent tasked with read-only source recovery only; it was independently audited against this repository's actual sources (all citations found accurate, no fabrication, but several design-detail gaps identified against this act's own governing requirements), then reverted in full (commit c0b2cca) at the Project Owner's explicit direction. This act was then re-executed directly, from the clean reverted state, with all three Project Owner decisions asked and answered live in this session.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -1281,18 +1341,25 @@ ECOSYSTEM
     │   │      UNNUMBERED · Production HARD-DENIED · next act: NOT
     │   │      ESTABLISHED
     │   ├── ◐ AUSCIS Intake Intelligence Layer — Coach / CV / A0 /
-    │   │      Structured Profile / Prefill Engine (reconciled from
-    │   │      CR-CPS-32's "A0 — CV Extractor & Intake Prefill" via
-    │   │      CR-CPS-33 Project Owner clarification) — AUTHORIZED
-    │   │      ARCHITECTURAL EVOLUTION (CR-CPS-33) · Coach now
-    │   │      INTEGRATED Stage 1 capability (discovery only, no
-    │   │      adjudication authority, P-14 preserved) · Structured
-    │   │      Profile + Prefill Engine established as real
-    │   │      components · topology Coach→CV→A0→Structured
-    │   │      Profile→Prefill Engine→Intake→[Intake Complete]→A1 ·
-    │   │      A1–A5 unchanged · one coordinated design (decomposition
-    │   │      test failed) · name not yet canonized · UNNUMBERED ·
-    │   │      next act: Final Exact Design
+    │   │      Structured Profile / Prefill Engine — FINAL EXACT
+    │   │      DESIGN FROZEN (CR-CPS-34) · SHA256 51928f1d...1eef981
+    │   │      · topology refined: Module0 CV upload (either Coach-
+    │   │      generated or existing beneficiary CV) and Coach
+    │   │      discovery are decoupled mandatory tracks, Coach never
+    │   │      bypassed · Evidence relationship SOURCE-DETERMINED via
+    │   │      FROZEN Evidence Item Contract V2 §7/8/18/19 · Intake
+    │   │      Complete = existing dormant intake_submissions.
+    │   │      status='complete' (zero schema change, zero A1
+    │   │      change) · Structured Profile = additive
+    │   │      structured_profile JSONB column, per-field status enum
+    │   │      (not_yet_acquired/acquired_unconfirmed/beneficiary_
+    │   │      confirmed/conflicting) · 3 Project Owner DDRs resolved
+    │   │      live with explicit clarifications (CV mandatory/either
+    │   │      source, A0 trigger automatic ≠ confirmation,
+    │   │      beneficiary reviews first ≠ Evidence Verification) ·
+    │   │      zero load-bearing open items · A1–A5/AKAE/AEPE
+    │   │      untouched · UNNUMBERED · IMPLEMENTATION NOT AUTHORIZED
+    │   │      · next act: Implementation Authorization Gate
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
