@@ -74,6 +74,9 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        Project Owner Sequencing Decision —
                         CV/A0/Structured Profile/Prefill/Coach
                         selected (CR-CPS-31)
+                       A0 — CV Extractor & Intake Prefill — MCS
+                        Materialization / Design-Entry Gate — PASS
+                        (CR-CPS-32)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -561,8 +564,59 @@ Prediction Engine, and Learning Engine remain NOT ESTABLISHED in
 sequence — not selected, not promoted, not demoted; each remains
 exactly as classified before this decision.
 
-NEXT GOVERNED ACT: CV/A0/Structured Profile/Prefill/Coach — MCS
-Materialization / Design-Entry Gate.
+MCS MATERIALIZATION / DESIGN-ENTRY GATE (CR-CPS-32): PASS. Direct
+source recovery (docs/AUCIS_CV_COACH_INTEGRATION.md, primary;
+docs/AUCIS_V2_STRATEGY_LAYER.md, naming/layer authority) established
+that the CR-CPS-31 selection, as literally slash-named, conflates
+three different things: (1) CV — an external input artifact, not an
+AUSCIS component; (2) A0 ("CV Extractor") — the one real, bounded
+AUSCIS-owned engine, source-explicit; (3) "Structured Profile" — NOT
+a source-established separate entity; prefill resolves entirely into
+the already-existing `intake_submissions.module1`/`.module10` JSONB
+columns (migration 001, confirmed live); "Prefill" is A0's output
+behavior, not a component; (4) Coach — entirely external (a
+third-party Custom GPT in ChatGPT, explicitly "fuera de este
+repositorio"), out of AUSCIS's system boundary, not something AUSCIS
+builds, hosts, or governs.
+MATERIALIZED SUBJECT (corrected canonical name, same underlying
+  selection): `A0 — CV Extractor & Intake Prefill`.
+CANONICAL GAP CLAIM ("GAP (design complete, unwired)"): PARTIALLY
+  CONFIRMED. "Unwired" is exact — zero Module0/A0 implementation
+  found anywhere (confirmed by direct search of src/app). "Design
+  complete" overstates it: source itself documents 7 unresolved
+  design questions (Module0 mandatory/optional; automatic vs. manual
+  extraction trigger; applicant-vs-staff review order; PDF retention;
+  non-Coach-format handling; Education has no destination field;
+  Module10 field-by-field mapping is explicitly only "un punto de
+  partida conceptual").
+ARCHITECTURAL TENSION FOUND: docs/AUCIS_PLATFORM_ARCHITECTURE.md and
+  docs/AUCIS_CORE_DOMAIN_MODEL.md describe A0's Evidence Layer as
+  producing "Evidence Item estructurada," while the only concrete,
+  dated design (AUCIS_CV_COACH_INTEGRATION.md) describes A0's output
+  purely as intake-field prefill, with no Evidence Item creation
+  logic. Classified DESIGN DETAIL MISSING, not a blocking TRUE
+  CONFLICT — the vaguer, higher-level documents' language is
+  aspirational framing for the Evidence Layer in aggregate (grouping
+  A0 with A2, which also does not itself auto-create Evidence Items
+  per established MTCS-03/04 precedent), not a specific mandate
+  contradicting the one concrete source. Flagged as the most
+  significant expected design decision for Final Exact Design's own
+  Phase 1 recovery.
+A0/A1 BOUNDARY: clean, source-explicit — "A1 mide — nunca decide
+  estrategia"; A0 performs extraction/mapping only, never criterion
+  evaluation, eligibility scoring, or legal reasoning; A1 requires no
+  modification.
+DEPENDENCIES: NONE — explicitly "complementaria al pipeline ya
+  construido (A1-A4) — no lo reemplaza."
+FIREWALLS: Organization/Multi-Tenant, Market Intelligence, RFE
+  Prediction, Learning, AKAE, and AEPE — none referenced, none
+  absorbed.
+MATERIALIZATION: PASS.
+DESIGN-ENTRY: AUTHORIZED.
+IDENTIFIER: NOT ESTABLISHED — UNNUMBERED, per established precedent.
+
+NEXT GOVERNED ACT: A0 — CV Extractor & Intake Prefill — Final Exact
+Design.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -975,7 +1029,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | **NEXT GOVERNED GAP (CR-CPS-31, Project Owner Sequencing Decision)** | Not implemented | CV/A0/Structured Profile/Prefill/Coach — MCS Materialization / Design-Entry Gate | NO |
+| A0 — CV Extractor & Intake Prefill (materialized from CR-CPS-31's "CV/A0/Structured Profile/Prefill/Coach" selection) | AUSCIS | Guided intake enrichment via résumé-PDF extraction | AUCIS_CV_COACH_INTEGRATION.md; AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED (CONCEPTUAL + partial INTEGRATION; not Final-Exact-Design-ready) | GAP — PARTIALLY CONFIRMED (unwired exact; "design complete" overstated, 7 open questions remain) | NOT INTEGRATED | KEEP | **MATERIALIZED / DESIGN ENTRY AUTHORIZED (CR-CPS-32)** | Module0 upload + A0 extraction engine entirely unimplemented; Evidence-Item-vs-prefill framing tension flagged (DESIGN DETAIL MISSING, not blocking) | A0 — CV Extractor & Intake Prefill — Final Exact Design | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1033,7 +1087,9 @@ Learning Engine
 
 **Closure (CR-CPS-30):** PASS. Closure authority established directly from this document's own repeated MTCS-06/07/08/QA-Engine precedent. Bounded scope preserved exactly (orthogonal sent_by/sent_at metadata, status remains "approved" permanently — no dispatch/recipient/channel). `register-returned-gwp.ts`/MTCS-08 design confirmed byte-for-byte unchanged across the entire implementation span. STATUS: ARCHITECTURAL STATE FROZEN — IMPLEMENTATION STATE IMPLEMENTED (TEST only) — IMPLEMENTATION MR PASS — CANONICAL STATE CLOSED. See Section G for the full record. Identifier remains NOT ESTABLISHED/UNNUMBERED. NEXT GOVERNED ACT (superseded by CR-CPS-31 below): a Project Owner Sequencing Decision was required to select among the remaining Scope B inventory. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
-**Project Owner Sequencing Decision (CR-CPS-31):** `CV / A0 / Structured Profile / Prefill / Coach` — explicitly selected by the Project Owner from the five remaining open Scope B candidates (CV/A0/Coach, Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, Learning Engine) after source established no deterministic precedence among them. See Section G for the full record. Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, and Learning Engine remain NOT ESTABLISHED in sequence — not selected, not promoted, not demoted. Next governed act: `CV/A0/Structured Profile/Prefill/Coach` — MCS Materialization / Design-Entry Gate. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
+**Project Owner Sequencing Decision (CR-CPS-31):** `CV / A0 / Structured Profile / Prefill / Coach` — explicitly selected by the Project Owner from the five remaining open Scope B candidates (CV/A0/Coach, Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, Learning Engine) after source established no deterministic precedence among them. See Section G for the full record. Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, and Learning Engine remain NOT ESTABLISHED in sequence — not selected, not promoted, not demoted.
+
+**MCS Materialization / Design-Entry Gate (CR-CPS-32):** PASS. Materialized subject (corrected canonical name): `A0 — CV Extractor & Intake Prefill` — "CV" is an external input artifact, "Coach" is entirely external (out of AUSCIS's system boundary), and "Structured Profile" is not a source-established separate entity (resolves to the existing `intake_submissions.module1`/`.module10` columns). Canonical GAP claim PARTIALLY CONFIRMED: unimplemented is exact; "design complete" overstates 7 source-documented open questions. One architectural tension found (Evidence Item vs. intake-prefill framing of A0's output) and classified DESIGN DETAIL MISSING, not blocking. A0/A1 boundary clean; zero dependencies; zero firewall violations. See Section G for the full record. Next governed act: `A0 — CV Extractor & Intake Prefill` — Final Exact Design. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -1133,10 +1189,14 @@ ECOSYSTEM
     │   │      gwp.ts / MTCS-08 design byte-for-byte unchanged ·
     │   │      UNNUMBERED · Production HARD-DENIED · next act: NOT
     │   │      ESTABLISHED
-    │   ├── ◐ CV/A0/Structured Profile/Prefill/Coach —
-    │   │      NEXT GOVERNED GAP (CR-CPS-31, Project Owner
-    │   │      Sequencing Decision) · design complete, unwired ·
-    │   │      next act: MCS Materialization / Design-Entry Gate
+    │   ├── ◐ A0 — CV Extractor & Intake Prefill (materialized
+    │   │      from CR-CPS-31's CV/A0/Structured Profile/Prefill/
+    │   │      Coach selection) — MATERIALIZED / DESIGN ENTRY
+    │   │      AUTHORIZED (CR-CPS-32) · Coach confirmed external
+    │   │      (out of AUSCIS boundary) · Structured Profile
+    │   │      resolves to existing intake_submissions columns ·
+    │   │      GAP partially confirmed, 7 open design questions ·
+    │   │      UNNUMBERED · next act: Final Exact Design
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
