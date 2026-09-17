@@ -54,6 +54,10 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         Transition — Implementation Authorization
                         Gate — BLOCKED, IAB-07 design defect
                         (CR-CPS-25)
+                       Human Review Gate — Approved-to-Sent
+                        Transition — Targeted Final Exact Design
+                        Reconciliation — D-REC-01 RESOLVED
+                        (CR-CPS-26)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -358,8 +362,42 @@ FINAL EXACT DESIGN SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df
   correction — correction requires its own separate, targeted design
   reconciliation act).
 
+TARGETED FINAL EXACT DESIGN RECONCILIATION (CR-CPS-26, D-REC-01):
+RESOLVED. The defect CR-CPS-25 found — the frozen design modeled
+`sent` as a persisted, terminal `status` transition, which
+permanently destroyed the `status='approved'` precondition
+register-returned-gwp.ts requires for MTCS-08 re-entry — is resolved
+by re-deriving the data-model representation from source rather than
+from the enum's mere existence: `sent` is now represented as
+orthogonal metadata (`sent_by`/`sent_at`) recorded while `status`
+remains `approved` permanently. Three candidates were evaluated
+(R1 — expand MTCS-08's own eligibility check to accept `status ∈
+{approved, sent}`, Class B MTCS-08 touch; R2 — leave `status`
+unchanged, record delivery as orthogonal metadata, Class A, zero
+MTCS-08 touch; R3 — introduce a separate delivery-status dimension,
+Class A but architecturally excessive). R2 was the sole deterministic
+survivor after Source-First/minimality elimination — no new Project
+Owner decision was required. Model A (status-only, no dispatch) and
+DDR-01 are unchanged in substance. `letter_status_enum`'s `'sent'`
+member remains schema-present but is now permanently unused by
+design (no destructive migration). GWP re-entry compatibility (§25)
+now holds true BY CONSTRUCTION — register-returned-gwp.ts requires
+ZERO modification, because `status` is never altered by this
+capability. T-07/AC-17 (previously a DESIGN CONFLICT) are now
+deterministic and trivially satisfiable.
+Prior design SHA256 (superseded, defect-containing):
+  2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23
+Reconciled design SHA256 (current):
+  3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d
+FINAL EXACT DESIGN: APPROVED / FROZEN — RECONCILED
+IMPLEMENTATION AUTHORIZATION: NOT GRANTED (CR-CPS-25's BLOCKED result
+  remains historically true; it is not retroactively converted to
+  PASS by this reconciliation — a fresh Implementation Authorization
+  Gate must be run against the reconciled SHA)
+NEXT MTCS: NOT ESTABLISHED
+
 NEXT GOVERNED ACT: Human Review Gate — Approved-to-Sent Transition —
-Targeted Final Exact Design Reconciliation.
+Implementation Authorization Gate — Re-run Against Reconciled Design.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -770,7 +808,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/lib/documents/register-returned-gwp.ts; src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN** (CR-CPS-24, content defect identified — CR-CPS-25) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED WITH DEFECT, NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `approved→sent` design (§25) contradicts §11/§17 and actual register-returned-gwp.ts behavior — sent is terminal yet §25 claims GWP re-entry stays available regardless; register-returned-gwp.ts hard-rejects any status ≠ 'approved' | **Human Review Gate — Approved-to-Sent Transition — Implementation Authorization BLOCKED (IAB-07 design defect, CR-CPS-25), UNNUMBERED** | Human Review Gate — Approved-to-Sent Transition — Targeted Final Exact Design Reconciliation | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d; prior superseded SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/lib/documents/register-returned-gwp.ts; src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26, D-REC-01 resolved) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED (reconciled), NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | `sent` now recorded as orthogonal metadata (sent_by/sent_at), status remains 'approved' permanently — register-returned-gwp.ts requires zero modification; T-07/AC-17 now deterministic | **Human Review Gate — Approved-to-Sent Transition — Final Exact Design RECONCILED (CR-CPS-26), UNNUMBERED, Implementation Authorization NOT YET RE-RUN** | Human Review Gate — Approved-to-Sent Transition — Implementation Authorization Gate — Re-run Against Reconciled Design | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
@@ -818,7 +856,9 @@ Learning Engine
 
 **Final Exact Design (CR-CPS-24):** APPROVED / FROZEN. Artifact: `docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md` (SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). Project Owner decision: Model A (status-only `sent` marker).
 
-**Implementation Authorization Gate (CR-CPS-25):** BLOCKED — IAB-07, load-bearing design defect. The frozen design's §25 GWP-compatibility claim is contradicted by its own §11 (sent is terminal) and §17 (UI action disappears once sent), and independently by live repository behavior: `src/lib/documents/register-returned-gwp.ts` hard-rejects GWP re-entry for any letter status other than `approved`. A letter marked `sent` becomes permanently ineligible for MTCS-08 re-entry, contradicting the frozen design's own stated invariant. See Section G for the full record. Implementation Authorization: NOT GRANTED. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Targeted Final Exact Design Reconciliation. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
+**Implementation Authorization Gate (CR-CPS-25):** BLOCKED — IAB-07, load-bearing design defect (historical fact, preserved unchanged). The original frozen design's §25 GWP-compatibility claim was contradicted by its own §11 (sent is terminal) and §17 (UI action disappears once sent), and independently by live repository behavior: `src/lib/documents/register-returned-gwp.ts` hard-rejects GWP re-entry for any letter status other than `approved`.
+
+**Targeted Final Exact Design Reconciliation (CR-CPS-26, D-REC-01):** RESOLVED. `sent` is now represented as orthogonal metadata (`sent_by`/`sent_at`) rather than a `status` transition; `status` remains `approved` permanently, so register-returned-gwp.ts's eligibility check requires zero modification and GWP re-entry compatibility holds by construction. Reconciled design SHA256 `3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d` (prior superseded SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). No new Project Owner decision was required — deterministic elimination among three candidates. See Section G for the full record. Implementation Authorization: NOT GRANTED — CR-CPS-25's BLOCKED result is not retroactively converted to PASS; a fresh Implementation Authorization Gate must run against the reconciled SHA. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Implementation Authorization Gate — Re-run Against Reconciled Design. Implementation remains NOT AUTHORIZED; NEXT MTCS remains NOT ESTABLISHED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -912,13 +952,14 @@ ECOSYSTEM
     │
     ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
     │   ├── ◐ Human Review Gate — Approved-to-Sent Transition —
-    │   │      Final Exact Design FROZEN (CR-CPS-24) but with a
-    │   │      LOAD-BEARING DEFECT found at Implementation
-    │   │      Authorization (CR-CPS-25, IAB-07): §25's GWP-
-    │   │      compatibility claim contradicts §11/§17 and live
-    │   │      register-returned-gwp.ts behavior · implementation
-    │   │      NOT AUTHORIZED · next act: Targeted Final Exact
-    │   │      Design Reconciliation
+    │   │      Final Exact Design FROZEN — RECONCILED (CR-CPS-26,
+    │   │      D-REC-01): `sent` now orthogonal metadata
+    │   │      (sent_by/sent_at), status stays 'approved'
+    │   │      permanently, GWP re-entry compatible by construction
+    │   │      · SHA 3b18a26d... (prior defect-containing SHA
+    │   │      2571ec51... superseded) · implementation NOT
+    │   │      AUTHORIZED · next act: Implementation Authorization
+    │   │      Gate — Re-run Against Reconciled Design
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED

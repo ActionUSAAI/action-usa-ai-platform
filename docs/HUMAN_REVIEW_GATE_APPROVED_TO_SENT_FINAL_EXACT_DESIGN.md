@@ -11,6 +11,19 @@ MCS Identifier:   NOT ESTABLISHED (UNNUMBERED — per QA Engine's own
                   design)
 MTCS Identifier:  NOT ESTABLISHED — requires a separate, explicit,
                   act-specific Project Owner grant
+Status of this document: FINAL EXACT DESIGN — TARGETED RECONCILIATION
+                  INCORPORATED (D-REC-01)
+Prior SHA256 (superseded): 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23
+Superseded by:    Targeted Final Exact Design Reconciliation
+                  (D-REC-01 — corrects a load-bearing contradiction
+                  between §11/§17 (sent terminal, UI action
+                  disappears) and §25's GWP re-entry compatibility
+                  claim, found by CR-CPS-25's Implementation
+                  Authorization Gate) — this revision supersedes the
+                  prior artifact in place; historical SHA preserved
+                  above, per this repository's own established
+                  design-correction convention (MTCS-08_FINAL_EXACT_
+                  DESIGN.md §1).
 ```
 
 ## 2. Authority
@@ -22,9 +35,17 @@ CR-CPS-22   Non-Actionable Status Reconciliation — ACTIONABILITY
             ESTABLISHED, no B1/B2/B3/B4 blocker found
 CR-CPS-23   MCS Materialization / Design-Entry Gate — PASS, DESIGN
             ENTRY AUTHORIZED
-THIS ACT    Final Exact Design — Project Owner decision (Model A,
-            status-only) supplied for DDR-01; all other design
-            surfaces resolved from source/compatibility default
+CR-CPS-24   Final Exact Design — APPROVED / FROZEN (original,
+            SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23)
+CR-CPS-25   Implementation Authorization Gate — BLOCKED, IAB-07
+            load-bearing design defect (D-REC-01)
+THIS ACT    Targeted Final Exact Design Reconciliation — resolves
+            D-REC-01 by re-deriving the data-model representation of
+            "sent" from source (orthogonal metadata, not a status
+            transition — §10/§11); Model A and DDR-01 unchanged; no
+            new Project Owner decision required (elimination among
+            candidates was deterministic — see governing act's own
+            record)
 ```
 
 ## 3. Problem Statement
@@ -87,13 +108,15 @@ MTCS-08 (approved GWP -> returned document -> new Case Document):
 
 ```
 IN SCOPE:
-- one new transition, approved -> sent, on
-  agent_recommendation_letters
+- one new capability on agent_recommendation_letters: recording that
+  an approved letter's external delivery has occurred (D-REC-01:
+  represented as orthogonal metadata, not a status transition — see
+  §10/§11)
 - exact schema delta to record who/when
 - exact API contract extension (existing endpoint)
 - exact UI contract extension (existing component)
 - exact authorization/concurrency/idempotency behavior
-  (all reused verbatim from existing transitions)
+  (all reused/adapted verbatim in spirit from existing transitions)
 ```
 
 ## 6. Out of Scope
@@ -111,22 +134,30 @@ IN SCOPE:
 - implementation of any kind (this document is design only)
 ```
 
-## 7. Governing Invariants
+## 7. Governing Invariants — RECONCILED (D-REC-01)
 
 ```
-INV-01  A letter may transition to `sent` only from `approved`.
-INV-02  `sent` is terminal — no transition originates from `sent`.
-INV-03  `sent` confers no Evidence Item state, no automatic A1/A5/
-        Blueprint/QA action, and no relationship to MTCS-08 GWP
-        re-entry (approved remains GWP re-entry's sole gate,
-        unaffected by whether the letter has separately been marked
-        sent).
-INV-04  Authorization for approved -> sent is identical to every
+INV-01  Delivery may be recorded only when the letter's current
+        status is `approved` (unchanged precondition).
+INV-02  Recording delivery does NOT change `status` — it remains
+        `approved` permanently thereafter (D-REC-01: replaces the
+        prior "sent is terminal" framing, which was the source of
+        the defect).
+INV-03  Recording delivery confers no Evidence Item state, no
+        automatic A1/A5/Blueprint/QA action, and — because `status`
+        never changes — has NO relationship to and NO effect on
+        MTCS-08 GWP re-entry eligibility, by construction rather
+        than by a separately-maintained compatibility claim.
+INV-04  Authorization for recording delivery is identical to every
         other existing transition on this table (no new
         authorization architecture).
-INV-05  The transition is a pure status-only write — AUSCIS performs
+INV-05  Recording delivery is a pure metadata write — AUSCIS performs
         no external dispatch, contacts no recipient, and integrates
         with no delivery channel.
+INV-06  Delivery may be recorded at most once per letter (§19
+        idempotency) — this is the mechanism that replaces the prior
+        design's now-removed reliance on `sent` being a terminal
+        status to prevent repeat actions.
 ```
 
 ## 8. Start Boundary
@@ -138,22 +169,44 @@ PERSISTED SOURCE STATE:  status = 'approved'
 ## 9. End Boundary
 
 ```
-PERSISTED TARGET STATE:  status = 'sent'
+PERSISTED TARGET STATE:  status remains 'approved' (UNCHANGED by
+  this action — see D-REC-01 reconciliation, §10/§11 below)
 sent_by  = caller's profile id
-sent_at  = server timestamp at transition
-No further governed transition exists from `sent` (INV-02).
+sent_at  = server timestamp when delivery was recorded
+Recording delivery is a one-time action per letter, not a status
+transition (§19).
 ```
 
-## 10. Canonical `sent` Semantics
+## 10. Canonical `sent` Semantics — RECONCILED (D-REC-01)
 
 ```
-MODEL: A — status-only marker (Project Owner decision, this act).
-`sent` records that AUSCIS staff has confirmed the approved letter
-was delivered externally by some means outside AUSCIS. AUSCIS does
-not perform, verify, or track the delivery itself.
+MODEL: A — status-only marker (Project Owner decision, preserved
+unchanged by this reconciliation).
+
+D-REC-01 CORRECTION: `sent` is a BUSINESS FACT — that AUSCIS staff
+has confirmed the approved letter was delivered externally by some
+means outside AUSCIS — recorded via `sent_by`/`sent_at` alone.
+`sent` is NOT represented as a persisted `status` transition. The
+`letter_status_enum` member `'sent'` remains schema-present (for
+backward compatibility / no destructive migration) but is
+permanently unused by this design — it is never assigned by any
+code path this design authorizes.
+
+WHY: `status` has always functioned in this repository as a single
+current-lifecycle-stage field (draft/in_review/approved/rejected),
+never as a compound field encoding two independent facts. No source
+(Evidence Item Contract V2 §§46-49, migration history, MTCS-08's
+design) requires "review stage" and "external delivery" to occupy
+the same value. Separating them as orthogonal facts — "has this
+letter received Human Approval for External Use" (status) and "has
+delivery been confirmed" (sent_at) — preserves Human Approval as a
+durable, non-revocable fact (§49) instead of allowing a later event
+to silently overwrite it. AUSCIS still performs no dispatch,
+contacts no recipient, and integrates with no delivery channel —
+Model A is unchanged in substance.
 ```
 
-## 11. State Machine
+## 11. State Machine — RECONCILED (D-REC-01)
 
 ```
 draft
@@ -161,15 +214,18 @@ draft
   v
 in_review
   |-- approved --.
-  |               \
-  |                v
-  |              sent   (terminal)
+  |               |  (status remains 'approved' permanently;
+  |               |   delivery is recorded orthogonally via
+  |               |   sent_by/sent_at — see §10, §16, §19)
   |
   `-- rejected   (terminal, unchanged)
 ```
 
-Only `approved -> sent` is added. No other edge is created, removed,
-or altered.
+No new status value is ever reached. `draft -> in_review` and
+`in_review -> {approved, rejected}` are unaltered. The prior design's
+`approved -> sent` status edge is REMOVED by this reconciliation and
+replaced by an orthogonal delivery-recording action that leaves
+`status` unchanged (see §16 API Contract, §19 Idempotency Contract).
 
 ## 12. Actor Model
 
@@ -215,54 +271,76 @@ existing trg_letters_updated_at (updated_at) trigger fires normally,
 unmodified.
 ```
 
-## 16. API Contract
+## 16. API Contract — RECONCILED (D-REC-01)
 
 ```
 ROUTE:          PATCH /api/case-letters   (existing endpoint, reused)
 REQUEST BODY:   { letter_id: string, status: "sent" }
-                (identical shape to existing approved/rejected calls)
+                (unchanged client-facing shape — "sent" remains the
+                request-level trigger value for backward-compatible
+                client semantics; it is NOT written to the `status`
+                column — see below)
 AUTHENTICATION: existing SSR session check (unmodified)
 AUTHORIZATION:  existing is_admin_or_supervisor() OR
                 case-assigned-agent check (unmodified)
 PRECONDITION:   current letter.status === "approved"
-ALLOWED_TRANSITIONS DELTA:
-  approved: ["sent"]   (added; approved currently maps to [])
-TARGET STATUS:  "sent"
-ON SUCCESS:     patch = { status: "sent", sent_by: callerProfile.id,
+                AND current letter.sent_at IS NULL
+                (D-REC-01: the second clause replaces the prior
+                design's reliance on ALLOWED_TRANSITIONS/status
+                equality to prevent repeats, since `status` no
+                longer changes)
+TARGET ACTION:  record-delivery (a distinct handling branch inside
+                the existing endpoint, keyed on the request's
+                `status === "sent"` value; not a generic
+                ALLOWED_TRANSITIONS status-map entry, and no entry
+                is added to that map for "sent")
+ON SUCCESS:     patch = { sent_by: callerProfile.id,
                 sent_at: new Date().toISOString() }
-                (mirrors the existing approved_by/approved_at branch
-                exactly, applied when targetStatus === "sent")
-CONCURRENCY:    existing conditional .eq("status", letter.status)
-                update — unmodified, applies automatically to this
-                transition
+                — `status` is NOT included in this patch and remains
+                "approved" in the persisted row.
+CONCURRENCY:    conditional update — .eq("status", "approved")
+                .is("sent_at", null) — D-REC-01 replaces the prior
+                single-column `.eq("status", letter.status)`
+                predicate with a two-column predicate expressing the
+                same "nothing changed since I read it" guarantee
+                against the two columns that are now independently
+                meaningful.
 RESPONSES (all reuse existing exact response shapes/status codes):
-  200  { letter: <updated row> }          — success
+  200  { letter: <updated row> }          — success (status still
+                                            "approved", sent_at now
+                                            populated)
   400  { error: "Missing required fields..." } — malformed body
   401  { error: "Unauthorized" }           — no session
   403  { error: "Forbidden" }              — authenticated but not
                                             authorized for this Case
   404  { error: "Letter not found" }       — letter_id doesn't exist
-  409  { error: "Invalid transition: cannot move from '<status>' to
-        'sent'. Allowed from '<status>': ..." } — wrong source status,
-        including a repeat call against an already-`sent` letter
-        (idempotent-safe rejection, no new logic required)
+  409  { error: "Letter <id> is not eligible to be marked sent
+        (status='<status>', sent_at='<sent_at>'); expected
+        status='approved' and sent_at=null." } — wrong source status
+        OR already recorded as sent (D-REC-01: new precondition
+        message, same 409 mechanism/shape as every other transition)
   500  { error: "..." }                    — persistence failure
-IDEMPOTENT REPLAY: a second approved->sent call against an
-  already-`sent` letter is rejected by the existing 409 path (source
-  status no longer `approved`) — no special-case code needed.
+IDEMPOTENT REPLAY: a second record-delivery call against a letter
+  whose sent_at is already set is rejected by the 409 path above
+  (D-REC-01: this is the mechanism that replaces the prior design's
+  now-invalid assumption that `status` becoming `sent` would itself
+  block repeats).
 EXTERNAL-ACTION FAILURE: NOT APPLICABLE (Model A performs no
   external action).
 ```
 
-## 17. UI Contract
+## 17. UI Contract — RECONCILED (D-REC-01)
 
 ```
 WHERE:      LetterRow component (document-generation-section.tsx),
-            same conditional-per-status block used by every other
-            status.
-FOR STATUS: approved only, alongside the existing "Subir documento
-            devuelto" action (both render together; independent,
-            non-exclusive actions).
+            in the existing status-keyed conditional block.
+FOR STATUS: approved AND sent_at is null, alongside the existing
+            "Subir documento devuelto" action (both render together;
+            independent, non-exclusive actions). D-REC-01: because
+            `status` never leaves "approved", visibility of the
+            "Marcar como enviada" action is now additionally
+            conditioned on `!letter.sent_at` — otherwise it would
+            render forever after use.
 FOR ROLES:  identical to existing action visibility — governed by
             the surrounding component's ALLOWED_ROLES gate, not
             per-action.
@@ -272,35 +350,52 @@ CONFIRMATION: none required — matches existing Aprobar/Rechazar
 PENDING STATE: existing `busy` (actionId === letter.id) pattern,
                reused verbatim — button disabled during the request.
 SUCCESS STATE: existing refreshLetters() re-fetch pattern, reused
-               verbatim — status badge updates to "Enviada" (label
-               already defined) automatically on refresh.
+               verbatim.
 FAILURE STATE: existing letterActionError display pattern, reused
                verbatim.
-POST-SUCCESS RENDERING: once status === "sent", no further action
-  renders for this letter in LetterRow (no case matches "sent" in
-  the conditional block) except the universal "Descargar" action —
-  consistent with `rejected`, which similarly renders no status
-  action once terminal.
+STATUS BADGE (D-REC-01, necessary consequential correction): the
+  existing `LETTER_STATUS_LABEL[letter.status]` lookup is keyed by
+  `status`, which never becomes `"sent"` under this reconciliation.
+  Badge rendering becomes: `letter.sent_at ? "Enviada" :
+  LETTER_STATUS_LABEL[letter.status]` — i.e. a populated `sent_at`
+  takes rendering precedence and reuses the already-defined
+  "Enviada" label/blue class, while the underlying `status` value
+  driving every other piece of logic (including MTCS-08's own gate)
+  remains "approved".
+POST-SUCCESS RENDERING: once `sent_at` is populated, the "Marcar
+  como enviada" action no longer renders for this letter (per its
+  own visibility condition above). Critically — and this is the
+  exact fix for D-REC-01 — the "Subir documento devuelto" action
+  (MTCS-08) CONTINUES to render, because its own visibility
+  condition (`letter.status === "approved"`) remains true forever;
+  it was never gated on `sent_at` and requires no change.
 ```
 
-## 18. Concurrency Contract
+## 18. Concurrency Contract — RECONCILED (D-REC-01)
 
 ```
-Identical to every existing transition: conditional update against
-the status value read at request time. A stale client's approved->
-sent request against a letter already moved elsewhere (e.g. by
-another admin) fails with the existing 409 Invalid-transition
-response — no new concurrency mechanism required.
+Same spirit as every existing transition (conditional update
+against the row state read at request time), applied to the two
+columns now jointly relevant: `.eq("status", "approved")
+.is("sent_at", null)` (§16). A stale client's record-delivery
+request against a letter that has already been marked sent, moved
+to rejected, or otherwise changed fails with the same 409 shape used
+throughout this endpoint — no new concurrency mechanism is
+introduced, only the predicate's column set changes to match the
+reconciled data model.
 ```
 
-## 19. Idempotency Contract
+## 19. Idempotency Contract — RECONCILED (D-REC-01)
 
 ```
-A repeated approved->sent request after the first has already
-succeeded is rejected by the existing ALLOWED_TRANSITIONS/409
-mechanism (source status is now `sent`, which has no outgoing
-transitions). No dedicated idempotency key or additional logic is
-introduced.
+A repeated record-delivery request after the first has already
+succeeded is rejected by the 409 mechanism in §16, because `sent_at`
+is no longer null on the second attempt. This directly replaces the
+prior design's now-invalid reliance on `status` becoming `sent` (a
+terminal value with no outgoing ALLOWED_TRANSITIONS entry) to block
+repeats — `sent_at IS NULL` is the equivalent guard for the
+reconciled model. No dedicated idempotency key or additional logic
+beyond this precondition check is introduced.
 ```
 
 ## 20. Failure Contract
@@ -349,19 +444,30 @@ treatment of external delivery as occurring entirely outside
 AUSCIS.
 ```
 
-## 25. GWP Re-entry Compatibility
+## 25. GWP Re-entry Compatibility — RECONCILED (D-REC-01)
 
 ```
-UNCHANGED. GWP re-entry's eligibility precondition remains
-`agent_recommendation_letters.status = 'approved'` exactly as
-MTCS-08 froze it. A letter's later transition to `sent` does not
-remove, gate, or otherwise interact with GWP re-entry eligibility —
-the upload-returned-document action already triggers directly off
-`status === "approved"`, and continues to do so regardless of
-whether the letter is later also marked `sent`. Required invariant
-(§45 of the governing instruction) holds: a returned approved GWP
-remains eligible for MTCS-08 re-entry regardless of whether `sent`
-has been recorded.
+UNCHANGED, and now true BY CONSTRUCTION rather than by an
+unenforced claim (this is the exact defect CR-CPS-25 found and this
+reconciliation resolves). GWP re-entry's eligibility precondition
+remains `agent_recommendation_letters.status = 'approved'` exactly
+as MTCS-08 froze it, and — because recording delivery under the
+reconciled model (§10/§11) never changes `status` — that precondition
+remains satisfied for the lifetime of the letter, with or without
+delivery having been recorded.
+
+`src/lib/documents/register-returned-gwp.ts`'s existing eligibility
+check (`letter.status !== "approved"` → INELIGIBLE) requires ZERO
+modification: it already accepts exactly the one status value this
+design ever produces or preserves. MTCS-08 CLASS: A — NO MTCS-08
+CHANGE (§17 of the governing instruction's taxonomy) — no
+compatibility patch, no contract amendment, no reopening of MTCS-08
+in any form, code or contract.
+
+Required invariant holds exactly and verifiably: a returned approved
+GWP remains eligible for MTCS-08 re-entry regardless of whether
+delivery has been recorded, because the only fact register-returned-
+gwp.ts ever inspects (`status`) is never altered by this capability.
 ```
 
 ## 26. Evidence V2 Boundary
@@ -426,57 +532,75 @@ given). No other migration required. No backfill required (both
 columns nullable, no existing row requires a value).
 ```
 
-## 33. Test Requirements
+## 33. Test Requirements — RECONCILED (D-REC-01)
 
 ```
 Minimum required validation (structural + live, mirroring this
 repository's own established TEST-only validation pattern —
 supabase/tests/*.ts against AUSCIS-TEST, never Production):
-T-01  approved -> sent succeeds for an authorized caller
-T-02  approved -> sent persists sent_by/sent_at correctly
-T-03  approved -> sent rejected (409) from any non-approved source
+T-01  record-delivery succeeds for an authorized caller on an
+      approved letter; status remains "approved" afterward
+T-02  record-delivery persists sent_by/sent_at correctly
+T-03  record-delivery rejected (409) from any non-approved source
       status (draft, in_review, rejected)
-T-04  approved -> sent rejected (403) for an unauthorized caller
-T-05  repeated approved -> sent against an already-sent letter is
-      rejected (409) — idempotency
-T-06  concurrent stale request rejected by existing optimistic
-      concurrency check
-T-07  GWP re-entry (MTCS-08 upload-returned-document) remains
-      functional for an approved letter regardless of sent state
+T-04  record-delivery rejected (403) for an unauthorized caller
+T-05  repeated record-delivery against a letter whose sent_at is
+      already set is rejected (409) — idempotency
+T-06  concurrent stale request rejected by the reconciled
+      status+sent_at conditional concurrency check
+T-07  (RECONCILED — D-REC-01) GWP re-entry (MTCS-08 upload-returned-
+      document, register-returned-gwp.ts) succeeds identically for
+      an approved letter both BEFORE and AFTER delivery has been
+      recorded — provable by construction since `status` is never
+      written by this capability, and verified live by calling
+      registerReturnedGeneratedWorkProduct against the same letter
+      both before and after record-delivery
 T-08  draft/in_review/approved/rejected transitions remain
       unaffected (regression)
 ```
 
-## 34. Acceptance Criteria
+## 34. Acceptance Criteria — RECONCILED (D-REC-01)
 
 ```
 AC-01  existing draft->in_review works unchanged                 
 AC-02  existing in_review->approved works unchanged               
 AC-03  existing in_review->rejected works unchanged                
-AC-04  only `approved` may transition to `sent` (INV-01)          
-AC-05  unauthorized actor cannot transition to `sent`             
-AC-06  stale concurrent transition cannot silently succeed        
-AC-07  `sent` semantics match Model A exactly (status-only, no
-       dispatch, no recipient, no channel)                        
-AC-08  persistence exactly matches §14/§15 (sent_by, sent_at only) 
+AC-04  (RECONCILED) delivery may be recorded only when status is
+       `approved` (INV-01); status is never assigned any other
+       value by this capability
+AC-05  unauthorized actor cannot record delivery                  
+AC-06  stale concurrent record-delivery request cannot silently
+       succeed (§18)
+AC-07  delivery semantics match Model A exactly (status-only
+       business fact, no dispatch, no recipient, no channel)      
+AC-08  persistence exactly matches §14/§15 (sent_by, sent_at only;
+       `status` is never written by this capability)              
 AC-09  UI exposes exactly one new action ("Marcar como enviada"),
-       visible only when status === "approved"                    
-AC-10  invalid transitions rejected with the existing 409 shape    
+       visible only when status === "approved" AND sent_at is null
+AC-10  invalid record-delivery attempts rejected with the 409 shape
+       defined in §16                                              
 AC-11  Evidence states unchanged; no Evidence Item created         
 AC-12  no automatic A1 invocation                                  
 AC-13  no automatic A5 invocation                                  
 AC-14  no automatic Blueprint regeneration                         
 AC-15  no automatic QA invocation                                  
 AC-16  MTCS-08's `approved` GWP re-entry boundary unchanged        
-AC-17  returned approved GWP remains re-entry-compatible
-       regardless of sent state                                    
+AC-17  (RECONCILED — was DESIGN CONFLICT under the prior artifact)
+       a returned approved GWP remains re-entry-compatible
+       regardless of whether delivery has been recorded — TRUE BY
+       CONSTRUCTION because `status` is never altered by this
+       capability (§25); verified live by T-07
 AC-18  AKAE unchanged                                               
 AC-19  AEPE unchanged                                               
 AC-20  Production untouched throughout design and any future
        implementation authorized separately                        
-AC-21  `sent` is terminal — no transition originates from `sent`   
-AC-22  repeated approved->sent against an already-sent letter is
-       rejected via the existing 409 mechanism (idempotency)       
+AC-21  (RECONCILED) recording delivery is a one-time action per
+       letter — not a status transition, and therefore has no
+       terminal-state concept to preserve; §19's sent_at-null
+       precondition is the sole mechanism preventing repeats
+AC-22  repeated record-delivery against a letter whose sent_at is
+       already set is rejected via the 409 mechanism (idempotency,
+       §19)
 ```
 
 ## 35. Implementation Boundary
@@ -502,12 +626,14 @@ separate authorization).
 
 ```
 NONE LOAD-BEARING. All design surfaces in §§10-34 are fully
-determined by source, compatibility default, or the Project Owner's
-DDR-01 decision (Model A). No TBD/TODO/UNKNOWN remains.
+determined by source, compatibility default, the Project Owner's
+DDR-01 decision (Model A), or this reconciliation's deterministic
+elimination among R1/R2/R3 (D-REC-01, no new Project Owner decision
+required). No TBD/TODO/UNKNOWN remains. D-REC-01 is RESOLVED.
 ```
 
 ## 38. Final Design Status
 
 ```
-FINAL EXACT DESIGN: APPROVED / FROZEN
+FINAL EXACT DESIGN: APPROVED / FROZEN — RECONCILED (D-REC-01)
 ```
