@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { recordLetterDelivery } from "@/lib/documents/record-letter-delivery";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -11,11 +12,8 @@ function adminDb() {
   });
 }
 
-// Human Approval Gate para agent_recommendation_letters. Workflow
-// documentado (docs/TECHNICAL_SPEC.md): draft -> in_review -> approved
-// -> sent. Este endpoint implementa únicamente draft->in_review y
-// in_review->{approved,rejected} -- 'sent' queda fuera de alcance (no
-// relacionado con Evidence/A1, y no fue pedido). No se permite ningún
+// Human Approval Gate para agent_recommendation_letters:
+// draft -> in_review -> {approved, rejected}. No se permite ningún
 // salto directo (ej. draft->approved).
 const ALLOWED_TRANSITIONS: Record<string, string[]> = {
   draft: ["in_review"],
@@ -75,7 +73,7 @@ export async function PATCH(request: NextRequest) {
   // ── 2. Fetch the letter -- must exist ─────────────────────────────────────
   const { data: letter, error: letterErr } = await db
     .from("agent_recommendation_letters")
-    .select("id, case_id, status")
+    .select("id, case_id, status, sent_at")
     .eq("id", letter_id)
     .maybeSingle();
   if (letterErr) {
@@ -100,9 +98,20 @@ export async function PATCH(request: NextRequest) {
     }
   }
 
-  // ── 4. Validate the transition -- never overwrite an incompatible state
+  // ── 4. "sent" is a record-delivery command, not a persisted status
+  // transition -- handled distinctly from ALLOWED_TRANSITIONS. ─────────────
+  if (targetStatus === "sent") {
+    const result = await recordLetterDelivery(db, letter, callerProfile.id);
+    if (!result.ok) {
+      const httpStatus = result.error.code === "PERSISTENCE_FAILURE" ? 500 : 409;
+      return NextResponse.json({ error: result.error.message }, { status: httpStatus });
+    }
+    return NextResponse.json({ success: true, letter: result.letter });
+  }
+
+  // ── 4b. Validate the transition -- never overwrite an incompatible state
   // silently (ej. draft->approved directamente, o aprobar una carta que
-  // ya está approved/rejected/sent). ────────────────────────────────────────
+  // ya está approved/rejected). ─────────────────────────────────────────────
   const allowedNext = ALLOWED_TRANSITIONS[letter.status] ?? [];
   if (!allowedNext.includes(targetStatus)) {
     return NextResponse.json(

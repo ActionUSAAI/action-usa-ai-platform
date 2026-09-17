@@ -12,6 +12,7 @@ export interface RecommendationLetter {
   recommender_name: string;
   docx_path: string | null;
   status: string;
+  sent_at?: string | null;
   created_at: string;
 }
 
@@ -70,16 +71,22 @@ function LetterRow({
 }: {
   letter: RecommendationLetter;
   actionId: string | null;
-  onUpdateStatus: (letterId: string, status: "in_review" | "approved" | "rejected") => void;
+  onUpdateStatus: (letterId: string, status: "in_review" | "approved" | "rejected" | "sent") => void;
   onUploadReturned: (letterId: string, file: File) => void;
 }) {
   const busy = actionId === letter.id;
   const returnedInputRef = useRef<HTMLInputElement>(null);
+  // Human Review Gate — Approved-to-Sent Transition (reconciled,
+  // D-REC-01): the "Enviada" badge is derived from sent_at, never
+  // from the persisted `status`, which remains "approved" after
+  // delivery is recorded.
+  const badgeLabel = letter.sent_at ? "Enviada" : (LETTER_STATUS_LABEL[letter.status] ?? letter.status);
+  const badgeClass = letter.sent_at ? LETTER_STATUS_CLASS.sent : (LETTER_STATUS_CLASS[letter.status] ?? "bg-gray-100 text-gray-600");
   return (
     <div className="flex items-center justify-between text-xs bg-gray-50 rounded px-3 py-2 gap-2">
       <span className="text-gray-700 flex-1">{letter.recommender_name} — {letter.criterion_covered}</span>
-      <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${LETTER_STATUS_CLASS[letter.status] ?? "bg-gray-100 text-gray-600"}`}>
-        {LETTER_STATUS_LABEL[letter.status] ?? letter.status}
+      <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${badgeClass}`}>
+        {badgeLabel}
       </span>
       {letter.status === "draft" && (
         <button
@@ -107,6 +114,15 @@ function LetterRow({
             Rechazar
           </button>
         </>
+      )}
+      {letter.status === "approved" && !letter.sent_at && (
+        <button
+          onClick={() => onUpdateStatus(letter.id, "sent")}
+          disabled={busy}
+          className="text-[#1B2B5E] font-medium disabled:opacity-40"
+        >
+          Marcar como enviada
+        </button>
       )}
       {letter.status === "approved" && (
         <>
@@ -180,7 +196,7 @@ export function DocumentGenerationSection({ caseId, submissionId, initialLetters
     if (refreshed?.letters) setLetters(refreshed.letters);
   }
 
-  async function updateLetterStatus(letterId: string, status: "in_review" | "approved" | "rejected") {
+  async function updateLetterStatus(letterId: string, status: "in_review" | "approved" | "rejected" | "sent") {
     setLetterActionId(letterId);
     setLetterActionError(null);
     try {
