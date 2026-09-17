@@ -71,6 +71,9 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         (CR-CPS-29)
                        Human Review Gate — Approved-to-Sent
                         Transition — Closure — PASS (CR-CPS-30)
+                       Project Owner Sequencing Decision —
+                        CV/A0/Structured Profile/Prefill/Coach
+                        selected (CR-CPS-31)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -533,13 +536,33 @@ PRODUCTION: HARD-DENIED — Closure does not authorize, deploy to, or
 
 NEXT MTCS: NOT ESTABLISHED.
 
-NEXT GOVERNED ACT: NOT ESTABLISHED. No authoritative source in this
-document explicitly designates a next act following this capability's
-closure. Per P-07 (Execution to Completion) and this session's own
-established discipline, sequencing decisions require an explicit
-governed act, not inference — see the six-candidate Scope B inventory
-(Section Q) for the factual decision surface a Project Owner
-Sequencing Decision would draw from, if and when one is requested.
+PROJECT OWNER SEQUENCING DECISION (CR-CPS-31): the Project Owner was
+presented with the five remaining open Scope B candidates (CV/A0/
+Structured Profile/Prefill/Coach, Organization/Multi-Tenant root,
+Market Intelligence Engine, RFE Prediction Engine, Learning Engine —
+Human Review Gate's Approved-to-Sent sub-scope and QA Engine both
+already CLOSED, excluded from the eligible set) after source
+established no deterministic precedence among them (each carries
+"LATER"/"NOT ESTABLISHED" for next-approved-action in Section P; the
+historical QA→Market Intelligence→RFE Prediction→Learning vision
+order remains non-binding, per P-07 and this document's own repeated
+finding). The Project Owner explicitly selected: `CV / A0 /
+Structured Profile / Prefill / Coach`.
+SOURCE STATUS OF THE SELECTED CANDIDATE: design already complete
+  (AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions), zero
+  implementation, zero dependencies, no unresolved architectural
+  firewall, and — unlike Human Review Gate's `sent` gap — no
+  "not currently actionable" or equivalent blocking classification
+  anywhere in its Section P record. No prerequisite Actionability
+  Reconciliation act is therefore source-required before
+  Materialization.
+Organization/Multi-Tenant root, Market Intelligence Engine, RFE
+Prediction Engine, and Learning Engine remain NOT ESTABLISHED in
+sequence — not selected, not promoted, not demoted; each remains
+exactly as classified before this decision.
+
+NEXT GOVERNED ACT: CV/A0/Structured Profile/Prefill/Coach — MCS
+Materialization / Design-Entry Gate.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -952,7 +975,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
+| CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | **NEXT GOVERNED GAP (CR-CPS-31, Project Owner Sequencing Decision)** | Not implemented | CV/A0/Structured Profile/Prefill/Coach — MCS Materialization / Design-Entry Gate | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1008,7 +1031,9 @@ Learning Engine
 
 **Implementation MR (CR-CPS-29):** PASS. Independent re-review of commit `c51b835` against the reconciled design: DTC 45/45 PASS, IMR 40/40 PASS, 0 material deviations. `register-returned-gwp.ts` and the MTCS-08 design doc independently reconfirmed byte-for-byte unchanged; D-REC-01/T-07 independently reconfirmed via a fresh live TEST re-run. Class A correction: the implementation commit and CR-CPS-28's own record had stated "18/18 live assertions PASS" — the actual, independently verified count is 16/16 PASS (a miscount, not a coverage gap; corrected throughout this document). `record-letter-delivery.ts` confirmed NON-MATERIAL IMPLEMENTATION DETAIL. See Section G for the full record. Closure: NOT ESTABLISHED as of this record.
 
-**Closure (CR-CPS-30):** PASS. Closure authority established directly from this document's own repeated MTCS-06/07/08/QA-Engine precedent. Bounded scope preserved exactly (orthogonal sent_by/sent_at metadata, status remains "approved" permanently — no dispatch/recipient/channel). `register-returned-gwp.ts`/MTCS-08 design confirmed byte-for-byte unchanged across the entire implementation span. STATUS: ARCHITECTURAL STATE FROZEN — IMPLEMENTATION STATE IMPLEMENTED (TEST only) — IMPLEMENTATION MR PASS — CANONICAL STATE CLOSED. See Section G for the full record. Identifier remains NOT ESTABLISHED/UNNUMBERED. NEXT GOVERNED ACT: NOT ESTABLISHED — no source designates a next act after this closure; a Project Owner Sequencing Decision would be required to select among the six-candidate Scope B inventory below, if and when requested. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
+**Closure (CR-CPS-30):** PASS. Closure authority established directly from this document's own repeated MTCS-06/07/08/QA-Engine precedent. Bounded scope preserved exactly (orthogonal sent_by/sent_at metadata, status remains "approved" permanently — no dispatch/recipient/channel). `register-returned-gwp.ts`/MTCS-08 design confirmed byte-for-byte unchanged across the entire implementation span. STATUS: ARCHITECTURAL STATE FROZEN — IMPLEMENTATION STATE IMPLEMENTED (TEST only) — IMPLEMENTATION MR PASS — CANONICAL STATE CLOSED. See Section G for the full record. Identifier remains NOT ESTABLISHED/UNNUMBERED. NEXT GOVERNED ACT (superseded by CR-CPS-31 below): a Project Owner Sequencing Decision was required to select among the remaining Scope B inventory. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
+
+**Project Owner Sequencing Decision (CR-CPS-31):** `CV / A0 / Structured Profile / Prefill / Coach` — explicitly selected by the Project Owner from the five remaining open Scope B candidates (CV/A0/Coach, Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, Learning Engine) after source established no deterministic precedence among them. See Section G for the full record. Organization/Multi-Tenant, Market Intelligence Engine, RFE Prediction Engine, and Learning Engine remain NOT ESTABLISHED in sequence — not selected, not promoted, not demoted. Next governed act: `CV/A0/Structured Profile/Prefill/Coach` — MCS Materialization / Design-Entry Gate. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -1108,7 +1133,10 @@ ECOSYSTEM
     │   │      gwp.ts / MTCS-08 design byte-for-byte unchanged ·
     │   │      UNNUMBERED · Production HARD-DENIED · next act: NOT
     │   │      ESTABLISHED
-    │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
+    │   ├── ◐ CV/A0/Structured Profile/Prefill/Coach —
+    │   │      NEXT GOVERNED GAP (CR-CPS-31, Project Owner
+    │   │      Sequencing Decision) · design complete, unwired ·
+    │   │      next act: MCS Materialization / Design-Entry Gate
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
