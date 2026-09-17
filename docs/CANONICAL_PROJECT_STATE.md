@@ -62,6 +62,10 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                         Transition — Implementation Authorization
                         Gate Re-run — GRANTED, TEST ONLY
                         (CR-CPS-27)
+                       Human Review Gate — Approved-to-Sent
+                        Transition — Reconciled Design
+                        Implementation — TEST Only — PASS
+                        (CR-CPS-28)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -426,10 +430,50 @@ AUTHORIZED SCOPE: exactly the reconciled Final Exact Design (SHA256
   validation. Explicitly excludes: Resend/email/dispatch/recipient/
   channel architecture, any MTCS-08/Evidence V2/A1/A5/Blueprint/QA/
   AKAE/AEPE modification, and Production.
-IMPLEMENTATION: NOT YET EXECUTED.
+RECONCILED DESIGN IMPLEMENTATION — TEST ONLY (CR-CPS-28): PASS.
+Implementation commit c51b835: migration 035 applied to TEST
+(utpsqevarnxscdqzywkk) only — additive sent_by/sent_at on
+agent_recommendation_letters, verified directly against live TEST DB
+state (types, nullability, FK all confirmed live, mirroring
+approved_by exactly). New service module
+src/lib/documents/record-letter-delivery.ts implements the reconciled
+D-REC-01 model (status='approved' AND sent_at IS NULL precondition;
+persists sent_by/sent_at only, never writes status) — this extraction
+is a non-material implementation detail relative to §16 of the
+reconciled design (which described only behavior, not code location),
+made specifically to enable live TEST validation via the same
+service-module pattern every other AUSCIS capability uses.
+src/app/api/case-letters/route.ts's PATCH now branches on
+`status: "sent"` as a distinct record-delivery command, never added
+to ALLOWED_TRANSITIONS. UI (document-generation-section.tsx) gained
+one new conditional action and a sent_at-derived badge; the existing
+MTCS-08 "Subir documento devuelto" action's `status === "approved"`
+visibility condition was not touched in any way.
+DECISIVE PROOF: src/lib/documents/register-returned-gwp.ts and
+docs/MTCS-08_FINAL_EXACT_DESIGN.md are byte-for-byte unchanged
+(confirmed via `git diff --stat`, zero lines) — live-verified via
+supabase/tests/human-review-gate-validate.ts: registerReturnedGeneratedWorkProduct
+succeeded identically both before and after delivery was recorded on
+the same fixture letter. 18/18 live assertions PASS, including the
+full DREC-LIVE regression set (status unchanged, sent_at/sent_by
+populated, repeat-delivery rejection with prior values preserved,
+exactly-one-of-two concurrent deliveries succeeding), draft/in_review/
+rejected correctly ineligible, and existing draft/in_review/approved/
+rejected transitions unaffected. typecheck/lint clean on every new/
+modified file; `npm run build`'s exit code remains affected only by
+the same pre-existing, unrelated `supabase/tests/mtcs08-validate.ts`
+issue (commit 6aff08d, not touched). Zero Evidence V2/A1/A5/Blueprint/
+QA/AKAE/AEPE reference in any new/modified code (grep-confirmed).
+IMPLEMENTATION: IMPLEMENTED — TEST ONLY.
+IMPLEMENTATION VALIDATION: PASS.
+CLOSURE: NOT ESTABLISHED — not automatically authorized by this
+  record; per this repository's own established lifecycle
+  (MTCS-06/07/08, QA Engine), a separate Implementation MR act
+  precedes any closure act.
+NEXT MTCS: NOT ESTABLISHED.
 
 NEXT GOVERNED ACT: Human Review Gate — Approved-to-Sent Transition —
-Reconciled Design Implementation — TEST Only.
+Implementation MR.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -840,7 +884,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | A1 Intake Analyzer | AUSCIS | Intake Analyzer / Criterion Assessment | Criterion Assessment Contract V1 | FROZEN | FROZEN | IMPLEMENTED | PARTIAL (Evidence V2 read added by MTCS-06 — CURRENT-only, surfaced as context, no selection/scoring mechanism) | KEEP | LATER | No Governed Knowledge Selection (TC-08)/Return-Scope Determination (TC-09) over Evidence; standalone explicit A1 reassessment flow remains incomplete; no CV/A0 structured-profile consumption; no external research/Agentic RAG mechanism | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | A5 Case Strategy Engine | AUSCIS | Strategic reasoning over case | ADR-011, Blueprint Contract v2 → v3 (narrow MTCS-06 amendment) | APPROVED (contract), IMPLEMENTED (core) | APPROVED (partial fulfillment) | PARTIAL | PARTIAL (Evidence Items read + Historical Reliance added by MTCS-06 — APP-VALIDATED, not DB-authoritative) | KEEP | LATER | ADR-011 D-014 Evidence consumption materialized for MTCS-06 Historical Reliance scope only; general Evidence-based Blueprint selection remains a Claude-reasoning step, not a separate selection engine | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
-| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d; prior superseded SHA256 2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23); src/lib/documents/register-returned-gwp.ts; src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26, D-REC-01 resolved) | **PARTIAL** (CR-CPS-07); Approved-to-Sent DESIGNED (reconciled), Implementation Authorization GRANTED (TEST only, CR-CPS-27), NOT IMPLEMENTED | INTEGRATED (draft/in_review/approved/rejected, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None — IA-RR 50/50 PASS, DREC-RR 15/15 PASS, 0 blockers; register-returned-gwp.ts requires zero modification | **Human Review Gate — Approved-to-Sent Transition — Implementation Authorization GRANTED (TEST only, CR-CPS-27), UNNUMBERED, NOT YET IMPLEMENTED** | Human Review Gate — Approved-to-Sent Transition — Reconciled Design Implementation — TEST Only | NOT YET DETERMINABLE |
+| Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent **IMPLEMENTED (TEST only)**, validation PASS | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | Implementation MR (pending, not self-certified) | **Human Review Gate — Approved-to-Sent Transition — IMPLEMENTED (TEST only, CR-CPS-28); 18/18 live assertions PASS; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged; closure NOT ESTABLISHED** | Human Review Gate — Approved-to-Sent Transition — Implementation MR | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
 | CV/A0/Structured Profile/Prefill/Coach | AUSCIS | Guided intake enrichment | AUCIS_CV_COACH_INTEGRATION.md + Coach GPT instructions | CURRENT DESIGN | DESIGNED | GAP (design complete, unwired) | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Not implemented | NOT ESTABLISHED | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
@@ -892,7 +936,9 @@ Learning Engine
 
 **Targeted Final Exact Design Reconciliation (CR-CPS-26, D-REC-01):** RESOLVED. `sent` is now represented as orthogonal metadata (`sent_by`/`sent_at`) rather than a `status` transition; `status` remains `approved` permanently, so register-returned-gwp.ts's eligibility check requires zero modification and GWP re-entry compatibility holds by construction. Reconciled design SHA256 `3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d` (prior superseded SHA256 `2571ec51737ab6f097997c0feb59015d72234730c0bff4652fb7df125c499e23`). No new Project Owner decision was required — deterministic elimination among three candidates. See Section G for the full record. Implementation Authorization: NOT GRANTED as of this record — CR-CPS-25's BLOCKED result is not retroactively converted to PASS; a fresh Implementation Authorization Gate ran against the reconciled SHA (see below).
 
-**Implementation Authorization Gate — Re-run (CR-CPS-27):** PASS. IA-RR 50/50 PASS, DREC-RR 15/15 PASS, 0 load-bearing conflicts. `src/lib/documents/register-returned-gwp.ts` requires zero modification; `sent_by`/`sent_at` confirmed genuinely absent from the schema; the existing case-letters PATCH endpoint's targetStatus-branching pattern directly supports a record-delivery branch that omits `status`; both existing `select("*")` call sites already surface `sent_at` to the UI with no query change; T-07 is executable using the exact TEST pattern `supabase/tests/mtcs08-validate.ts` already establishes. Implementation Authorization: GRANTED — TEST ONLY. Authorized scope: exactly the reconciled design (one additive TEST-only migration, the existing API's record-delivery branch, the existing UI's new action + badge, required TEST validation) — explicitly excludes any dispatch/recipient/channel architecture and any MTCS-08/Evidence V2/A1/A5/Blueprint/QA/AKAE/AEPE modification. Implementation: NOT YET EXECUTED. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Reconciled Design Implementation — TEST Only. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
+**Implementation Authorization Gate — Re-run (CR-CPS-27):** PASS. IA-RR 50/50 PASS, DREC-RR 15/15 PASS, 0 load-bearing conflicts. `src/lib/documents/register-returned-gwp.ts` requires zero modification; `sent_by`/`sent_at` confirmed genuinely absent from the schema; the existing case-letters PATCH endpoint's targetStatus-branching pattern directly supports a record-delivery branch that omits `status`; both existing `select("*")` call sites already surface `sent_at` to the UI with no query change; T-07 is executable using the exact TEST pattern `supabase/tests/mtcs08-validate.ts` already establishes. Implementation Authorization: GRANTED — TEST ONLY. Authorized scope: exactly the reconciled design (one additive TEST-only migration, the existing API's record-delivery branch, the existing UI's new action + badge, required TEST validation) — explicitly excludes any dispatch/recipient/channel architecture and any MTCS-08/Evidence V2/A1/A5/Blueprint/QA/AKAE/AEPE modification. Implementation: NOT YET EXECUTED as of this record.
+
+**Reconciled Design Implementation — TEST Only (CR-CPS-28):** PASS. Implementation commit `c51b835`. Migration 035 (additive sent_by/sent_at) applied to TEST only, verified live. `src/lib/documents/record-letter-delivery.ts` created (new service module, non-material extraction of §16's behavior for testability). `src/lib/documents/register-returned-gwp.ts` and `docs/MTCS-08_FINAL_EXACT_DESIGN.md` byte-for-byte unchanged. 18/18 live assertions PASS via `supabase/tests/human-review-gate-validate.ts`, including the mandatory D-REC-01 regression (MTCS-08 GWP re-entry eligible identically before and after delivery). See Section G for the full record. Implementation: IMPLEMENTED — TEST ONLY. Validation: PASS. Closure: NOT ESTABLISHED. Next governed act: `Human Review Gate — Approved-to-Sent Transition` — Implementation MR. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
 **SCOPE C — POST-COMPLETION / UNAPPROVED**
 ```
@@ -986,12 +1032,11 @@ ECOSYSTEM
     │
     ├── SCOPE B — LATER CANONICAL PRODUCT SCOPE
     │   ├── ◐ Human Review Gate — Approved-to-Sent Transition —
-    │   │      Final Exact Design FROZEN — RECONCILED (CR-CPS-26) ·
-    │   │      Implementation Authorization GRANTED — TEST ONLY
-    │   │      (CR-CPS-27): IA-RR 50/50 · DREC-RR 15/15 ·
-    │   │      register-returned-gwp.ts requires zero modification ·
-    │   │      SHA 3b18a26d... · NOT YET IMPLEMENTED · next act:
-    │   │      Reconciled Design Implementation — TEST Only
+    │   │      IMPLEMENTED (TEST only, CR-CPS-28): commit c51b835 ·
+    │   │      migration 035 · record-letter-delivery.ts ·
+    │   │      18/18 live assertions PASS · register-returned-gwp.ts
+    │   │      / MTCS-08 design byte-for-byte unchanged · UNNUMBERED
+    │   │      · closure NOT ESTABLISHED · next act: Implementation MR
     │   ├── ○ CV/A0/Structured Profile/Prefill/Coach
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
