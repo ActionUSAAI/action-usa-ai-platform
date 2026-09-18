@@ -1461,42 +1461,21 @@ ECOSYSTEM
     │   │      gwp.ts / MTCS-08 design byte-for-byte unchanged ·
     │   │      UNNUMBERED · Production HARD-DENIED · next act: NOT
     │   │      ESTABLISHED
-    │   ├── ◐ AUSCIS Intake Intelligence Layer — Coach / CV / A0 /
-    │   │      Structured Profile / Prefill Engine — FINAL EXACT
-    │   │      DESIGN FROZEN (CR-CPS-34) · SHA256 51928f1d...1eef981
-    │   │      · topology refined: Module0 CV upload (either Coach-
-    │   │      generated or existing beneficiary CV) and Coach
-    │   │      discovery are decoupled mandatory tracks, Coach never
-    │   │      bypassed · Evidence relationship SOURCE-DETERMINED via
-    │   │      FROZEN Evidence Item Contract V2 §7/8/18/19 · Intake
-    │   │      Complete = existing dormant intake_submissions.
-    │   │      status='complete' (zero schema change, zero A1
-    │   │      change) · Structured Profile = additive
-    │   │      structured_profile JSONB column, per-field status enum
-    │   │      (not_yet_acquired/acquired_unconfirmed/beneficiary_
-    │   │      confirmed/conflicting) · 3 Project Owner DDRs resolved
-    │   │      live with explicit clarifications (CV mandatory/either
-    │   │      source, A0 trigger automatic ≠ confirmation,
-    │   │      beneficiary reviews first ≠ Evidence Verification) ·
-    │   │      zero load-bearing open items · A1–A5/AKAE/AEPE
-    │   │      untouched · IMPLEMENTATION AUTHORIZATION GATE GRANTED
-    │   │      — TEST ONLY (CR-CPS-35) · IAG 50/50 PASS ·
-    │   │      IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR
-    │   │      (CR-CPS-36) · commit 7342c10 · migrations 036/037 live
-    │   │      in TEST · upload route hardened (invitation-token
-    │   │      ownership check) · Module0 + A0 + Coach + Prefill Engine
-    │   │      + beneficiary/staff review + Intake Complete all built ·
-    │   │      32/32 live TEST assertions PASS (incl. live Claude
-    │   │      A0/Coach calls) · A1–A5/AKAE/AEPE untouched ·
-    │   │      RECONCILED — DELTA PENDING (CR-CPS-37) · R-01 CV
-    │   │      mandatory→optional accelerator (Coach still mandatory) ·
-    │   │      R-02 Model C: automated readiness + exception-based
-    │   │      review (Needs Attention) replaces universal staff
-    │   │      approval; future tenant override NOT ESTABLISHED ·
-    │   │      CR-CPS-34/35/36 preserved unchanged · delta catalogued,
-    │   │      not built · UNNUMBERED · Production HARD-DENIED · next
-    │   │      act: Implementation Authorization Gate — Re-run
-    │   │      (R-01/R-02 delta)
+    │   ├── ◐ AUSCIS Intake Intelligence Layer — Coach / CV(optional) /
+    │   │      A0 / Structured Profile / Prefill Engine / Automated
+    │   │      Readiness — RECONCILED — DELTA PENDING IMPLEMENTATION
+    │   │      AUTHORIZATION (CR-CPS-37): commit 7342c10 (original
+    │   │      CR-CPS-34 model implemented TEST only, 32/32 live
+    │   │      assertions PASS, see Section Q for CR-CPS-34/35/36 full
+    │   │      history, preserved unchanged) · R-01 CV mandatory→
+    │   │      optional accelerator (Coach still mandatory) · R-02
+    │   │      Model C: automated readiness + exception-based review
+    │   │      (Needs Attention) replaces universal staff approval;
+    │   │      future tenant override NOT ESTABLISHED · delta
+    │   │      catalogued, not built · A1–A5/AKAE/AEPE untouched ·
+    │   │      UNNUMBERED · Production HARD-DENIED · next act:
+    │   │      Implementation Authorization Gate — Re-run (R-01/R-02
+    │   │      delta)
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
