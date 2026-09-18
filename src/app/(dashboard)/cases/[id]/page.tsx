@@ -238,7 +238,7 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             submissionId={submissionId}
             status={submission?.status ?? null}
             structuredProfile={(submission?.structured_profile as Record<string, { value: string | null; source: string | null; confidence: string | null; status: string }>) ?? null}
-            coachTurns={((submission?.coach_conversation as unknown[]) ?? []).length}
+            coachTurns={((submission?.coach_conversation as { turns?: unknown[] } | null)?.turns ?? []).length}
           />
 
           {/* ── Identidad Jurídica del Caso — capa fundacional del dominio ── */}

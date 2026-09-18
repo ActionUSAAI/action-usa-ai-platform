@@ -70,9 +70,10 @@ export async function POST(request: NextRequest) {
 
   // Same shared deterministic function the automatic post-submission
   // trigger uses -- no separate/looser staff-only readiness logic.
+  // coach_conversation shape: { turns, acknowledged } (CR-CPS-40 D-2).
   const readiness = evaluateReadiness(
     (submission.module1 ?? {}) as Record<string, string>,
-    (submission.coach_conversation ?? []) as unknown[],
+    (submission.coach_conversation ?? { turns: [], acknowledged: false }) as { turns: unknown[]; acknowledged: boolean },
     (submission.structured_profile ?? {}) as Record<string, { status?: string }>
   );
 

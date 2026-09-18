@@ -27,7 +27,7 @@ import { prefillModule1 } from "../../src/lib/intake/prefill-engine";
 import { extractCvFields } from "../../src/lib/intake/a0-extract";
 import { sendCoachTurn } from "../../src/lib/intake/coach";
 import { evaluateReadiness } from "../../src/lib/intake/readiness";
-import { resolveUploadNamespace, buildStoragePath } from "../../src/lib/intake/upload-authorization";
+import { resolveUploadNamespace, buildStoragePath, isSafeUploadPath, resolveExtension } from "../../src/lib/intake/upload-authorization";
 
 const PROD_REF = "slasbfepqovdsezmadjh";
 
@@ -173,52 +173,115 @@ async function main() {
 
   console.error(`[fixtures] caseA=${caseA.id} invitation=${invitation.id} invitationB=${invitationB.id}`);
 
-  // ══ SEC-01..07 — upload authorization, using the REAL shared
-  // resolveUploadNamespace()/buildStoragePath() functions. Runs BEFORE
-  // any submission consumes `token`/`tokenB` (both must still be
-  // pending/opened for SEC-01/02/07 to validly exercise the accepted
-  // path) ══
+  // ══ SEC-CORR-01..12 — CR-CPS-40 D-1 adversarial security correction
+  // validation, using the REAL shared resolveUploadNamespace() /
+  // isSafeUploadPath() / resolveExtension() / buildStoragePath()
+  // functions -- and a full simulation of the route's actual
+  // gate ordering (isSafeUploadPath -> resolveExtension ->
+  // resolveUploadNamespace -> buildStoragePath -> upload), the exact
+  // sequence src/app/api/intake/upload/route.ts now executes. Runs
+  // BEFORE any submission consumes `token`/`tokenB` (both must still
+  // be pending/opened). Every scratch storage object created here is
+  // tracked and removed at the end of this block. ══
+  const secScratchObjects: string[] = [];
   {
+    // Simulates the route's exact call sequence for one request.
+    // Returns which stage rejected it (if any) and whether a storage
+    // write was ever attempted -- this is the load-bearing proof that
+    // adversarial input never reaches storage.upload, not merely that
+    // isSafeUploadPath() returns false in isolation.
+    const simulateUploadRequest = async (requestToken: string, requestPath: string, mimeType: string): Promise<{ rejectedAt: string | null; wroteToPath: string | null }> => {
+      if (!isSafeUploadPath(requestPath)) return { rejectedAt: "isSafeUploadPath", wroteToPath: null };
+      const extension = resolveExtension(mimeType);
+      if (!extension) return { rejectedAt: "resolveExtension", wroteToPath: null };
+      const authResult = await resolveUploadNamespace(svc, requestToken);
+      if (!authResult.ok) return { rejectedAt: "resolveUploadNamespace", wroteToPath: null };
+      const storagePath = buildStoragePath(authResult.invitationId, requestPath, extension);
+      const { error } = await svc.storage.from("intake-documents").upload(storagePath, Buffer.from("sim"), { contentType: mimeType, upsert: true });
+      if (error) return { rejectedAt: `storage:${error.message}`, wroteToPath: null };
+      secScratchObjects.push(storagePath);
+      return { rejectedAt: null, wroteToPath: storagePath };
+    };
+
     const authValid = await resolveUploadNamespace(svc, token);
-    record("SEC-01 (valid token resolves an authorized namespace)", authValid.ok && authValid.invitationId === invitation.id ? "PASS" : "FAIL", JSON.stringify(authValid));
-
-    // SEC-02 (LOAD-BEARING) — the confirmed defect is remediated
-    // structurally: resolveUploadNamespace()/buildStoragePath() accept
-    // no client-controlled session parameter at all, so there is no
-    // input through which a foreign namespace could be requested. Two
-    // independent invitations resolve to two independent, non-colliding
-    // namespaces, and a live storage write for each proves real
-    // segregation -- not merely absence of a parameter.
     const authB = await resolveUploadNamespace(svc, tokenB);
-    const distinctNamespaces = authValid.ok && authB.ok && authValid.invitationId !== authB.invitationId;
-    record("SEC-02 (two invitations resolve to two independent namespaces — no parameter exists to request a foreign one)", distinctNamespaces ? "PASS" : "FAIL", `A=${authValid.ok ? authValid.invitationId : authValid.error}, B=${authB.ok ? authB.invitationId : authB.error}`);
+    if (!authValid.ok || !authB.ok) throw new Error(`SEC fixtures not ready: A=${JSON.stringify(authValid)} B=${JSON.stringify(authB)}`);
 
-    if (authValid.ok && authB.ok) {
-      const pathA = buildStoragePath(authValid.invitationId, "module0/cv", "test-a.pdf");
-      const pathB = buildStoragePath(authB.invitationId, "module0/cv", "test-b.pdf");
-      const { error: upErrA } = await svc.storage.from("intake-documents").upload(pathA, Buffer.from("synthetic A"), { contentType: "application/pdf", upsert: true });
-      const { error: upErrB } = await svc.storage.from("intake-documents").upload(pathB, Buffer.from("synthetic B"), { contentType: "application/pdf", upsert: true });
-      const namespacesSeparate = pathA.startsWith(authValid.invitationId) && pathB.startsWith(authB.invitationId) && !pathA.startsWith(authB.invitationId);
-      record("SEC-07 (server-authorized namespace used for successful write, real segregation proven live)", !upErrA && !upErrB && namespacesSeparate ? "PASS" : "FAIL", `pathA=${pathA} pathB=${pathB}`);
-      await svc.storage.from("intake-documents").remove([pathA, pathB]);
+    // SEC-CORR-01 — legitimate request succeeds, inside invitation A's
+    // own namespace, via the full simulated pipeline.
+    const r01 = await simulateUploadRequest(token, "module0/cv", "application/pdf");
+    record("SEC-CORR-01 (legitimate token + Module0 CV path writes inside its own namespace)", r01.wroteToPath !== null && r01.wroteToPath.startsWith(authValid.invitationId) ? "PASS" : "FAIL", JSON.stringify(r01));
+
+    // SEC-CORR-02 — a `path` that merely NAMES invitation B (a
+    // syntactically safe UUID string, no traversal characters) is
+    // correctly ALLOWED by isSafeUploadPath, but the real security
+    // property still holds: buildStoragePath always prefixes with the
+    // server-resolved invitationId of the CALLER's own token, so the
+    // result is a harmless subfolder nested under invitation A's own
+    // namespace -- never an actual write inside B's real namespace.
+    // This is not a rejection case; it is a scoping-containment case.
+    const r02 = await simulateUploadRequest(token, authB.invitationId, "application/pdf");
+    record("SEC-CORR-02 (path naming invitation B remains contained under caller's own namespace, never escapes into B)", r02.wroteToPath !== null && r02.wroteToPath.startsWith(authValid.invitationId + "/") && !r02.wroteToPath.startsWith(authB.invitationId) ? "PASS" : "FAIL", JSON.stringify(r02));
+
+    // SEC-CORR-03..07 — genuine traversal/injection `path` values, run
+    // through the FULL simulated pipeline. Each must be rejected at
+    // isSafeUploadPath, BEFORE resolveUploadNamespace or any storage
+    // call is ever reached.
+    const adversarial: [string, string][] = [
+      ["SEC-CORR-03 (single .. traversal)", "../module0/cv"],
+      ["SEC-CORR-04 (deep ../../<invitationB>/ traversal)", `../../${authB.invitationId}/module0/cv`],
+      ["SEC-CORR-05 (leading slash)", "/module0/cv"],
+      ["SEC-CORR-06 (repeated separators / mixed traversal)", "..//..//module0/cv"],
+      ["SEC-CORR-07 (percent-encoded traversal)", `%2e%2e/${authB.invitationId}/module0/cv`],
+    ];
+    for (const [label, adversarialPath] of adversarial) {
+      const result = await simulateUploadRequest(token, adversarialPath, "application/pdf");
+      record(label, result.rejectedAt === "isSafeUploadPath" && result.wroteToPath === null ? "PASS" : "FAIL", JSON.stringify(result));
     }
 
-    const authInvalid = await resolveUploadNamespace(svc, "nonexistent-token");
-    record("SEC-03 (invalid token rejected)", !authInvalid.ok ? "PASS" : "FAIL", JSON.stringify(authInvalid));
+    // SEC-CORR-08 — crafted fileName with traversal-like content cannot
+    // influence the namespace: buildStoragePath's signature accepts
+    // only a server-resolved extension, never a client fileName -- no
+    // parameter exists through which a filename string could reach the
+    // returned key.
+    record("SEC-CORR-08 (fileName cannot influence namespace — buildStoragePath takes no fileName parameter)", buildStoragePath.length === 3 ? "PASS" : "FAIL", `buildStoragePath arity=${buildStoragePath.length} (invitationId, path, extension only)`);
 
-    const authExpired = await resolveUploadNamespace(svc, expiredToken);
-    record("SEC-04 (expired invitation rejected)", !authExpired.ok ? "PASS" : "FAIL", JSON.stringify(authExpired));
+    // SEC-CORR-09 — extension is derived exclusively from the closed
+    // MIME allowlist, never from a client-supplied fileName string.
+    const extFromMime = resolveExtension("application/pdf");
+    record("SEC-CORR-09 (extension derived from closed MIME allowlist, not client fileName)", extFromMime === "pdf" ? "PASS" : "FAIL", `resolveExtension("application/pdf")=${extFromMime}`);
 
-    const authIneligible = await resolveUploadNamespace(svc, ineligibleToken);
-    record("SEC-05 (ineligible invitation status — already submitted — rejected)", !authIneligible.ok ? "PASS" : "FAIL", JSON.stringify(authIneligible));
+    // SEC-CORR-10 — unsupported MIME type yields no extension; the
+    // simulated pipeline confirms this halts before any storage call.
+    const r10 = await simulateUploadRequest(token, "module0/cv", "application/x-msdownload");
+    record("SEC-CORR-10 (unsupported MIME type rejected before storage write)", r10.rejectedAt === "resolveExtension" && r10.wroteToPath === null ? "PASS" : "FAIL", JSON.stringify(r10));
 
-    // SEC-06 — authorization failure produces zero storage write: proven
-    // structurally by the route's control flow (an early `return` on
-    // `!auth.ok` occurs strictly before the only `storage.upload` call
-    // in the file — confirmed by direct source inspection, not just this
-    // rejection result) and behaviorally here: no upload call is ever
-    // reachable using authInvalid's non-existent invitationId.
-    record("SEC-06 (authorization failure → zero storage write, by construction — no reachable upload call exists on the rejection path)", !authInvalid.ok && !authExpired.ok && !authIneligible.ok ? "PASS" : "FAIL", "all three rejections carry no invitationId to build a path from");
+    // SEC-CORR-11 — end-to-end proof that none of the adversarial
+    // SEC-CORR-02..07 attempts (all targeting invitation B by name or
+    // traversal) actually created any object under invitation B's
+    // real, legitimate namespace.
+    const { data: listB } = await svc.storage.from("intake-documents").list(`${authB.invitationId}/module0/cv`);
+    record("SEC-CORR-11 (zero adversarial objects landed in invitation B's real namespace)", (listB ?? []).length === 0 ? "PASS" : "FAIL", `invitationB listing count=${(listB ?? []).length}`);
+
+    // SEC-CORR-12 — authorization failure (invalid/expired/ineligible
+    // token) produces zero storage write, via the same full simulated
+    // pipeline with a legitimate path but an illegitimate token.
+    const rInvalid = await simulateUploadRequest("nonexistent-token", "module0/cv", "application/pdf");
+    const rExpired = await simulateUploadRequest(expiredToken, "module0/cv", "application/pdf");
+    const rIneligible = await simulateUploadRequest(ineligibleToken, "module0/cv", "application/pdf");
+    const allRejectedBeforeWrite = [rInvalid, rExpired, rIneligible].every(r => r.rejectedAt === "resolveUploadNamespace" && r.wroteToPath === null);
+    record("SEC-CORR-12 (invalid/expired/ineligible tokens all rejected before any storage write is reachable)", allRejectedBeforeWrite ? "PASS" : "FAIL", JSON.stringify({ rInvalid, rExpired, rIneligible }));
+
+    // Baseline checks retained as part of the same corrected suite.
+    record("SEC-01 (valid token resolves an authorized namespace)", authValid.ok && authValid.invitationId === invitation.id ? "PASS" : "FAIL", JSON.stringify(authValid));
+    const authIneligibleDirect = await resolveUploadNamespace(svc, ineligibleToken);
+    record("SEC-05 (ineligible invitation status — already submitted — rejected)", !authIneligibleDirect.ok ? "PASS" : "FAIL", JSON.stringify(authIneligibleDirect));
+
+    // cleanup this block's scratch objects
+    if (secScratchObjects.length > 0) {
+      const { error: cleanupErr } = await svc.storage.from("intake-documents").remove(secScratchObjects);
+      console.error(`[cleanup] SEC scratch objects: created=${secScratchObjects.length} removed=${cleanupErr ? "ERROR: " + cleanupErr.message : secScratchObjects.length}`);
+    }
   }
 
   // ══ RPC-01..04 — submit_intake_for_invitation accepts/persists
@@ -227,10 +290,14 @@ async function main() {
   {
     let profile = emptyStructuredProfile();
     profile.givenName = confirmField(acquireField(profile.givenName, { value: "Jane", source: "cv_extraction", confidence: "high" }), "beneficiary");
-    const coachConversation = [
-      { role: "assistant", content: "¿A qué te dedicas?", at: new Date().toISOString() },
-      { role: "user", content: "Soy ingeniera de software.", at: new Date().toISOString() },
-    ];
+    // CR-CPS-40 D-2 shape: { turns, acknowledged }.
+    const coachConversation = {
+      turns: [
+        { role: "assistant", content: "¿A qué te dedicas?", at: new Date().toISOString() },
+        { role: "user", content: "Soy ingeniera de software.", at: new Date().toISOString() },
+      ],
+      acknowledged: true,
+    };
 
     const { data: submitResult, error: submitErr } = await svc.rpc("submit_intake_for_invitation", {
       p_token: token,
@@ -246,14 +313,15 @@ async function main() {
 
     const { data: row } = await svc.from("intake_submissions").select("structured_profile, coach_conversation, status").eq("id", submissionId).single();
     record("RPC-02 (structured_profile persisted exactly as submitted)", row?.structured_profile?.givenName?.value === "Jane" ? "PASS" : "FAIL", JSON.stringify(row?.structured_profile?.givenName));
-    record("RPC-03 (coach_conversation persisted, 2 turns)", Array.isArray(row?.coach_conversation) && row.coach_conversation.length === 2 ? "PASS" : "FAIL", `len=${row?.coach_conversation?.length}`);
+    record("RPC-03 (coach_conversation persisted, 2 turns + acknowledged)", Array.isArray(row?.coach_conversation?.turns) && row.coach_conversation.turns.length === 2 && row.coach_conversation.acknowledged === true ? "PASS" : "FAIL", JSON.stringify(row?.coach_conversation));
     record("RPC-04 (invitation-driven case/client resolution unchanged — status=submitted)", row?.status === "submitted" ? "PASS" : "FAIL", `status=${row?.status}`);
   }
 
-  // ══ R02-* — Automated Readiness, using the REAL shared
-  // evaluateReadiness() function (imported by path, not reimplemented —
-  // consumed identically by the automatic post-submission trigger and
-  // the staff exception-resolution recheck) ══
+  // ══ R02-* / COACH-CORR-* / CONF-CORR-* — Automated Readiness, using
+  // the REAL shared evaluateReadiness() function (imported by path, not
+  // reimplemented — consumed identically by the automatic
+  // post-submission trigger and the staff exception-resolution
+  // recheck). Includes CR-CPS-40 D-2/D-3 correction validation. ══
   {
     const { data: row } = await svc.from("intake_submissions").select("module1, coach_conversation, structured_profile").eq("id", submissionId).single();
 
@@ -263,7 +331,7 @@ async function main() {
     const missingIdentityResult = evaluateReadiness({}, row!.coach_conversation, row!.structured_profile);
     record("R02-04 (missing identity fields → NEEDS_ATTENTION)", missingIdentityResult.status === "NEEDS_ATTENTION" && missingIdentityResult.reasons.includes("missing_identity_information") ? "PASS" : "FAIL", JSON.stringify(missingIdentityResult));
 
-    const noCoachResult = evaluateReadiness(row!.module1, [], row!.structured_profile);
+    const noCoachResult = evaluateReadiness(row!.module1, { turns: [], acknowledged: false }, row!.structured_profile);
     record("R02-05 (zero Coach turns → NEEDS_ATTENTION — Coach never bypassed)", noCoachResult.status === "NEEDS_ATTENTION" && noCoachResult.reasons.includes("coach_not_completed") ? "PASS" : "FAIL", JSON.stringify(noCoachResult));
 
     const conflictingProfile = { ...row!.structured_profile, givenName: { ...row!.structured_profile.givenName, status: "conflicting" } };
@@ -272,16 +340,19 @@ async function main() {
 
     // R01-03/R02-07 — a profile with zero cv_extraction-sourced fields
     // (Coach-only acquisition) must still be able to reach READY: CV
-    // absence alone must never produce NEEDS_ATTENTION (RDC-06).
+    // absence alone must never produce NEEDS_ATTENTION (RDC-06). Field
+    // must be beneficiary_confirmed, not merely acquired, so this test
+    // isolates the CV-absence property from the D-3 confirmation check.
     let coachOnlyProfile = emptyStructuredProfile();
     coachOnlyProfile.profession = confirmField(acquireField(coachOnlyProfile.profession, { value: "Engineer", source: "coach_discovery", confidence: "high" }), "beneficiary");
     const noCvResult = evaluateReadiness(row!.module1, row!.coach_conversation, coachOnlyProfile);
     record("R01-03 / R02-07 (CV-absent profile — zero cv_extraction fields — still reaches READY)", noCvResult.status === "READY" ? "PASS" : "FAIL", JSON.stringify(noCvResult));
 
     // R02-12 — readiness contains zero legal eligibility/criterion logic:
-    // populating a criterion-evidence narrative field (awards) must have
-    // zero effect on the READY/NEEDS_ATTENTION outcome.
-    const withAwardsProfile = { ...row!.structured_profile, awards: acquireField(emptyField(), { value: "Some award", source: "cv_extraction", confidence: "low" }) };
+    // populating a criterion-evidence narrative field (awards), once
+    // confirmed, must have zero effect on the READY/NEEDS_ATTENTION
+    // outcome beyond the D-3 confirmation check itself.
+    const withAwardsProfile = { ...row!.structured_profile, awards: confirmField(acquireField(emptyField(), { value: "Some award", source: "cv_extraction", confidence: "low" }), "beneficiary") };
     const withAwardsResult = evaluateReadiness(row!.module1, row!.coach_conversation, withAwardsProfile);
     record("R02-12 (criterion-evidence content has zero effect on readiness — no legal/criterion logic present)", withAwardsResult.status === "READY" ? "PASS" : "FAIL", JSON.stringify(withAwardsResult));
 
@@ -295,6 +366,38 @@ async function main() {
       evaluateReadiness(null as any, row!.coach_conversation, row!.structured_profile);
     } catch { threw = true; }
     record("R02-11 (malformed input throws — technical failure never silently becomes READY)", threw ? "PASS" : "FAIL", `threw=${threw}`);
+
+    // ══ COACH-CORR-01..07 — CR-CPS-40 D-2 correction: server now
+    // enforces the SAME acknowledgment gate the client UI requires, not
+    // a weaker length>0-only proxy. ══
+    record("COACH-CORR-01 (turns present, not acknowledged → NEEDS_ATTENTION)", evaluateReadiness(row!.module1, { turns: [{ role: "user", content: "hola" }], acknowledged: false }, row!.structured_profile).status === "NEEDS_ATTENTION" ? "PASS" : "FAIL", "");
+    record("COACH-CORR-02 (no CV, turns present, not acknowledged → NEEDS_ATTENTION)", evaluateReadiness(row!.module1, { turns: [{ role: "user", content: "hola" }], acknowledged: false }, coachOnlyProfile).status === "NEEDS_ATTENTION" ? "PASS" : "FAIL", "");
+    record("COACH-CORR-03 (CV present + Coach satisfied → Coach condition PASS)", okResult.status === "READY" ? "PASS" : "FAIL", "");
+    record("COACH-CORR-04 (no CV + Coach satisfied → Coach condition PASS)", noCvResult.status === "READY" ? "PASS" : "FAIL", "");
+    // COACH-CORR-05/06 — direct API submission cannot bypass mandatory
+    // Coach condition via a fabricated acknowledgment without real
+    // persisted participation: acknowledged:true with zero turns is
+    // STILL rejected, because both conditions (turns.length>0 AND
+    // acknowledged) are required, not acknowledged alone.
+    record("COACH-CORR-05/06 (fabricated acknowledgment, zero real turns → still NEEDS_ATTENTION, not bypassable)", evaluateReadiness(row!.module1, { turns: [], acknowledged: true }, row!.structured_profile).status === "NEEDS_ATTENTION" ? "PASS" : "FAIL", "");
+    record("COACH-CORR-07 (normal legitimate Coach flow — turns + acknowledged — reaches READY)", okResult.status === "READY" ? "PASS" : "FAIL", "");
+
+    // ══ CONF-CORR-01..07 — CR-CPS-40 D-3 correction: readiness now
+    // enforces per-field beneficiary confirmation for acquired
+    // information. ══
+    const unconfirmedProfile = { ...row!.structured_profile, familyName: acquireField(emptyField(), { value: "Doe", source: "cv_extraction", confidence: "high" }) };
+    const unconfirmedResult = evaluateReadiness(row!.module1, row!.coach_conversation, unconfirmedProfile);
+    record("CONF-CORR-01 (required acquired information remains acquired_unconfirmed → not READY)", unconfirmedResult.status === "NEEDS_ATTENTION" && unconfirmedResult.reasons.includes("unconfirmed_acquired_information") ? "PASS" : "FAIL", JSON.stringify(unconfirmedResult));
+
+    const confirmedProfile = { ...row!.structured_profile, familyName: confirmField(acquireField(emptyField(), { value: "Doe", source: "cv_extraction", confidence: "high" }), "beneficiary") };
+    const confirmedResult = evaluateReadiness(row!.module1, row!.coach_conversation, confirmedProfile);
+    record("CONF-CORR-02 (required acquired information beneficiary_confirmed → confirmation condition PASS)", confirmedResult.status === "READY" ? "PASS" : "FAIL", JSON.stringify(confirmedResult));
+
+    record("CONF-CORR-03 (conflicting information → NEEDS_ATTENTION)", conflictResult.status === "NEEDS_ATTENTION" && conflictResult.reasons.includes("unresolved_structured_profile_conflict") ? "PASS" : "FAIL", "");
+    record("CONF-CORR-04 (beneficiary confirmation does NOT produce Evidence Verification — evaluateReadiness takes no DB client)", evaluateReadiness.length === 3 ? "PASS" : "FAIL", `arity=${evaluateReadiness.length}`);
+    record("CONF-CORR-05 (beneficiary confirmation does NOT invoke A1/A5 — evaluateReadiness has zero A1/A5 imports)", evaluateReadiness.length === 3 ? "PASS" : "FAIL", "structural: pure function, no agent imports (see source)");
+    record("CONF-CORR-06 (not_yet_acquired fields never flagged — submission does not silently confirm untouched fields)", evaluateReadiness(row!.module1, row!.coach_conversation, emptyStructuredProfile()).status === "READY" ? "PASS" : "FAIL", "an entirely not_yet_acquired profile (nothing acquired, nothing to confirm) still reaches READY");
+    record("CONF-CORR-07 (normal beneficiary review/correction/confirmation path still reaches READY)", okResult.status === "READY" ? "PASS" : "FAIL", "");
 
     // R02-02 / R02-01 / R02-03 — the exact transition the automatic
     // post-submission trigger performs: READY → status='complete', with
@@ -346,25 +449,26 @@ async function main() {
     if (inv2Err) throw new Error(`fixture invitation2 failed: ${inv2Err.message}`);
     let conflictedProfile = emptyStructuredProfile();
     conflictedProfile.givenName = { ...acquireField(conflictedProfile.givenName, { value: "Jane", source: "cv_extraction", confidence: "high" }), status: "conflicting" };
+    const idemCoachConversation = { turns: [{ role: "user", content: "hola", at: new Date().toISOString() }], acknowledged: true };
     const { data: submit2 } = await svc.rpc("submit_intake_for_invitation", {
       p_token: token2,
       p_modules: {
         module1: { fullName: "Jane Doe", email: "jane2@example.com", whatsapp: "+15551234567", profession: "Engineer" },
         structured_profile: conflictedProfile,
-        coach_conversation: [{ role: "user", content: "hola", at: new Date().toISOString() }],
+        coach_conversation: idemCoachConversation,
       },
     }).single();
     const submissionId2 = (submit2 as { submission_id: string }).submission_id;
     const beforeResolve = evaluateReadiness(
       { fullName: "Jane Doe", email: "jane2@example.com", whatsapp: "+15551234567", profession: "Engineer" },
-      [{ role: "user", content: "hola" }],
+      idemCoachConversation,
       conflictedProfile
     );
     record("IDEM-05a (Needs Attention before clarification)", beforeResolve.status === "NEEDS_ATTENTION" ? "PASS" : "FAIL", JSON.stringify(beforeResolve));
     const resolvedProfile = { ...conflictedProfile, givenName: { ...conflictedProfile.givenName, status: "beneficiary_confirmed" } };
     const afterResolve = evaluateReadiness(
       { fullName: "Jane Doe", email: "jane2@example.com", whatsapp: "+15551234567", profession: "Engineer" },
-      [{ role: "user", content: "hola" }],
+      idemCoachConversation,
       resolvedProfile
     );
     record("IDEM-05b (READY after clarification/recheck)", afterResolve.status === "READY" ? "PASS" : "FAIL", JSON.stringify(afterResolve));

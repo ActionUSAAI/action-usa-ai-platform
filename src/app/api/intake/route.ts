@@ -57,7 +57,9 @@ export async function POST(request: NextRequest) {
         ? Object.fromEntries((body.moduleStatuses as string[]).map((s, i) => [i + 1, s]))
         : {},
       structured_profile: body.structuredProfile ?? {},
-      coach_conversation: body.coachConversation ?? [],
+      // CR-CPS-40 D-2: shape carries { turns, acknowledged } -- see
+      // src/lib/intake/readiness.ts.
+      coach_conversation: body.coachConversation ?? { turns: [], acknowledged: false },
     };
 
     // 1/2/3 — Atomically resolve the authoritative Case/Client from the

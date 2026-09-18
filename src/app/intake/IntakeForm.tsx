@@ -419,7 +419,11 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
           invitationCaseId: caseId,
           invitationClientId: clientId,
           structuredProfile: data.module0.structuredProfile,
-          coachConversation: data.module0.coachConversation,
+          // CR-CPS-40 D-2: `acknowledged` is the same signal the client
+          // UI already requires (Module0's mandatory Coach gate) --
+          // transmitted alongside the transcript, not in place of it,
+          // so readiness can require both (see readiness.ts).
+          coachConversation: { turns: data.module0.coachConversation, acknowledged: data.module0.coachAcknowledged },
         }),
       });
       const json = await res.json();
