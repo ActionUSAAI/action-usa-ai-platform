@@ -6,7 +6,7 @@ Working name: **Structured Profile → Evidence Incorporation**. Not an agent �
 
 ## 2. Status
 
-`DRAFT — PENDING PROJECT OWNER FREEZE`. This document does not itself authorize implementation. Governed by the Project Owner's explicit direction to execute this Final Exact Design Gate, following the Next Governed Scope Selection Gate (post-CR-CPS-45) and the A1 Architectural Reconciliation Gate (which found no A1 amendment required and identified this exact gap).
+`FROZEN — CR-CPS-46, CORRECTED`. Originally frozen and canonically recorded as CR-CPS-46. An independent Final Exact Design Review subsequently found DDR-SEI-03 (Evidence Atomicity) inconsistent with Evidence Item Contract V2 §19's explicit anticipation of multi-fact sources, and failing the Implementation Determinism Test. This document reflects the bounded correction of that one finding (§9, §11, §12, §13, §18, §19, §26, and the affected acceptance criteria); DDR-SEI-01, DDR-SEI-02, and DDR-SEI-04, and every other section, are unchanged from the original freeze. This document does not itself authorize implementation. Governed by the Project Owner's explicit direction to execute this Final Exact Design Gate, following the Next Governed Scope Selection Gate (post-CR-CPS-45) and the A1 Architectural Reconciliation Gate (which found no A1 amendment required and identified this exact gap).
 
 ## 3. Scope
 
@@ -78,11 +78,19 @@ Two field categories (`structured-profile.ts` `IDENTITY_FIELDS` / `CRITERION_NAR
 
 ## 10. Candidate Fact Extraction
 
-A "candidate" is a `(field_key, value, source, confidence, structured_profile status)` tuple read directly from `structured_profile` — no transformation, no inference, no free-text parsing. `value` becomes `evidence_items.fact` verbatim (a plain-text probative-fact statement; e.g. `familyName: "Doe"` → `fact = "Family name: Doe"` using a fixed, field-key-to-label mapping, analogous to A1's existing `buildUserPrompt` label mapping — no new NLP/extraction logic). One field → one candidate → at most one Evidence Item (§11, no fan-out).
+A "candidate" is a `(field_key, value, source, confidence, structured_profile status)` tuple read directly from `structured_profile` — no transformation, no inference, no free-text parsing. `value` is the raw material presented for incorporation; it becomes `evidence_items.fact` verbatim only on the deterministic path (§9 Identity fields — see §11, where the field's own value is already one atomic fact by construction). On the human-resolution path, `value` is presented to staff as-is; staff supplies the actual `fact` text for each Evidence Item they choose to create (§13), which may reproduce, excerpt, or correct the candidate's text. One field → one candidate. One candidate → **0..N Evidence Items** (§11) — never fabricated, never algorithmically split by this capability itself.
 
-## 11. Evidence Atomicity (DDR-SEI-03, RESOLVED)
+## 11. Evidence Atomicity (DDR-SEI-03, CORRECTED per independent Final Exact Design Review)
 
-**One Structured Profile field = one Evidence Item.** No field is split into multiple Evidence Items; no Evidence Item aggregates multiple fields. This is the simplest atomicity rule consistent with EV-05 ("a sufficiently identifiable probative fact") — each Structured Profile field already represents one discrete fact by the CLOSED capability's own schema design. A future narrower atomicity (e.g., splitting a multi-award narrative into per-award Evidence Items) would require human interpretation (§19) and is explicitly the kind of "material inference" this design routes to staff, not something this capability performs automatically.
+**The canonical unit remains the Evidence Item as one controlled probative unit (§3: "a sufficiently identifiable probative fact," singular).** A Structured Profile field is an **acquisition/storage boundary**, not necessarily an Evidence atomicity boundary — `CRITERION_NARRATIVE_FIELDS` are free-text strings that may, in practice, contain more than one independently identifiable probative fact (e.g. two distinct awards described in one Coach-discovered paragraph). Evidence Item Contract V2 §19 explicitly anticipates this: a source "may reasonably correspond to multiple facts or Evidence Items," and its authorized human-resolution action set includes a repeatable **create Evidence** action.
+
+Therefore:
+
+- **One Structured Profile field = one incorporation candidate.**
+- **One incorporation candidate may resolve into 0, 1, or multiple Evidence Items**, according to the number of independently identifiable probative facts a human determines it contains.
+- **Deterministic path (`IDENTITY_FIELDS`, §9): always exactly 0 or 1 Evidence Item.** Identity fields (name, DOB, email, etc.) are already atomic by construction — a single value cannot contain multiple independent identity facts under Structured Profile's own schema (one `familyName` field holds one family name). This design does **not** introduce autonomous semantic fan-out into the deterministic path; §9's routing (identity → deterministic, narrative → human resolution) is unchanged, and fan-out is exclusively a property of the human-resolution path.
+- **Human-resolution path (`CRITERION_NARRATIVE_FIELDS`, §9): 0..N Evidence Items, staff-determined.** Decomposition of a narrative candidate into distinct probative facts is itself the "material inference" §8/§19 require a human to perform — this design never algorithmically splits text. Each Evidence Item a staff member creates from one candidate is its own explicit, individually-attributed decision (§13), never a system-inferred split.
+- **No fabrication**: every resulting Evidence Item's `fact` must be traceable to information actually present in the candidate (or a correction staff explicitly enters); this design authorizes no invention of facts not present in the source, and no autonomous determination of how many USCIS criteria are implicated by a candidate (§20 — criterion relationship remains exclusively A1's).
 
 ## 12. Evidence Producer Integration (DDR-SEI-04, RESOLVED — load-bearing)
 
@@ -94,7 +102,7 @@ Parameters:
 - `p_fact`: per §10.
 - `p_documentary_condition`: `'reported'` always at creation (§6, §26 — no document exists yet at incorporation time; a CV, if present, is a Case Document association, not proof — §20 below).
 - `p_source_type`: `'structured_profile'` (new value; `source_type` is unconstrained free TEXT, confirmed via `migrations/024:78` — zero schema change).
-- `p_source_reference`: `'{submission_id}:{field_key}:{structured_profile_source}'` (e.g. `"a1b2...:familyName:cv_extraction"`) — stable, deterministic, doubles as the dedup/idempotency key (§24).
+- `p_source_reference`: `'{submission_id}:{field_key}:{structured_profile_source}'` on the deterministic path (e.g. `"a1b2...:familyName:cv_extraction"`) — stable, deterministic, doubles as the exact-match dedup/idempotency key (§18/§26). On the human-resolution path, `'{submission_id}:{field_key}:{structured_profile_source}:{n}'` where `n` is a per-candidate creation-order sequence number assigned at the moment of each individual staff "create Evidence" action (§11/§13/§18) — never a positional index into the free-text value, never required to be stable across re-presentations of the same candidate.
 - `p_created_by`: the authenticated Action USA staff actor's `profiles.id` performing the incorporation action (§12 resolves the actor question below — never a beneficiary or invented system profile).
 - `p_document_ids`: `NULL`/empty at initial incorporation (§6/EV-10 — Evidence may exist with zero Documents); optionally the CV's canonical `documents.id` if/when the post-Intake canonical-document-convergence process (Section J, already implemented) has produced one, purely as documentary context, never as proof (§20).
 
@@ -105,7 +113,7 @@ Parameters:
 Surfaced in the existing staff exception-resolution surface (`intake-intelligence-section.tsx` / `intake-intelligence/complete` route — already staff-authenticated, already reused-by-reference per §5.7). Two staff-facing actions:
 
 - **Deterministic candidates** (§9 Identity path): presented as a reviewable list; a single staff "Incorporate" action creates Evidence Items for all currently-eligible candidates in one authenticated call. This is not staff *re-deriving* the fact (no material inference by the human) — it is the human authorizing the write, matching §12's actor-attribution resolution and EV-54 (automation must not silently substitute itself for consequential Evidence decisions — the write always requires this explicit staff action, deterministic-eligibility only controls whether staff review is per-field-content or per-batch).
-- **Ambiguous candidates** (§9 Narrative path, §19 verbatim): staff may **accept** (creates Evidence as proposed), **correct** (edits `fact` before creation), **reject** (no Evidence created, candidate dismissed), or **associate** (link to an already-existing Evidence Item instead of creating a new one, per §31 dedup). No new workflow engine — this is the same four-action set §19 already specifies; the UI need only expose them.
+- **Ambiguous candidates** (§9 Narrative path, §19 verbatim): staff may **accept** (creates one Evidence Item as proposed), **correct** (edits `fact` before creation), **reject** (no Evidence created for that fact), **associate** (link to an already-existing Evidence Item instead of creating a new one, per §18 dedup), or **unlink** — reusing §19's exact action set verbatim, including its repeatability. **Create Evidence is repeatable per candidate**: where a candidate contains more than one independently identifiable probative fact, staff invokes create/correct once per fact, each invocation producing its own Evidence Item with its own `source_reference` suffix (§12). A candidate is never forced into a single accept/reject decision when it legitimately contains multiple facts. No new workflow engine — every action reuses the existing, unmodified Producer functions (`create_evidence_composition_with_documents`, `attach_evidence_document`, `update_evidence_fact`); the UI need only expose them per-fact rather than per-candidate.
 
 ## 14. Documentary State Rules
 
@@ -123,13 +131,19 @@ Unmodified M:N (MTCS-03). This design creates Evidence Items with zero or one in
 
 `source_type = 'structured_profile'`, `source_reference` encodes submission/field/origin (§12) — reconstructable to the exact Structured Profile field, its original `source` (cv_extraction/coach_discovery/beneficiary_confirmed/staff_entered), and its `confirmed_by`/`confirmed_at` where applicable, satisfying §65/EV-26. Per §66/EV-27, this provenance confers no authority — it is descriptive only.
 
-## 18. Duplicate / Identity / Versioning Rules
+## 18. Duplicate / Identity / Versioning Rules (corrected for fan-out)
 
-Before creating new Evidence for a candidate, the incorporation action queries `evidence_items` for an existing `currency_status = 'current'` row with the same `case_id` and `source_reference` prefix (`{submission_id}:{field_key}:`). If found: **not a duplicate** — a re-run against updated Structured Profile data. If the `fact` differs from the existing row, this is a Material Change (§37 of the Evidence contract) — create a new version via `create_evidence_composition_with_documents()` with `p_evidence_id`/`p_expected_current_id` set to the existing row's identity, which automatically supersedes the prior version per the existing, unmodified `create_evidence_composition()` logic (migration 024). If identical, no-op (idempotent, §24). This reuses MTCS-01's existing versioning mechanism entirely — no new dedup table, no new identity scheme (EV-57).
+Deterministic and human-resolution paths use distinct, source-consistent mechanisms — fan-out changes neither's underlying identity/versioning machinery (MTCS-01, unmodified), only how `source_reference` is scoped per path (§12):
+
+**Deterministic path (`IDENTITY_FIELDS`)** — unchanged from the original design: before creating new Evidence, the batch incorporation action queries `evidence_items` for an existing `currency_status = 'current'` row with the same `case_id` and exact `source_reference` (`{submission_id}:{field_key}:{source}`, no suffix — always 0 or 1 candidate-to-Evidence mapping, §11). If found and `fact` is unchanged: no-op (true, system-level idempotency). If `fact` differs: Material Change — supersede via `create_evidence_composition_with_documents()` with `p_evidence_id`/`p_expected_current_id` set to the existing row's identity (existing, unmodified `create_evidence_composition()` logic). If not found: create new (`p_evidence_id`/`p_expected_current_id` both `NULL`).
+
+**Human-resolution path (`CRITERION_NARRATIVE_FIELDS`)** — candidate-resolution tracking, not row-level dedup, because this path never auto-re-runs: a candidate is presented to staff only through an explicit staff-facing review action (§13), never a background job. "Duplicate prevention" here means the system never auto-creates Evidence without an individual, attributed staff action — not that repeated *presentation* of an unresolved or previously-rejected candidate is deduplicated at the database level (no such tracking entity is authorized; EV-56/§70 prohibit inventing a new physical "resolution log"/"candidate" table merely to record this). Each staff "create Evidence" click is independently valid and produces its own row with its own `source_reference` suffix (§12) — there is no risk of an *unintended* duplicate because every write requires a distinct, deliberate human action; re-presenting an already-resolved or rejected candidate on a later staff visit is a benign UX redundancy (staff can always re-reject or take no action), never a data-integrity defect, since no Evidence Item Contract V2 invariant (EV-01..EV-57) requires suppressing candidate re-presentation.
+
+**Re-run after a narrative candidate's value changes, when Evidence Items already exist from it**: the system never auto-decides whether this is a correction to an existing fact (supersession) or an additional distinct fact (fan-out) — that determination is itself the "material inference" §19 reserves for staff. The candidate is re-presented to staff alongside the Evidence Item(s) already created from it for context; staff then explicitly chooses, per fact: **correct** an existing Evidence Item (`update_evidence_fact()`, a pure text correction, no new version) or **supersede** it (`create_evidence_composition_with_documents()` with `p_evidence_id`/`p_expected_current_id` set, a Material Change new version) or **create** an additional, new Evidence Item (fan-out) alongside the unchanged existing one(s). No new identity scheme is introduced in either case — every write reuses MTCS-01's existing versioning mechanism (EV-57).
 
 ## 19. Existing Verified Evidence Protection
 
-Per EV-21, if the existing current Evidence Item (matched by `source_reference`, §18) is already `Verified` and Structured Profile now presents a differing value: **Material Change still applies** — a new version is created, `verification_condition` reverts to `Pending` on the new current version (existing, unmodified `create_evidence_composition()` behavior — verification fields are never copied forward). The historical `Verified` version is preserved unchanged (EV-40, no silent overwrite). This capability never marks the changed composition `Needs Attention` itself — that remains exclusively an authorized-human action (§35/EV-19); the new `Pending` state is simply visible to staff through the existing verification queue.
+Per EV-21, if an existing current Evidence Item created by this capability is already `Verified` and Structured Profile now presents a differing value: **Material Change still applies** — a new version is created, `verification_condition` reverts to `Pending` on the new current version (existing, unmodified `create_evidence_composition()` behavior — verification fields are never copied forward). The historical `Verified` version is preserved unchanged (EV-40, no silent overwrite). On the deterministic path this supersession is system-triggered (§18, exact-match `source_reference`, no material inference required). On the human-resolution path it is always staff-triggered per §18's re-run handling — the system never auto-supersedes a `Verified` narrative Evidence Item; staff explicitly chooses to correct/supersede/fan-out. Neither path ever marks a composition `Needs Attention` itself — that remains exclusively an authorized-human action (§35/EV-19); the new `Pending` state is simply visible to staff through the existing verification queue.
 
 ## 20. Criterion Relationship
 
@@ -167,9 +181,11 @@ Every write (§12) executes inside an authenticated staff request already author
 | Staff authorization failure | FAIL CLOSED — 403, identical to existing `intake-intelligence/complete` pattern |
 | Case mismatch (defensive) | FAIL CLOSED — `CASE_MISMATCH`/`EV004`, existing Producer behavior, unmodified |
 
-## 26. Idempotency
+## 26. Idempotency (corrected for fan-out)
 
-Guaranteed by §18's `source_reference`-keyed lookup: re-running incorporation against unchanged Structured Profile produces zero new Evidence Items (identical `fact` → no-op). Re-running after a Structured Profile change produces exactly one new version (never a duplicate row), reusing MTCS-01's existing supersession mechanism.
+**Deterministic path**: true system-level idempotency, guaranteed by §18's exact `source_reference` lookup — re-running the batch action against unchanged Structured Profile produces zero new rows; a changed value produces exactly one new version, never a duplicate.
+
+**Human-resolution path**: idempotency is behavioral, not row-level — the system never auto-creates Evidence without an explicit, individually-attributed staff action, so no *unintended* duplicate can occur regardless of how many times a candidate is presented or re-presented (§18). The invariant actually required and actually guaranteed: **SAME STAFF ACTION, SAME RESOLVED FACT, NO MATERIAL CHANGE ⇒ NO DUPLICATE EVIDENCE ITEM** — satisfied because each Evidence Item's existence is always traceable to one specific staff "create Evidence" invocation (never inferred, never auto-repeated), and a subsequent staff re-visit to an unchanged, already-resolved candidate is not expected to re-trigger creation (the existing Evidence Item(s) are shown for context, per §18, not re-offered as a fresh unresolved item).
 
 ## 27. Explicit Non-Goals
 
@@ -196,8 +212,8 @@ Guaranteed by §18's `source_reference`-keyed lookup: re-running incorporation a
 9. **SEI-AC-09**: Zero new database function, table, column, or migration is introduced; `create_evidence_composition_with_documents()` is called unmodified.
 10. **SEI-AC-10**: Every Evidence Item this capability creates or supersedes uses the existing Evidence↔Document M:N association mechanism, never a new shortcut.
 11. **SEI-AC-11**: Human Verification is reachable only through the existing, unmodified `review_evidence_composition_if_current()` path.
-12. **SEI-AC-12**: Re-running incorporation against unchanged Structured Profile creates zero new rows.
-13. **SEI-AC-13**: An already-`Verified` Evidence Item is never silently overwritten; a differing Structured Profile value creates a new version and reverts only the current composition to `Pending`.
+12. **SEI-AC-12**: Re-running the deterministic-path batch action against unchanged Structured Profile creates zero new rows; on the human-resolution path, no Evidence Item is ever created without an explicit, individually-attributed staff action, regardless of how many times a candidate is re-presented.
+13. **SEI-AC-13**: An already-`Verified` Evidence Item is never silently overwritten; a differing Structured Profile value creates a new version and reverts only the current composition to `Pending` — system-triggered on the deterministic path, staff-triggered on the human-resolution path.
 14. **SEI-AC-14**: No A1, A5, or Blueprint execution is triggered by this capability under any condition.
 15. **SEI-AC-15**: A1 continues to function identically and requires zero code modification.
 16. **SEI-AC-16**: A2 is not invoked or modified by this capability.
@@ -205,6 +221,9 @@ Guaranteed by §18's `source_reference`-keyed lookup: re-running incorporation a
 18. **SEI-AC-18**: AKAE, ALKA, AILA, AEPE are not referenced or modified.
 19. **SEI-AC-19**: Every write executes inside an authenticated, case-authorized Action USA staff request; no write is attributable to a beneficiary or an invented system actor.
 20. **SEI-AC-20**: Production is not touched by this design or its eventual implementation authorization.
+21. **SEI-AC-21**: A human-resolution-path candidate containing multiple independently identifiable probative facts may yield multiple Evidence Items (0..N), each individually staff-created and staff-attributed; no candidate is forced into a single accept/reject decision that would fabricate a merged, non-atomic Evidence Item or silently drop a distinct fact.
+22. **SEI-AC-22**: The deterministic path never fans out — an `IDENTITY_FIELDS` candidate always yields exactly 0 or 1 Evidence Item.
+23. **SEI-AC-23**: Every Evidence Item produced by fan-out remains traceable, via `source_reference`, to the exact originating Structured Profile candidate, without implying it originated from a different source field.
 
 ## 29. Implementation Boundary
 
@@ -241,13 +260,14 @@ None load-bearing remain unresolved. Two non-blocking, explicitly-flagged items,
 **Effect**: §9.
 **STATUS**: RESOLVED.
 
-### DDR-SEI-03 — Evidence atomicity
+### DDR-SEI-03 — Evidence atomicity (CORRECTED — see independent Final Exact Design Review)
 **Question**: Field-to-Evidence-Item cardinality?
-**Source**: EV-05 (sufficiently identifiable probative fact); Structured Profile's own one-fact-per-field schema.
-**Decision**: 1:1, no fan-out, no aggregation.
-**Rationale**: Simplest rule consistent with source; any finer split requires human interpretation, correctly routed to §19 instead.
-**Effect**: §11.
-**STATUS**: RESOLVED.
+**Source**: §3 (Evidence Item = one controlled probative unit — "a sufficiently identifiable probative fact," singular); §19 (a source "may reasonably correspond to multiple facts or Evidence Items"; repeatable "create Evidence" among the authorized human-resolution actions).
+**Original decision (superseded)**: 1:1, no fan-out, no aggregation — found by independent review to contradict §19's explicit anticipation of multi-fact sources, and to fail the Implementation Determinism Test (two engineers could reasonably diverge on whether a rich narrative candidate's second fact is silently dropped or captured).
+**Corrected decision**: One Structured Profile field = one incorporation candidate. One candidate resolves into **0..N Evidence Items**. The deterministic path (`IDENTITY_FIELDS`) never fans out (0 or 1 only, by construction — a single identity value cannot contain multiple independent identity facts). The human-resolution path (`CRITERION_NARRATIVE_FIELDS`) may fan out, exclusively through individually-attributed staff action (§13) — decomposition of free text into distinct probative facts is itself the "material inference" §8/§19 reserve for humans; this design never algorithmically splits text.
+**Rationale**: Directly source-required, not a convenience simplification — §19's own text already resolves the question; the original 1:1 rule was an unjustified narrowing the review correctly caught.
+**Effect**: §9 (Candidate Fact Extraction), §11 (Atomicity), §12 (`source_reference` per-Evidence suffix), §13 (repeatable create Evidence), §18 (dedup/versioning per path), §19 (Verified Evidence protection per path), §26 (idempotency per path), SEI-AC-12/13/21/22/23.
+**STATUS**: RESOLVED (corrected).
 
 ### DDR-SEI-04 — Actor attribution for `created_by` (load-bearing)
 **Question**: `evidence_items.created_by`/`documents.uploaded_by` hard-FK to `profiles.id` (`auth.users`-backed); beneficiaries have no `profiles` row. Who is attributed?
