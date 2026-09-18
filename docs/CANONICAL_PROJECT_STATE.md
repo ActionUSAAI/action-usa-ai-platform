@@ -88,6 +88,10 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        AUSCIS Intake Intelligence Layer —
                         Implementation — TEST ONLY, PENDING
                         IMPLEMENTATION MR (CR-CPS-36)
+                       AUSCIS Intake Intelligence Layer — Post-
+                        Implementation Architectural Reconciliation —
+                        CV Acquisition Path + Human Review Gate
+                        (R-01/R-02, CR-CPS-37)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -814,8 +818,47 @@ artifact SHA re-verified unchanged post-implementation. NOT CLOSED —
 Closure requires its own governed determination per established
 MTCS/QA-Engine/Human-Review-Gate precedent.
 
+POST-IMPLEMENTATION ARCHITECTURAL RECONCILIATION (CR-CPS-37): CV
+ACQUISITION PATH + HUMAN REVIEW GATE. Governing artifact:
+docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_RECONCILIATION_R01_R02.md, SHA256
+8d97da645264dfa83b326f83329f0bec3d372a0f0206c1bfa64763ce86c3ad14.
+Two Project Owner decisions, made live in this act: R-01 reverses
+DDR-CV-01 — CV/résumé/professional-profile becomes an OPTIONAL
+acquisition accelerator (Coach remains MANDATORY on both paths;
+information completeness remains mandatory — absence of a CV shifts
+more acquisition burden onto Coach, never lowers the standard, never
+authorizes fabrication/inference to compensate). R-02 selects MODEL C
+for the Human Review Gate elaboration made when §5.7/§5.8 were frozen:
+current default = AUTOMATED READINESS (reusing the deterministic
+identity/Coach-engagement/no-unresolved-conflict logic already
+implemented in /api/intake-intelligence/complete) + EXCEPTION-BASED
+HUMAN REVIEW (`Needs Attention`, reusing Evidence Item Contract V2
+§34's existing vocabulary) in place of universal per-case staff
+approval; a future tenant-optional mandatory-review policy is
+preserved as an architectural extension point only — explicitly NOT
+ESTABLISHED, no schema/table/column/UI authorized now. Two AUSCIS-only
+principles canonized (Minimum Friction Acquisition; Exception-Based
+Human Intervention) — not promoted to AEPE or AKAE.
+CR-CPS-34/35/36: PRESERVED AS ORIGINALLY RECORDED, HISTORICALLY
+ACCURATE — none rewritten. CR-CPS-34 continues to state exactly what
+was frozen 2026-09-17; CR-CPS-35 exactly what was authorized;
+CR-CPS-36 exactly what commit 7342c10 implemented (the *original*
+CR-CPS-34 model, faithfully). The gap between that implementation and
+this reconciliation is POST-IMPLEMENTATION ARCHITECTURAL EVOLUTION,
+not an implementation defect. Implementation delta catalogued (not
+built): IntakeForm.tsx:370's CV-mandatory check removed; Module0 copy
+reframed; /api/intake-intelligence/complete's existing eligibility
+logic reused but invoked automatically at submission with an added
+Needs Attention classification; staff section becomes an exception
+surface. A0/Coach/Prefill/Structured Profile/upload-security-hardening
+all carry forward unchanged (zero delta). NO APPLICATION CODE,
+SCHEMA, OR MIGRATION CHANGE PERFORMED OR AUTHORIZED BY THIS ACT.
+Implementation MR: PAUSED, unchanged. A1–A5/AKAE/AEPE: unchanged.
+Production: HARD-DENIED, untouched. NEXT MTCS remains NOT
+ESTABLISHED.
+
 NEXT GOVERNED ACT: AUSCIS Intake Intelligence Layer — Implementation
-MR.
+Authorization Gate — Re-run (R-01/R-02 delta).
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -1246,7 +1289,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| AUSCIS Intake Intelligence Layer — Coach / CV / A0 / Structured Profile / Prefill Engine (Final Exact Design CR-CPS-34, Implementation Authorization CR-CPS-35, Implementation CR-CPS-36, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + CV extraction, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md; AUCIS_CV_COACH_INTEGRATION.md | FROZEN | FROZEN (design), IMPLEMENTED (TEST only) | IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR | INTEGRATED (TEST only) | KEEP | **IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR (CR-CPS-36)** | None within this slice's bounded scope; CV version-handling and Coach session-retention policy remain explicitly NOT ESTABLISHED (non-blocking); Module10 per-criterion structured mapping remains narrative-only by design | AUSCIS Intake Intelligence Layer — Implementation MR | NO |
+| AUSCIS Intake Intelligence Layer — Coach / CV(optional) / A0 / Structured Profile / Prefill Engine / Automated Readiness (Final Exact Design CR-CPS-34, Implementation Authorization CR-CPS-35, Implementation CR-CPS-36, Reconciliation R-01/R-02 CR-CPS-37, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + optional CV extraction, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_RECONCILIATION_R01_R02.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md | FROZEN | FROZEN (design), IMPLEMENTED (TEST only, original model), RECONCILED (delta not yet implemented) | IMPLEMENTATION DELTA REQUIRED — CV mandatory→optional, universal staff review→automated readiness + exception | INTEGRATED (TEST only, original model; delta pending) | KEEP | **RECONCILED — DELTA PENDING IMPLEMENTATION AUTHORIZATION (CR-CPS-37)** | Implementation delta catalogued not built (IntakeForm.tsx CV gate, Module0 copy, complete-route auto-trigger + Needs Attention classification, staff section); future tenant review-policy override explicitly NOT ESTABLISHED; CV version-handling and Coach session-retention policy remain NOT ESTABLISHED (non-blocking) | AUSCIS Intake Intelligence Layer — Implementation Authorization Gate — Re-run (R-01/R-02 delta) | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1315,6 +1358,8 @@ Learning Engine
 **Implementation Authorization Gate (CR-CPS-35):** GRANTED — TEST ONLY. IAG 50/50 PASS against the frozen artifact (SHA re-verified unchanged). `structured_profile` confirmed absent from all current migrations — IMPLEMENTATION GAP, not architectural conflict (the frozen design's own "zero schema change" language was already correctly scoped only to the existing `status='complete'` value, re-verified by direct re-read). A1 confirmed to require zero modification (unconditional `select("*")`, `a1-intake-analyzer/route.ts:331`); A2–A5/AKAE/AEPE unaffected. Evidence firewall re-verified unchanged. Coach: zero existing conversational infrastructure found (largest build item, not a blocker, no new authority required). One real pre-existing finding made a mandatory implementation condition: `intake/upload/route.ts` currently performs no caller-identity verification — must be hardened as part of Module0, not silently inherited. Authorized scope (TEST only): structured_profile migration, Module0+hardened upload, A0, Coach, Prefill Engine, beneficiary/staff review UI, Intake Complete code path. Excluded: any A1–A5/AKAE/AEPE change, CV version-handling, Coach session-retention policy, Production.
 
 **Implementation (CR-CPS-36):** IMPLEMENTED — TEST ONLY — PENDING IMPLEMENTATION MR. Commit `7342c10`, 18 files. Migrations 036/037 applied live to AUSCIS-TEST: additive `structured_profile`/`coach_conversation` columns on `intake_submissions`, additive extension of the existing `submit_intake_for_invitation()` RPC to persist them. Security prerequisite closed (upload route now requires/validates the invitation token, reusing the page's existing eligibility check). New framework-agnostic domain modules `src/lib/intake/{structured-profile,prefill-engine,a0-extract,coach}.ts`. New `Module0.tsx` intake step (mandatory CV/résumé gate, either source, decoupled from mandatory Coach; beneficiary review/confirm). New staff review + `/api/intake-intelligence/complete` (reuses existing admin/supervisor/assigned-agent pattern; enforces implementation-determinable CR-CPS-34 prerequisites; sets the pre-existing dormant `status='complete'` value). TEST validation `supabase/tests/intake-intelligence-layer-validate.ts`: **32/32 PASS** live, including live Claude-backed A0 extraction and Coach conversation (anti-minimization and uncertainty-preservation verified live) and a live `status='complete'` transition proving zero A1 modification. A1–A5/AKAE/AEPE: unchanged. Production: untouched. Design artifact SHA re-verified unchanged. NOT CLOSED. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation MR. NEXT MTCS remains NOT ESTABLISHED, not inferred; Production remains HARD-DENIED.
+
+**Post-Implementation Architectural Reconciliation (CR-CPS-37):** CV Acquisition Path + Human Review Gate. `docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_RECONCILIATION_R01_R02.md`, SHA256 `8d97da645264dfa83b326f83329f0bec3d372a0f0206c1bfa64763ce86c3ad14`. R-01 (Project Owner, live): CV/résumé/professional-profile becomes an OPTIONAL acquisition accelerator, reversing DDR-CV-01 — Coach remains MANDATORY on both paths; information completeness remains mandatory, never lowered, never fabricated to compensate. R-02 (Project Owner, live): MODEL C — current default is AUTOMATED READINESS (reusing the deterministic eligibility logic already implemented in `/api/intake-intelligence/complete`) + EXCEPTION-BASED HUMAN REVIEW (`Needs Attention`, Evidence Item Contract V2 §34 vocabulary), replacing universal per-case staff approval as the default; a future tenant-optional mandatory-review policy is preserved as an architectural extension point only, explicitly NOT ESTABLISHED, no schema/table/UI authorized. Two AUSCIS-only principles canonized (Minimum Friction Acquisition; Exception-Based Human Intervention) — not promoted to AEPE/AKAE. CR-CPS-34/35/36 preserved unchanged, historically accurate; the delta between commit `7342c10` and this reconciliation is POST-IMPLEMENTATION ARCHITECTURAL EVOLUTION, not an implementation defect. Implementation delta catalogued, not built: no application code, schema, or migration changed by this act. A1–A5/AKAE/AEPE unchanged; Production untouched; Implementation MR remains PAUSED. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation Authorization Gate — Re-run (R-01/R-02 delta). NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
 **PROCESS NOTE:** an earlier draft of this act (commit b045287) was executed without authorization by a subagent tasked with read-only source recovery only; it was independently audited against this repository's actual sources (all citations found accurate, no fabrication, but several design-detail gaps identified against this act's own governing requirements), then reverted in full (commit c0b2cca) at the Project Owner's explicit direction. This act was then re-executed directly, from the clean reverted state, with all three Project Owner decisions asked and answered live in this session.
 
@@ -1442,8 +1487,16 @@ ECOSYSTEM
     │   │      ownership check) · Module0 + A0 + Coach + Prefill Engine
     │   │      + beneficiary/staff review + Intake Complete all built ·
     │   │      32/32 live TEST assertions PASS (incl. live Claude
-    │   │      A0/Coach calls) · A1–A5/AKAE/AEPE untouched · UNNUMBERED
-    │   │      · Production HARD-DENIED · next act: Implementation MR
+    │   │      A0/Coach calls) · A1–A5/AKAE/AEPE untouched ·
+    │   │      RECONCILED — DELTA PENDING (CR-CPS-37) · R-01 CV
+    │   │      mandatory→optional accelerator (Coach still mandatory) ·
+    │   │      R-02 Model C: automated readiness + exception-based
+    │   │      review (Needs Attention) replaces universal staff
+    │   │      approval; future tenant override NOT ESTABLISHED ·
+    │   │      CR-CPS-34/35/36 preserved unchanged · delta catalogued,
+    │   │      not built · UNNUMBERED · Production HARD-DENIED · next
+    │   │      act: Implementation Authorization Gate — Re-run
+    │   │      (R-01/R-02 delta)
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
