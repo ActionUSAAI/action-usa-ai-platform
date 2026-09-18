@@ -142,10 +142,10 @@ export function Module0({ data, onChange, sessionId, errors }: {
         </p>
       </div>
 
-      {/* CV / résumé upload */}
+      {/* CV / résumé upload -- optional acquisition accelerator (R-01, CR-CPS-37/38) */}
       <div className="space-y-2">
-        <h3 className="text-sm font-semibold text-brand-blue">1. Sube tu CV, currículum o perfil profesional</h3>
-        <p className="text-xs text-gray-500">Puede ser un CV que ya tengas, o el PDF generado por el Coach de hojas de vida. Cualquiera de los dos es válido.</p>
+        <h3 className="text-sm font-semibold text-brand-blue">1. ¿Tienes un CV, currículum o perfil profesional? <span className="font-normal text-gray-400">(opcional)</span></h3>
+        <p className="text-xs text-gray-500">Si ya tienes uno, puedes subirlo para que AUSCIS extraiga información y acelere el proceso. Si no tienes uno, no hay problema -- puedes continuar y el Coach te ayudará a descubrir y estructurar la información necesaria.</p>
         {data.cvFileName ? (
           <div className="flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
             <span className="flex-1 truncate text-sm text-green-800">{data.cvFileName}</span>
@@ -161,8 +161,8 @@ export function Module0({ data, onChange, sessionId, errors }: {
             <input type="file" accept="application/pdf,image/jpeg,image/png" className="hidden" onChange={e => handleUpload(e, "existing")}/>
           </label>
         )}
-        {(uploadError || errors.cv) && (
-          <p className="flex items-center gap-1 text-xs text-red-500"><AlertTriangle size={11}/> {uploadError || errors.cv}</p>
+        {uploadError && (
+          <p className="flex items-center gap-1 text-xs text-red-500"><AlertTriangle size={11}/> {uploadError}</p>
         )}
       </div>
 

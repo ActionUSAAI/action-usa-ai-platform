@@ -1,18 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createClient as createServerClient } from "@/lib/supabase/server";
+import { evaluateReadiness } from "@/lib/intake/readiness";
 
-// AUSCIS Intake Intelligence Layer -- Intake Complete transition
-// (CR-CPS-34/35, design §5.8). Staff-triggered (Action USA Staff Review,
-// design §5.7 -- occurs after beneficiary review). Reuses the same
-// admin/supervisor-or-assigned-agent authorization pattern already
-// established in src/app/api/case-letters/route.ts.
-//
-// Form completeness ≠ information acquisition completeness (design
-// §5.8): this route enforces the CR-CPS-34 prerequisites that are
-// implementation-determinable -- required identity fields present,
-// Coach discovery occurred, no unresolved conflicting field -- rather
-// than merely checking that UI fields are non-empty.
+// AUSCIS Intake Intelligence Layer -- exception-resolution / readiness
+// recheck surface (R-02, CR-CPS-37/38). No longer the universal
+// approval gate: a clean Intake already transitions to 'complete'
+// automatically at submission (src/app/api/intake/route.ts). This
+// route exists for staff to re-run the exact same deterministic
+// readiness function -- never a separate/looser check -- after
+// resolving an informational exception (e.g. clarifying a conflict),
+// reusing the same admin/supervisor-or-assigned-agent authorization
+// pattern already established in src/app/api/case-letters/route.ts.
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -69,27 +68,16 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Intake ya está marcado como completo." }, { status: 409 });
   }
 
-  // Form completeness ≠ acquisition completeness (design §5.8/§16 of
-  // the implementation act) -- enforce implementation-determinable
-  // CR-CPS-34 prerequisites, not just non-empty UI fields.
-  const m1 = (submission.module1 ?? {}) as Record<string, string>;
-  const missingIdentity: string[] = [];
-  for (const f of ["fullName", "email", "whatsapp", "profession"]) {
-    if (!m1[f] || !String(m1[f]).trim()) missingIdentity.push(f);
-  }
-  if (missingIdentity.length > 0) {
-    return NextResponse.json({ error: `Intake incompleto: faltan campos de identidad requeridos (${missingIdentity.join(", ")}).` }, { status: 409 });
-  }
+  // Same shared deterministic function the automatic post-submission
+  // trigger uses -- no separate/looser staff-only readiness logic.
+  const readiness = evaluateReadiness(
+    (submission.module1 ?? {}) as Record<string, string>,
+    (submission.coach_conversation ?? []) as unknown[],
+    (submission.structured_profile ?? {}) as Record<string, { status?: string }>
+  );
 
-  const coachConversation = (submission.coach_conversation ?? []) as unknown[];
-  if (coachConversation.length === 0) {
-    return NextResponse.json({ error: "Intake incompleto: el beneficiario no completó la conversación con el Coach." }, { status: 409 });
-  }
-
-  const structuredProfile = (submission.structured_profile ?? {}) as Record<string, { status?: string }>;
-  const hasConflict = Object.values(structuredProfile).some(f => f.status === "conflicting");
-  if (hasConflict) {
-    return NextResponse.json({ error: "Intake incompleto: hay información en conflicto sin resolver en el Perfil Estructurado." }, { status: 409 });
+  if (readiness.status === "NEEDS_ATTENTION") {
+    return NextResponse.json({ success: false, status: "NEEDS_ATTENTION", reasons: readiness.reasons }, { status: 200 });
   }
 
   const { data: updated, error: updateErr } = await db
@@ -106,5 +94,5 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "El estado del intake cambió concurrentemente -- reintenta." }, { status: 409 });
   }
 
-  return NextResponse.json({ success: true, submission: updated });
+  return NextResponse.json({ success: true, status: "READY", submission: updated });
 }

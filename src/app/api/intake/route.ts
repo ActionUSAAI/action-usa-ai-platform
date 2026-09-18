@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { extractTranslatableFiles } from "@/app/(dashboard)/cases/[id]/extract-files";
 import { registerCanonicalDocument } from "@/lib/documents/register-canonical-document";
+import { evaluateReadiness } from "@/lib/intake/readiness";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -83,6 +84,30 @@ export async function POST(request: NextRequest) {
       .single();
     if (caseLookupErr) throw new Error(`case lookup: ${caseLookupErr.message}`);
     const caseNumber = caseRow.case_number as string;
+
+    // Automated Readiness (R-02, CR-CPS-37/38): runs automatically at
+    // submission, server-side -- no beneficiary/staff action required.
+    // Best-effort, like the canonical-document registration below it: a
+    // technical failure here must never silently produce READY/complete
+    // (RDC violated otherwise) -- it simply leaves the submission at its
+    // already-persisted 'submitted' status, which the staff exception
+    // surface can re-evaluate later using the exact same shared function.
+    try {
+      const readiness = evaluateReadiness(modules.module1, modules.coach_conversation, modules.structured_profile);
+      if (readiness.status === "READY") {
+        const { error: readyErr } = await db
+          .from("intake_submissions")
+          .update({ status: "complete" })
+          .eq("id", submissionId)
+          .eq("status", "submitted");
+        if (readyErr) console.error("[intake] readiness transition failed:", readyErr.message);
+      }
+      // NEEDS_ATTENTION: status remains 'submitted' (already set by
+      // submit_intake_for_invitation) -- a live-computed classification,
+      // never persisted as its own status value (CR-CPS-38 IAG-DATA-01).
+    } catch (e) {
+      console.error("[intake] readiness evaluation failed:", e instanceof Error ? e.message : e);
+    }
 
     // Normal-path canonical document registration (MTCS-02B). Best-effort:
     // a registration failure here never fails the Intake submission itself —

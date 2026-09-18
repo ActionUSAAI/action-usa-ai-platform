@@ -366,8 +366,12 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
   function validate(): boolean {
     if (step === 0) {
+      // R-01 (CR-CPS-37/38): CV is an optional acquisition accelerator,
+      // never a mandatory entry gate. Coach remains the only mandatory
+      // Module0 requirement -- information completeness is enforced
+      // downstream by Automated Readiness (src/lib/intake/readiness.ts),
+      // never by requiring a CV to exist.
       const e: Record<string, string> = {};
-      if (!data.module0.cvFilePath) e.cv = "Sube tu CV, currículum o perfil profesional para continuar.";
       if (!data.module0.coachAcknowledged) e.coach = "Completa la conversación con el Coach antes de continuar.";
       setErrors(e);
       if (Object.keys(e).length > 0) { window.scrollTo({ top: 0, behavior: "smooth" }); return false; }

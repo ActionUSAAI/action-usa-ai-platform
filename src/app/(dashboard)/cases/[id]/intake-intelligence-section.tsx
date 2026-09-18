@@ -3,10 +3,14 @@
 import { useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle, MessageSquare } from "lucide-react";
 
-// AUSCIS Intake Intelligence Layer -- Staff Review (CR-CPS-34/35,
-// design §5.7/§5.8). Occurs after beneficiary review. Reuses the
-// existing admin/supervisor-or-assigned-agent authorization pattern
-// (src/app/api/case-letters/route.ts) via /api/intake-intelligence/complete.
+// AUSCIS Intake Intelligence Layer -- exception-resolution / readiness
+// recheck surface (R-02, CR-CPS-37/38). A clean Intake already
+// transitions to 'complete' automatically at submission
+// (src/app/api/intake/route.ts) -- no staff click required (load-bearing
+// R-02 requirement). This surface exists for the exception case: after
+// resolving whatever the deterministic readiness reasons flagged, staff
+// can re-run the exact same shared readiness function
+// (src/lib/intake/readiness.ts) via /api/intake-intelligence/complete.
 
 export interface StructuredProfileFieldView {
   value: string | null;
@@ -27,10 +31,17 @@ const STATUS_LABEL: Record<string, string> = {
   draft: "Borrador", submitted: "Enviado", processing: "Procesando", complete: "Completo",
 };
 
+const REASON_LABEL: Record<string, string> = {
+  missing_identity_information: "Faltan campos de identidad requeridos",
+  coach_not_completed: "El beneficiario no completó la conversación con el Coach",
+  unresolved_structured_profile_conflict: "Hay información en conflicto sin resolver en el Perfil Estructurado",
+};
+
 export function IntakeIntelligenceSection({ caseId, submissionId, status, structuredProfile, coachTurns }: IntakeIntelligenceSectionProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(status);
+  const [reasons, setReasons] = useState<string[] | null>(null);
 
   if (!submissionId) return null;
 
@@ -38,9 +49,10 @@ export function IntakeIntelligenceSection({ caseId, submissionId, status, struct
   const conflicting = fields.filter(([, f]) => f.status === "conflicting").length;
   const confirmed = fields.filter(([, f]) => f.status === "beneficiary_confirmed").length;
 
-  async function markComplete() {
+  async function recheckReadiness() {
     setLoading(true);
     setError(null);
+    setReasons(null);
     try {
       const res = await fetch("/api/intake-intelligence/complete", {
         method: "POST",
@@ -49,7 +61,9 @@ export function IntakeIntelligenceSection({ caseId, submissionId, status, struct
       });
       const json = await res.json();
       if (!res.ok) {
-        setError(json.error ?? "Error al completar el intake");
+        setError(json.error ?? "Error al reevaluar el intake");
+      } else if (json.status === "NEEDS_ATTENTION") {
+        setReasons(json.reasons ?? []);
       } else {
         setCurrentStatus("complete");
       }
@@ -95,15 +109,24 @@ export function IntakeIntelligenceSection({ caseId, submissionId, status, struct
 
       {error && <p className="mt-3 text-xs text-red-500">{error}</p>}
 
+      {reasons && reasons.length > 0 && (
+        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2">
+          <p className="text-xs font-medium text-amber-700">Requiere atención:</p>
+          <ul className="mt-1 list-disc pl-4 text-xs text-amber-700">
+            {reasons.map(r => <li key={r}>{REASON_LABEL[r] ?? r}</li>)}
+          </ul>
+        </div>
+      )}
+
       {currentStatus === "complete" ? (
         <p className="mt-4 flex items-center gap-1.5 text-sm text-green-600">
-          <CheckCircle2 size={15}/> Intake marcado como completo. A1 puede procesar este caso normalmente.
+          <CheckCircle2 size={15}/> Intake completo. A1 puede procesar este caso normalmente.
         </p>
       ) : (
-        <button type="button" onClick={markComplete} disabled={loading}
+        <button type="button" onClick={recheckReadiness} disabled={loading}
           className="mt-4 flex items-center gap-1.5 rounded-lg bg-brand-blue px-3 py-1.5 text-sm font-medium text-white disabled:opacity-50">
           {loading && <Loader2 size={13} className="animate-spin"/>}
-          Marcar Intake como completo
+          Reevaluar preparación (Automated Readiness)
         </button>
       )}
     </div>
