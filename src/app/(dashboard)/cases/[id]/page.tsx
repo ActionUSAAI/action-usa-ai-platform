@@ -5,6 +5,7 @@ import { ArrowLeft, Calendar, DollarSign, Clock } from "lucide-react";
 import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priorityLabels } from "@/components/ui/badge";
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
+import { IntakeIntelligenceSection } from "./intake-intelligence-section";
 import { LegalIdentitySection } from "./legal-identity-section";
 import { LegalDecisionSection } from "./legal-decision-section";
 import type { IntakeAnalysis } from "./legal-decision-section";
@@ -230,6 +231,15 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
               </div>
             </dl>
           </div>
+
+          {/* ── AUSCIS Intake Intelligence Layer — Stage 1 (CR-CPS-34/35) ── */}
+          <IntakeIntelligenceSection
+            caseId={params.id}
+            submissionId={submissionId}
+            status={submission?.status ?? null}
+            structuredProfile={(submission?.structured_profile as Record<string, { value: string | null; source: string | null; confidence: string | null; status: string }>) ?? null}
+            coachTurns={((submission?.coach_conversation as unknown[]) ?? []).length}
+          />
 
           {/* ── Identidad Jurídica del Caso — capa fundacional del dominio ── */}
           <LegalIdentitySection

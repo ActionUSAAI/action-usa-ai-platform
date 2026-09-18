@@ -1,8 +1,18 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, createContext, useContext } from "react";
 import { Plus, Trash2, AlertCircle, Info, Paperclip, X } from "lucide-react";
 import type { EvidenceStatus } from "./types";
+
+// Server-validated invitation token for the current intake session.
+// Threaded via context (not prop-drilled through every Module) so
+// FileUpload can prove upload ownership to /api/intake/upload without
+// touching every module's prop signature. sessionId remains a
+// client-local draft-grouping key only -- token is the actual
+// server-checked authorization credential (see IntakePage's own
+// intake_invitations lookup, reused identically by the upload route).
+export const IntakeTokenContext = createContext<string>("");
+export const IntakeTokenProvider = IntakeTokenContext.Provider;
 
 export function Field({ label, required, error, hint, children }: {
   label: string; required?: boolean; error?: string; hint?: string; children: React.ReactNode;
@@ -221,6 +231,7 @@ export function FileUpload({ sessionId, storagePath, filePath, fileName, onChang
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
+  const token = useContext(IntakeTokenContext);
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -239,6 +250,7 @@ export function FileUpload({ sessionId, storagePath, filePath, fileName, onChang
       fd.append("file", file);
       fd.append("path", storagePath);
       fd.append("sessionId", sessionId || "tmp");
+      fd.append("token", token);
 
       const res = await fetch("/api/intake/upload", { method: "POST", body: fd });
       const json = await res.json();

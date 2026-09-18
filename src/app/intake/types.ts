@@ -365,8 +365,27 @@ export type Module15 = {
   companions: O2Companion[];
 };
 
+// ─── Module0 — CV/résumé source document + Coach discovery gate ───────────────
+// AUSCIS Intake Intelligence Layer (CR-CPS-34/35). cvSource distinguishes an
+// existing beneficiary CV from a Coach-generated one (design §5.2) -- both
+// satisfy the mandatory gate, neither exempts the beneficiary from Coach
+// discovery (coachAcknowledged, design §5.1: "Coach never bypassed").
+import type { StructuredProfile } from "@/lib/intake/structured-profile";
+
+export type CoachTurn = { role: "user" | "assistant"; content: string; at: string };
+
+export type Module0 = {
+  cvFilePath: string;
+  cvFileName: string;
+  cvSource: "existing" | "coach" | "";
+  coachAcknowledged: boolean;
+  structuredProfile: StructuredProfile;
+  coachConversation: CoachTurn[];
+};
+
 // ─── Full form ────────────────────────────────────────────────────────────────
 export type IntakeForm = {
+  module0:  Module0;
   module1:  Module1;
   module2:  Module2;
   module4:  Module4;

@@ -5,6 +5,10 @@ import Image from "next/image";
 import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 
 import type { IntakeForm as IntakeFormData, ModuleStatus } from "./types";
+import { IntakeTokenProvider } from "./primitives";
+import { emptyStructuredProfile } from "@/lib/intake/structured-profile";
+import { prefillModule1 } from "@/lib/intake/prefill-engine";
+import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
 import { Module2 }  from "./modules/Module2";
 import { Module4 }  from "./modules/Module4";
@@ -57,6 +61,7 @@ const emptyDoc = () => ({
 const emptyAnswer = () => ({ answer: "", hasEvidence: null as boolean | null, filePath: "", fileName: "" });
 
 const INITIAL: IntakeFormData = {
+  module0: { cvFilePath: "", cvFileName: "", cvSource: "", coachAcknowledged: false, structuredProfile: emptyStructuredProfile(), coachConversation: [] },
   module1: {
     fullName:"", familyName:"", givenName:"", middleName:"", dateOfBirth:"", countryOfBirth:"", nationalities:"",
     countryOfResidence:"", cityOfResidence:"", email:"", whatsapp:"",
@@ -295,7 +300,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   const storageKey    = `aucis_intake_draft_${token}`;
   const sessionIdKey  = `aucis_session_${token}`;
 
-  const [step, setStep]               = useState(1);
+  const [step, setStep]               = useState(0);
   const [data, setData]               = useState<IntakeFormData>(INITIAL);
   const [sessionId, setSessionId]     = useState("");
   const [loading, setLoading]         = useState(false);
@@ -349,10 +354,25 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
     return () => clearInterval(id);
   }, [save]);
 
+  // Prefill Engine (design §5.5): runs whenever Structured Profile
+  // changes, never overwrites a field the beneficiary/staff already
+  // populated (enforced inside prefillModule1 itself).
+  useEffect(() => {
+    setData(p => ({ ...p, module1: prefillModule1(p.module1, p.module0.structuredProfile) }));
+  }, [data.module0.structuredProfile]);
+
   const statuses = Array.from({ length: 13 }, (_, i) => getModuleStatus(i + 1, data));
   const show12   = shouldShowModule12(data);
 
   function validate(): boolean {
+    if (step === 0) {
+      const e: Record<string, string> = {};
+      if (!data.module0.cvFilePath) e.cv = "Sube tu CV, currículum o perfil profesional para continuar.";
+      if (!data.module0.coachAcknowledged) e.coach = "Completa la conversación con el Coach antes de continuar.";
+      setErrors(e);
+      if (Object.keys(e).length > 0) { window.scrollTo({ top: 0, behavior: "smooth" }); return false; }
+      return true;
+    }
     if (step !== 1) return true;
     const e: Record<string, string> = {};
     const m = data.module1;
@@ -375,7 +395,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
   function back() {
     const prevStep = step === 12 && !show12 ? 10 : step - 1;
-    setStep(Math.max(prevStep, 1));
+    setStep(Math.max(prevStep, 0));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -394,6 +414,8 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
           invitationToken: token,
           invitationCaseId: caseId,
           invitationClientId: clientId,
+          structuredProfile: data.module0.structuredProfile,
+          coachConversation: data.module0.coachConversation,
         }),
       });
       const json = await res.json();
@@ -409,10 +431,13 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
   if (success) return <SuccessScreen caseNumber={success.caseNumber} email={data.module1.email}/>;
 
-  const meta     = MODULE_TITLES[step - 1];
+  const meta     = step === 0
+    ? { title: "Perfil Profesional (Coach + CV)", subtitle: "Sube tu CV/currículum y completa la conversación con el Coach para que podamos conocer tu trayectoria." }
+    : MODULE_TITLES[step - 1];
   const progress = Math.round((step / TOTAL) * 100);
 
   return (
+    <IntakeTokenProvider value={token}>
     <div className="min-h-screen bg-gradient-to-br from-brand-blue to-brand-blue-dark py-8 px-4">
       <div className="mx-auto max-w-3xl">
 
@@ -482,6 +507,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
+            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} sessionId={sessionId} errors={errors}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
             {step === 3  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
@@ -500,7 +526,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
           {/* Navigation */}
           <div className="flex items-center justify-between border-t border-gray-100 bg-gray-50 px-6 py-4 sm:px-8">
-            <button type="button" onClick={back} disabled={step === 1}
+            <button type="button" onClick={back} disabled={step === 0}
               className="flex items-center gap-1.5 rounded-lg px-4 py-2.5 text-sm font-medium text-gray-600 hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-40 transition-colors">
               <ChevronLeft size={16}/> Anterior
             </button>
@@ -528,5 +554,6 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
         </p>
       </div>
     </div>
+    </IntakeTokenProvider>
   );
 }

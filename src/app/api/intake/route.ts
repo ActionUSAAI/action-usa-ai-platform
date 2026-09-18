@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
       module_progress: body.moduleStatuses
         ? Object.fromEntries((body.moduleStatuses as string[]).map((s, i) => [i + 1, s]))
         : {},
+      structured_profile: body.structuredProfile ?? {},
+      coach_conversation: body.coachConversation ?? [],
     };
 
     // 1/2/3 — Atomically resolve the authoritative Case/Client from the
