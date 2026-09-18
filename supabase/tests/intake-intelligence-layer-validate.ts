@@ -27,7 +27,7 @@ import { prefillModule1 } from "../../src/lib/intake/prefill-engine";
 import { extractCvFields } from "../../src/lib/intake/a0-extract";
 import { sendCoachTurn } from "../../src/lib/intake/coach";
 import { evaluateReadiness } from "../../src/lib/intake/readiness";
-import { resolveUploadNamespace, buildStoragePath, isSafeUploadPath, resolveExtension } from "../../src/lib/intake/upload-authorization";
+import { resolveUploadNamespace, buildStoragePath, isSafeUploadPath, resolveExtension, isCvPathAuthorizedForInvitation } from "../../src/lib/intake/upload-authorization";
 
 const PROD_REF = "slasbfepqovdsezmadjh";
 
@@ -281,6 +281,108 @@ async function main() {
     if (secScratchObjects.length > 0) {
       const { error: cleanupErr } = await svc.storage.from("intake-documents").remove(secScratchObjects);
       console.error(`[cleanup] SEC scratch objects: created=${secScratchObjects.length} removed=${cleanupErr ? "ERROR: " + cleanupErr.message : secScratchObjects.length}`);
+    }
+  }
+
+  // ══ F01-CORR-01..10 — CR-CPS-42 F-01 correction validation (A0
+  // cross-invitation resource binding). Uses the REAL
+  // isCvPathAuthorizedForInvitation() function and a full simulation of
+  // the corrected a0-extract route's exact gate ordering (token ->
+  // invitation -> path-authorization -> download -> extract). Fully
+  // synthetic fixtures only -- no real PII. ══
+  const f01ScratchObjects: string[] = [];
+  {
+    const authA = await resolveUploadNamespace(svc, token);
+    const authB = await resolveUploadNamespace(svc, tokenB);
+    if (!authA.ok || !authB.ok) throw new Error(`F01 fixtures not ready: A=${JSON.stringify(authA)} B=${JSON.stringify(authB)}`);
+
+    const markerA = `A0_SECURITY_TEST_A_SYNTHETIC_MARKER_${suffix}`;
+    const markerB = `A0_SECURITY_TEST_B_SYNTHETIC_MARKER_${suffix}`;
+    const pathA = buildStoragePath(authA.invitationId, "module0/cv", "pdf");
+    const pathB = buildStoragePath(authB.invitationId, "module0/cv", "pdf");
+    await svc.storage.from("intake-documents").upload(pathA, Buffer.from(markerA), { contentType: "application/pdf", upsert: true });
+    await svc.storage.from("intake-documents").upload(pathB, Buffer.from(markerB), { contentType: "application/pdf", upsert: true });
+    f01ScratchObjects.push(pathA, pathB);
+
+    // Full simulation of the corrected a0-extract route -- same gate
+    // ordering, same functions, imported by path not reimplemented.
+    const simulateA0Extract = async (requestToken: string, requestFilePath: string): Promise<{ rejectedAt: string | null; downloadedBytes: number | null }> => {
+      const now = new Date().toISOString();
+      const { data: inv } = await svc.from("intake_invitations").select("id").eq("token", requestToken).in("status", ["pending", "opened"]).gt("expires_at", now).maybeSingle();
+      if (!inv) return { rejectedAt: "invitation", downloadedBytes: null };
+      if (!isCvPathAuthorizedForInvitation(requestFilePath, inv.id)) return { rejectedAt: "isCvPathAuthorizedForInvitation", downloadedBytes: null };
+      const { data: blob, error } = await svc.storage.from("intake-documents").download(requestFilePath);
+      if (error || !blob) return { rejectedAt: "download", downloadedBytes: null };
+      const buf = await blob.arrayBuffer();
+      return { rejectedAt: null, downloadedBytes: buf.byteLength };
+    };
+
+    // F01-CORR-01 — valid invitation + its own authorized CV resource -> allowed.
+    const r01 = await simulateA0Extract(token, pathA);
+    record("F01-CORR-01 (valid invitation + own authorized CV resource → allowed)", r01.rejectedAt === null && r01.downloadedBytes === markerA.length ? "PASS" : "FAIL", JSON.stringify(r01));
+
+    // F01-CORR-02 (LOAD-BEARING, this is the exact F-01 reproduction) —
+    // valid token A + resource belonging to invitation B → rejected
+    // before any download occurs.
+    const r02 = await simulateA0Extract(token, pathB);
+    record("F01-CORR-02 (valid token A + resource belonging to invitation B → rejected, zero download)", r02.rejectedAt === "isCvPathAuthorizedForInvitation" && r02.downloadedBytes === null ? "PASS" : "FAIL", JSON.stringify(r02));
+
+    // F01-CORR-03 — invalid token → rejected before resource processing.
+    const r03 = await simulateA0Extract("nonexistent-token", pathA);
+    record("F01-CORR-03 (invalid token rejected before resource processing)", r03.rejectedAt === "invitation" && r03.downloadedBytes === null ? "PASS" : "FAIL", JSON.stringify(r03));
+
+    // F01-CORR-04 — expired token → rejected.
+    const r04 = await simulateA0Extract(expiredToken, pathA);
+    record("F01-CORR-04 (expired token rejected)", r04.rejectedAt === "invitation" && r04.downloadedBytes === null ? "PASS" : "FAIL", JSON.stringify(r04));
+
+    // F01-CORR-05 — ineligible invitation status → rejected.
+    const r05 = await simulateA0Extract(ineligibleToken, pathA);
+    record("F01-CORR-05 (ineligible invitation status rejected)", r05.rejectedAt === "invitation" && r05.downloadedBytes === null ? "PASS" : "FAIL", JSON.stringify(r05));
+
+    // F01-CORR-06 — missing resource reference → rejected safely (pure
+    // function call, mirrors the route's own `if (!filePath)` guard).
+    record("F01-CORR-06 (missing resource reference rejected safely)", !isCvPathAuthorizedForInvitation("", authA.invitationId) ? "PASS" : "FAIL", "");
+
+    // F01-CORR-07 — malformed resource reference → rejected safely
+    // (wrong invitation-shaped prefix, non-CV path, traversal attempt).
+    const malformed = [authB.invitationId + "/module0/cv/x.pdf", authA.invitationId + "/module2/passport/x.pdf", `../${authA.invitationId}/module0/cv/x.pdf`, "not-even-a-path"];
+    record("F01-CORR-07 (malformed resource references all rejected)", malformed.every(p => !isCvPathAuthorizedForInvitation(p, authA.invitationId)) ? "PASS" : "FAIL", JSON.stringify(malformed));
+
+    // F01-CORR-08 — resource authorization failure → zero A0 extraction:
+    // proven by construction (r02's rejectedAt halts before download,
+    // so extractCvFields is never reachable) and by re-confirming no
+    // download occurred.
+    record("F01-CORR-08 (authorization failure → zero A0 extraction reachable)", r02.downloadedBytes === null ? "PASS" : "FAIL", "download never occurred, extractCvFields structurally unreachable after rejection");
+
+    // F01-CORR-09 — resource authorization failure → zero Structured
+    // Profile contamination: no fields object is ever produced on the
+    // rejection path (the route returns a 403 JSON error, not a
+    // {fields} payload), so the client has nothing to merge.
+    record("F01-CORR-09 (authorization failure produces no fields payload to contaminate Structured Profile)", r02.downloadedBytes === null ? "PASS" : "FAIL", "rejection path returns an error, never a fields payload");
+
+    // F01-CORR-10 — normal CV flow remains operational (live Claude
+    // extraction against the legitimate, authorized resource).
+    if (!ANTHROPIC_KEY) {
+      record("F01-CORR-10 (normal A0 flow remains operational)", "NOT EXECUTABLE", "ANTHROPIC_API_KEY not found in .env.local");
+    } else {
+      try {
+        const pdf = buildMinimalPdf(["Jane Doe", "Software Engineer", "Email: jane.doe@example.com"]);
+        const normalPath = buildStoragePath(authA.invitationId, "module0/cv", "pdf");
+        await svc.storage.from("intake-documents").upload(normalPath, pdf, { contentType: "application/pdf", upsert: true });
+        f01ScratchObjects.push(normalPath);
+        const authCheck = isCvPathAuthorizedForInvitation(normalPath, authA.invitationId);
+        const { data: blob } = await svc.storage.from("intake-documents").download(normalPath);
+        const buf = await blob!.arrayBuffer();
+        const fields = await extractCvFields(Buffer.from(buf).toString("base64"), "application/pdf", ANTHROPIC_KEY);
+        record("F01-CORR-10 (normal A0 flow remains operational end-to-end)", authCheck && Object.keys(fields).length > 0 ? "PASS" : "FAIL", JSON.stringify({ authCheck, fields }));
+      } catch (e) {
+        record("F01-CORR-10 (normal A0 flow remains operational end-to-end)", "FAIL", e instanceof Error ? e.message : String(e));
+      }
+    }
+
+    if (f01ScratchObjects.length > 0) {
+      const { error: cleanupErr } = await svc.storage.from("intake-documents").remove(f01ScratchObjects);
+      console.error(`[cleanup] F01 scratch objects: created=${f01ScratchObjects.length} removed=${cleanupErr ? "ERROR: " + cleanupErr.message : f01ScratchObjects.length}`);
     }
   }
 

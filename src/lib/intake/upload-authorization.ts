@@ -85,3 +85,17 @@ export function buildStoragePath(invitationId: string, path: string, extension: 
   const ts = Date.now();
   return `${invitationId}/${path}/${ts}.${extension}`;
 }
+
+// F-01 (CR-CPS-42): the read-side half of the same invariant
+// buildStoragePath enforces on write. A0 (src/app/api/intake/
+// a0-extract/route.ts) previously resolved the caller's invitation but
+// never verified the client-echoed `filePath` actually belonged to it
+// -- a valid token for invitation A could download invitation B's CV.
+// Fail-closed by construction: a missing/malformed/empty path never
+// matches. Scoped to the exact CV namespace A0 has any legitimate
+// reason to read (not the invitation's storage namespace generally --
+// A0 has no reason to read a beneficiary's other uploaded documents).
+export function isCvPathAuthorizedForInvitation(filePath: string, invitationId: string): boolean {
+  if (!filePath || !invitationId) return false;
+  return filePath.startsWith(`${invitationId}/module0/cv/`);
+}

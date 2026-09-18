@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { extractCvFields } from "@/lib/intake/a0-extract";
+import { isCvPathAuthorizedForInvitation } from "@/lib/intake/upload-authorization";
 
 // A0 -- CV Extractor (AUSCIS Intake Intelligence Layer, CR-CPS-34/35,
 // design §5.3). Runs automatically on successful Module0 upload
@@ -17,6 +18,13 @@ import { extractCvFields } from "@/lib/intake/a0-extract";
 // assessment, or criterion adjudication -- enforced by never returning
 // a "confirmed" status; the client always lands new fields in
 // acquired_unconfirmed via acquireField().
+//
+// Resource binding (CR-CPS-42 F-01, corrected): the resolved invitation
+// was previously never used to constrain the client-echoed `filePath`
+// -- a valid token for invitation A could download invitation B's CV.
+// isCvPathAuthorizedForInvitation() enforces that filePath is under the
+// resolved invitation's own CV namespace before any download occurs;
+// failure is fail-closed (403, zero storage access, zero extraction).
 //
 // Extraction logic itself lives in src/lib/intake/a0-extract.ts
 // (framework-agnostic, directly testable -- mirrors the separation
@@ -51,6 +59,13 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!invitation) {
       return NextResponse.json({ error: "Invitación inválida o expirada." }, { status: 403 });
+    }
+
+    // F-01 (CR-CPS-42): fail-closed -- reject before any storage access
+    // if the requested resource does not belong to the invitation
+    // resolved from the validated token.
+    if (!isCvPathAuthorizedForInvitation(filePath, invitation.id as string)) {
+      return NextResponse.json({ error: "El archivo solicitado no pertenece a esta invitación." }, { status: 403 });
     }
 
     const { data: blob, error: downloadError } = await db.storage.from(BUCKET).download(filePath);
