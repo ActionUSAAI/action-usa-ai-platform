@@ -20,6 +20,8 @@ export function mapEvidenceRpcError(error: { message?: string } | null | undefin
   if (/STALE_VERIFICATION_STATE/.test(msg)) return { status: 409, error: msg };
   if (/INVALID_REVIEW_DECISION|INVALID_DOCUMENTARY_CONDITION|INVALID_CREATE_MODE/.test(msg)) return { status: 400, error: msg };
   if (/verification_condition|needs_attention_requires_reason|documentary_condition_values|check constraint/.test(msg)) return { status: 400, error: msg };
+  if (/SUBMISSION_NOT_FOUND/.test(msg)) return { status: 404, error: msg };
+  if (/SUBMISSION_HAS_NO_CASE|INVALID_INCORPORATION_INPUT|INVALID_ACTION_TOKEN/.test(msg)) return { status: 400, error: msg };
   return { status: 500, error: msg };
 }
 
@@ -107,6 +109,39 @@ export async function updateDocumentaryCondition(
     p_composition_id: compositionId,
     p_documentary_condition: documentaryCondition,
     p_actor_id: actorId,
+  });
+  if (error) throw error;
+  return data as EvidenceComposition;
+}
+
+export interface IncorporateStructuredProfileParams {
+  submissionId: string;
+  fieldKey: string;
+  source: string;
+  actionToken?: string | null;
+  fact: string;
+  createdBy: string;
+  documentIds?: string[];
+}
+
+// Structured Profile -> Evidence Incorporation (CR-CPS-46..53, migration 038).
+// Thin wrapper around the sole authorized additive Producer entry point --
+// atomic lock/lookup/create-or-supersede against intake_submissions, deriving
+// case_id server-side (never a parameter here either). actionToken omitted
+// (null) on the deterministic path; supplied as the client-generated stable
+// per-action retry/replay token on the human-resolution path (DDR-SEI-05/06).
+export async function incorporateStructuredProfileEvidence(
+  db: SupabaseClient,
+  params: IncorporateStructuredProfileParams
+): Promise<EvidenceComposition> {
+  const { data, error } = await db.rpc("incorporate_structured_profile_evidence", {
+    p_submission_id: params.submissionId,
+    p_field_key: params.fieldKey,
+    p_source: params.source,
+    p_action_token: params.actionToken ?? null,
+    p_fact: params.fact,
+    p_created_by: params.createdBy,
+    p_document_ids: params.documentIds ?? null,
   });
   if (error) throw error;
   return data as EvidenceComposition;

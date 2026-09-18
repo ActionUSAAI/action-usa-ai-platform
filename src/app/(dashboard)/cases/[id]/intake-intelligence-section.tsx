@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Loader2, CheckCircle2, AlertCircle, MessageSquare } from "lucide-react";
+import { resolveIncorporationCandidates } from "@/lib/evidence/structured-profile-incorporation";
 
 // AUSCIS Intake Intelligence Layer -- exception-resolution / readiness
 // recheck surface (R-02, CR-CPS-37/38). A clean Intake already
@@ -42,12 +43,80 @@ export function IntakeIntelligenceSection({ caseId, submissionId, status, struct
   const [error, setError] = useState<string | null>(null);
   const [currentStatus, setCurrentStatus] = useState(status);
   const [reasons, setReasons] = useState<string[] | null>(null);
+  const [incorporating, setIncorporating] = useState(false);
+  const [incorporationMsg, setIncorporationMsg] = useState<string | null>(null);
+  const [factDraft, setFactDraft] = useState<Record<string, string>>({});
+  const [creatingField, setCreatingField] = useState<string | null>(null);
+  const [actionTokens, setActionTokens] = useState<Record<string, string>>({});
 
   if (!submissionId) return null;
 
   const fields = Object.entries(structuredProfile ?? {}).filter(([, f]) => f.status !== "not_yet_acquired");
   const conflicting = fields.filter(([, f]) => f.status === "conflicting").length;
   const confirmed = fields.filter(([, f]) => f.status === "beneficiary_confirmed").length;
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const candidates = resolveIncorporationCandidates((structuredProfile ?? {}) as any);
+  const deterministicCandidates = candidates.filter(c => c.path === "deterministic");
+  const humanCandidates = candidates.filter(c => c.path === "human_resolution");
+
+  function tokenFor(fieldKey: string): string {
+    if (actionTokens[fieldKey]) return actionTokens[fieldKey];
+    const t = crypto.randomUUID();
+    setActionTokens(prev => ({ ...prev, [fieldKey]: t }));
+    return t;
+  }
+
+  async function incorporateDeterministic() {
+    setIncorporating(true);
+    setIncorporationMsg(null);
+    try {
+      const res = await fetch("/api/intake-intelligence/incorporate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId, submission_id: submissionId, mode: "deterministic" }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setIncorporationMsg(json.error ?? "Error al incorporar evidencia");
+      } else {
+        setIncorporationMsg(`${json.results?.length ?? 0} campo(s) de identidad procesados como Evidence.`);
+      }
+    } catch {
+      setIncorporationMsg("Error de red");
+    } finally {
+      setIncorporating(false);
+    }
+  }
+
+  async function createHumanEvidence(fieldKey: string) {
+    const fact = factDraft[fieldKey];
+    if (!fact) return;
+    setCreatingField(fieldKey);
+    setIncorporationMsg(null);
+    try {
+      const res = await fetch("/api/intake-intelligence/incorporate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          case_id: caseId, submission_id: submissionId, mode: "human",
+          field_key: fieldKey, action_token: tokenFor(fieldKey), fact,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        setIncorporationMsg(json.error ?? "Error al crear Evidence");
+      } else {
+        setIncorporationMsg(`Evidence creado para "${fieldKey}".`);
+        setActionTokens(prev => { const next = { ...prev }; delete next[fieldKey]; return next; });
+        setFactDraft(prev => { const next = { ...prev }; delete next[fieldKey]; return next; });
+      }
+    } catch {
+      setIncorporationMsg("Error de red");
+    } finally {
+      setCreatingField(null);
+    }
+  }
 
   async function recheckReadiness() {
     setLoading(true);
@@ -115,6 +184,45 @@ export function IntakeIntelligenceSection({ caseId, submissionId, status, struct
           <ul className="mt-1 list-disc pl-4 text-xs text-amber-700">
             {reasons.map(r => <li key={r}>{REASON_LABEL[r] ?? r}</li>)}
           </ul>
+        </div>
+      )}
+
+      {(deterministicCandidates.length > 0 || humanCandidates.length > 0) && (
+        <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
+          <p className="text-xs font-bold uppercase tracking-wide text-gray-500">Incorporación a Evidence</p>
+
+          {deterministicCandidates.length > 0 && (
+            <div className="mt-2 flex items-center justify-between">
+              <p className="text-xs text-gray-600">{deterministicCandidates.length} campo(s) de identidad listos para incorporar.</p>
+              <button type="button" onClick={incorporateDeterministic} disabled={incorporating}
+                className="rounded-lg bg-gray-800 px-2.5 py-1 text-xs font-medium text-white disabled:opacity-50">
+                {incorporating ? "Incorporando…" : "Incorporar identidad"}
+              </button>
+            </div>
+          )}
+
+          {humanCandidates.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {humanCandidates.map(c => (
+                <li key={c.fieldKey} className="rounded-md border border-gray-200 bg-white p-2">
+                  <p className="text-xs font-medium text-gray-700">{c.fieldKey} <span className="font-normal text-gray-400">({c.source})</span></p>
+                  <p className="mt-0.5 text-xs text-gray-500">{c.value}</p>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <input type="text" placeholder="Texto del hecho probatorio…"
+                      value={factDraft[c.fieldKey] ?? c.value}
+                      onChange={e => setFactDraft(prev => ({ ...prev, [c.fieldKey]: e.target.value }))}
+                      className="flex-1 rounded border border-gray-300 px-2 py-1 text-xs"/>
+                    <button type="button" onClick={() => createHumanEvidence(c.fieldKey)} disabled={creatingField === c.fieldKey}
+                      className="rounded bg-brand-blue px-2 py-1 text-xs font-medium text-white disabled:opacity-50">
+                      {creatingField === c.fieldKey ? "…" : "Crear Evidence"}
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {incorporationMsg && <p className="mt-2 text-xs text-gray-600">{incorporationMsg}</p>}
         </div>
       )}
 
