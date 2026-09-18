@@ -101,6 +101,10 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        AUSCIS Intake Intelligence Layer —
                         Implementation MR — CORRECTIONS REQUIRED
                         (D-1 CRITICAL) (CR-CPS-40)
+                       AUSCIS Intake Intelligence Layer —
+                        Implementation Corrections D-1/D-2/D-3 —
+                        CORRECTED, TEST ONLY, PENDING MR RE-RUN
+                        (CR-CPS-41)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -960,11 +964,51 @@ capability remains IMPLEMENTED — TEST ONLY pending the corrections
 above. NEXT MTCS remains NOT ESTABLISHED; Production remains
 HARD-DENIED.
 
-NEXT GOVERNED ACT: NOT ESTABLISHED beyond awaiting explicit Project
-Owner direction on which of D-1/D-2/D-3 to authorize for correction
-and in what act; per this record's own governing instruction, no
-correction may be implemented, designed, or the next act inferred,
-during or immediately following this Implementation MR.
+IMPLEMENTATION CORRECTIONS (CR-CPS-41): D-1/D-2/D-3, Project Owner
+authorized. CORRECTED — TEST ONLY — PENDING IMPLEMENTATION MR RE-RUN.
+Commit `deb5d76`, 8 files.
+D-1 (CRITICAL, structurally fixed): the storage namespace is no
+longer derived from any client-controlled string.
+`src/lib/intake/upload-authorization.ts` adds `isSafeUploadPath()` — a
+positive per-segment character allowlist (`[A-Za-z0-9_-]` only), not a
+traversal blacklist — audited against every legitimate path currently
+used across the whole Intake form (30+ static and `genId()`-based
+dynamic paths). `..` and leading/repeated `/` are structurally
+inexpressible. The extension is derived exclusively from the closed
+MIME-type allowlist; `fileName` no longer participates in the storage
+key. Live-proven via a full pipeline simulation matching the real
+route's exact gate ordering: legitimate uploads succeed and stay
+contained under the caller's own namespace; every traversal variant
+(single/deep/leading-slash/repeated-separator/percent-encoded) is
+rejected before any storage call is reachable; zero cross-namespace
+objects produced. D-2: server now requires the same acknowledgment
+signal the client UI already requires, transmitted alongside (not
+instead of) the persisted transcript — no new Coach architecture, no
+turn-count threshold invented. D-3: `evaluateReadiness` now requires
+acquired information not remain `acquired_unconfirmed` when READY is
+returned (Final Exact Design §5.8); `not_yet_acquired` fields are
+never flagged. TEST validation: **67/67 PASS** live against
+AUSCIS-TEST, including genuinely adversarial SEC-CORR-01..12 (full-
+pipeline simulation), COACH-CORR-01..07, CONF-CORR-01..07. R-01/R-02
+preserved; Evidence firewall preserved (`evaluateReadiness` takes no
+DB client); A1–A5/AKAE/AEPE unchanged; no migration; Production
+untouched throughout (fail-closed, TEST-ref-scoped) — including a
+cleanup of two leftover scratch objects discovered from the prior
+Implementation MR's own live security proof, confirming `remove()`
+does not resolve `..` the way `upload()` does and must be called with
+resolved paths. One new, out-of-scope finding discovered during this
+review: `src/app/api/intake/a0-extract/route.ts` accepts an unbound
+client-supplied `filePath` with no check that it belongs to the
+caller's own invitation, permitting cross-invitation CV read/
+extraction — reported, not fixed, outside this act's bounded D-1/D-2/
+D-3 authorization. NOT CLOSED, NOT MR PASS — this act only implements
+corrections; the corrected implementation requires its own
+Implementation MR re-run. NEXT MTCS remains NOT ESTABLISHED;
+Production remains HARD-DENIED.
+
+NEXT GOVERNED ACT: AUSCIS Intake Intelligence Layer — Implementation
+MR — Re-run (R-01/R-02 reconciled implementation, post-CR-CPS-41
+corrections).
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -1395,7 +1439,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| AUSCIS Intake Intelligence Layer — Coach / CV(optional) / A0 / Structured Profile / Prefill Engine / Automated Readiness (Final Exact Design CR-CPS-34, Implementation Authorization CR-CPS-35, Implementation CR-CPS-36, Reconciliation R-01/R-02 CR-CPS-37, Implementation Authorization Re-run CR-CPS-38, Implementation CR-CPS-39, Implementation MR CR-CPS-40, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + optional CV extraction, automated readiness, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_RECONCILIATION_R01_R02.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md | FROZEN | FROZEN (design), IMPLEMENTED (TEST only, R-01/R-02 model, MR corrections required) | IMPLEMENTATION MR CORRECTIONS REQUIRED — 1 CRITICAL live-proven security defect (D-1) + 2 lower-severity gaps (D-2/D-3) | INTEGRATED (TEST only, reconciled model, uncorrected) | KEEP | **IMPLEMENTATION MR — CORRECTIONS REQUIRED (CR-CPS-40)** | D-1 (CRITICAL): upload path-traversal defeats CR-CPS-38/39 storage-namespace remediation, live-proven; D-2: server-side Coach-mandatory check weaker than client gate; D-3: readiness never checks per-field beneficiary_confirmed; D-4/D-5: pre-existing Coach-completion weakness, SEC-02 test-strength gap; future tenant review-policy override explicitly NOT ESTABLISHED | NOT ESTABLISHED — awaiting explicit Project Owner direction on D-1/D-2/D-3 | NO |
+| AUSCIS Intake Intelligence Layer — Coach / CV(optional) / A0 / Structured Profile / Prefill Engine / Automated Readiness (Final Exact Design CR-CPS-34, Implementation Authorization CR-CPS-35, Implementation CR-CPS-36, Reconciliation R-01/R-02 CR-CPS-37, Implementation Authorization Re-run CR-CPS-38, Implementation CR-CPS-39, Implementation MR CR-CPS-40, Corrections CR-CPS-41, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + optional CV extraction, automated readiness, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_RECONCILIATION_R01_R02.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md | FROZEN | FROZEN (design), IMPLEMENTED (TEST only, D-1/D-2/D-3 corrected) | CORRECTED — TEST ONLY, PENDING IMPLEMENTATION MR RE-RUN | INTEGRATED (TEST only, corrected model) | KEEP | **CORRECTED — TEST ONLY, PENDING IMPLEMENTATION MR RE-RUN (CR-CPS-41)** | D-1/D-2/D-3 corrected and validated (67/67 live TEST PASS); new out-of-scope finding: a0-extract/route.ts accepts an unbound client filePath (reported, not fixed); future tenant review-policy override explicitly NOT ESTABLISHED | AUSCIS Intake Intelligence Layer — Implementation MR — Re-run (post-CR-CPS-41 corrections) | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1472,6 +1516,8 @@ Learning Engine
 **Implementation (CR-CPS-39):** R-01/R-02 DELTA — IMPLEMENTED — TEST ONLY — PENDING IMPLEMENTATION MR. Commit `5dcb638`, 9 files. Mandatory security remediation delivered structurally: the authorized storage namespace in `src/app/api/intake/upload/route.ts` is now derived exclusively from the server-resolved invitation (`src/lib/intake/upload-authorization.ts`), eliminating the confirmed CR-CPS-38 defect rather than validating the client value — live-proven with two independent invitations writing to two independent, non-colliding namespaces (SEC-02, load-bearing, PASS). R-01: `IntakeForm.tsx`'s client-side CV-mandatory check removed; Coach's mandatory check untouched. R-02: automated readiness (`src/lib/intake/readiness.ts`, pure, reused identically by the automatic post-submission trigger and the staff exception-resolution recheck) runs automatically at submission; `Needs Attention` is a live-computed classification, zero new schema. Staff surface repurposed into an exception-resolution/recheck screen. TEST validation `supabase/tests/intake-intelligence-layer-validate.ts`: **47/47 PASS** live against AUSCIS-TEST. A1–A5/AKAE/AEPE: unchanged (zero files touched, confirmed via git diff). No new migration. Production: untouched. Design artifact SHA unaffected (delta implemented outside the frozen CR-CPS-34 document). NOT CLOSED. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation MR (R-01/R-02 reconciled implementation). NEXT MTCS remains NOT ESTABLISHED, not inferred; Production remains HARD-DENIED.
 
 **Implementation MR (CR-CPS-40):** CORRECTIONS REQUIRED. Independent Source-First audit of commit `5dcb638`. The CR-CPS-39 record above accurately reported what SEC-02 verified at the time (distinct namespaces for distinct invitations, holding `path` fixed at a benign literal); this MR's deeper adversarial testing of the actual client-controlled `path`/`fileName` inputs found that claim insufficient. **D-1 (CRITICAL, live-proven):** `src/app/api/intake/upload/route.ts`'s client-supplied `path` (and filename-derived extension) is concatenated unsanitized into the storage key; Supabase Storage resolves `..` traversal server-side; a crafted `path` value was proven, live against TEST, to write into and be downloadable from another invitation's real namespace — defeating the "no client-supplied value can influence the authorized namespace" property IAG-SEC-01 was meant to establish. **D-2:** `coachAcknowledged` is never transmitted server-side; the actual enforced Coach-mandatory bar is the weaker `coach_conversation.length > 0`. **D-3:** `evaluateReadiness` never checks per-field `beneficiary_confirmed`; an Intake with every acquired field still `acquired_unconfirmed` can reach READY, despite Final Exact Design §5.8 listing "beneficiary confirmation obtained" as a prerequisite. D-4 (pre-existing, inherited, not worsened by this delta) and D-5 (SEC-02 test-strength gap) recorded as lower-severity findings. None require a new Project Owner architectural decision. 47/47 TEST assertions independently re-executed and reproduced live, but do not establish architectural conformance given D-1/D-5. A1–A5/AKAE/AEPE confirmed unchanged via `git diff-tree`; zero migration; Production untouched throughout this audit (all live checks TEST-ref-scoped, fail-closed). Capability remains IMPLEMENTED — TEST ONLY; MR does not pass. NOT CLOSED. Next governed act: NOT ESTABLISHED — awaiting explicit Project Owner direction on which corrections to authorize. NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
+
+**Implementation Corrections (CR-CPS-41):** D-1/D-2/D-3, Project Owner authorized. CORRECTED — TEST ONLY — PENDING IMPLEMENTATION MR RE-RUN. Commit `deb5d76`, 8 files. D-1 fixed structurally via `src/lib/intake/upload-authorization.ts`'s `isSafeUploadPath()` (positive per-segment character allowlist, `[A-Za-z0-9_-]` only — audited against all 30+ legitimate paths across the whole Intake form) plus MIME-derived extension (`fileName` no longer participates in the storage key). Live-proven via a full pipeline simulation matching the real route's exact gate ordering: legitimate uploads stay contained under the caller's namespace; every traversal variant rejected before any storage call; zero cross-namespace objects produced. D-2: server now requires the same acknowledgment signal the client UI already requires, transmitted alongside the persisted transcript. D-3: `evaluateReadiness` now requires acquired information not remain `acquired_unconfirmed` when READY is returned. TEST validation: **67/67 PASS** live, including adversarial SEC-CORR-01..12 (full-pipeline simulation), COACH-CORR-01..07, CONF-CORR-01..07. R-01/R-02 preserved; Evidence firewall preserved; A1–A5/AKAE/AEPE unchanged; no migration; Production untouched (including cleanup of two leftover scratch objects from the prior MR's own live proof — confirmed `remove()` does not resolve `..` the way `upload()` does). One new, out-of-scope finding: `a0-extract/route.ts` accepts an unbound client-supplied `filePath`, permitting cross-invitation CV read/extraction — reported, not fixed, outside this act's D-1/D-2/D-3 authorization. NOT CLOSED, NOT MR PASS. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation MR — Re-run (post-CR-CPS-41 corrections). NEXT MTCS remains NOT ESTABLISHED; Production remains HARD-DENIED.
 
 **PROCESS NOTE:** an earlier draft of this act (commit b045287) was executed without authorization by a subagent tasked with read-only source recovery only; it was independently audited against this repository's actual sources (all citations found accurate, no fabrication, but several design-detail gaps identified against this act's own governing requirements), then reverted in full (commit c0b2cca) at the Project Owner's explicit direction. This act was then re-executed directly, from the clean reverted state, with all three Project Owner decisions asked and answered live in this session.
 
@@ -1575,14 +1621,15 @@ ECOSYSTEM
     │   │      ESTABLISHED
     │   ├── ◐ AUSCIS Intake Intelligence Layer — Coach / CV(optional) /
     │   │      A0 / Structured Profile / Prefill Engine / Automated
-    │   │      Readiness — IMPLEMENTATION MR CORRECTIONS REQUIRED
-    │   │      (CR-CPS-40): D-1 CRITICAL live-proven upload path-
-    │   │      traversal defeats the namespace remediation · D-2 Coach-
-    │   │      mandatory server check weaker than client gate · D-3
-    │   │      readiness ignores beneficiary_confirmed · see Section Q
-    │   │      for full CR-CPS-34..39 history · A1–A5/AKAE/AEPE
-    │   │      untouched · UNNUMBERED · Production HARD-DENIED · next
-    │   │      act: NOT ESTABLISHED, awaiting Project Owner direction
+    │   │      Readiness — CORRECTED — TEST ONLY, PENDING
+    │   │      IMPLEMENTATION MR RE-RUN (CR-CPS-41): D-1/D-2/D-3
+    │   │      corrected · isSafeUploadPath() structural fix (per-
+    │   │      segment allowlist) · 67/67 live TEST assertions PASS
+    │   │      (incl. adversarial SEC-CORR-01..12) · new out-of-scope
+    │   │      finding reported (a0-extract unbound filePath) · see
+    │   │      Section Q for full CR-CPS-34..40 history · A1–A5/AKAE/
+    │   │      AEPE untouched · UNNUMBERED · Production HARD-DENIED ·
+    │   │      next act: Implementation MR — Re-run
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
