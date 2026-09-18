@@ -85,6 +85,9 @@ Consolidates:          Phase 1 (Repository Archaeology, PASS)
                        AUSCIS Intake Intelligence Layer —
                         Implementation Authorization Gate — GRANTED,
                         TEST ONLY (CR-CPS-35)
+                       AUSCIS Intake Intelligence Layer —
+                        Implementation — TEST ONLY, PENDING
+                        IMPLEMENTATION MR (CR-CPS-36)
 Implementation baseline: bcdc0a707c30c7f7d900884078a4a4f082812fe6
 Repository:            ACTION-USA-AI (AUSCIS product code)
 External source root:  /Users/alwxanderclavijo/Documents/AUSCIS/
@@ -775,8 +778,44 @@ version-handling, Coach session-retention policy, Production. NEXT
 MTCS remains NOT ESTABLISHED, not inferred; Production remains
 HARD-DENIED.
 
+IMPLEMENTATION (CR-CPS-36): IMPLEMENTED — TEST ONLY — PENDING
+IMPLEMENTATION MR. Commit 7342c10, 18 files. Migrations 036/037
+applied live to AUSCIS-TEST (utpsqevarnxscdqzywkk): additive
+`structured_profile`/`coach_conversation` columns on
+`intake_submissions`, and an additive extension of the existing
+`submit_intake_for_invitation()` RPC (migration 026) to persist them —
+zero new tables, zero change to the client-held-draft-until-final-
+submit pattern already used by every other intake module. Security
+prerequisite closed: `src/app/api/intake/upload/route.ts` now requires
+and validates the same server-side invitation token that already
+gates the intake page, reusing the existing eligibility check.
+`src/lib/intake/{structured-profile,prefill-engine,a0-extract,coach}.
+ts` — framework-agnostic, mirror the `record-letter-delivery.ts`
+separation. `src/app/intake/modules/Module0.tsx` — mandatory CV/résumé
+gate (either an existing beneficiary CV or a Coach-generated PDF
+satisfies it) decoupled from the also-mandatory Coach conversation,
+plus beneficiary review/confirm. Staff review +
+`/api/intake-intelligence/complete` reuse the existing admin/
+supervisor-or-assigned-agent pattern; Intake Complete enforces the
+CR-CPS-34 implementation-determinable prerequisites (identity fields
+present, Coach discovery occurred, no unresolved conflict) and sets
+the pre-existing dormant `intake_submissions.status='complete'` value.
+TEST validation `supabase/tests/intake-intelligence-layer-validate.ts`:
+**32/32 PASS**, live against AUSCIS-TEST, including live Claude-backed
+A0 extraction and Coach conversation (anti-minimization probing and
+uncertainty preservation verified live — an uncertain "~50" beneficiary
+statement was returned as `low` confidence, not fabricated as a firm
+fact) and a live `status='complete'` transition proving zero A1
+modification (`a1-intake-analyzer/route.ts:331` unconditional
+`select("*")`, re-verified unmodified). A1–A5/AKAE/AEPE: unchanged
+(zero files touched). Production: untouched throughout — all TEST
+tooling target-verified against the known TEST ref, fail-closed. Design
+artifact SHA re-verified unchanged post-implementation. NOT CLOSED —
+Closure requires its own governed determination per established
+MTCS/QA-Engine/Human-Review-Gate precedent.
+
 NEXT GOVERNED ACT: AUSCIS Intake Intelligence Layer — Implementation
-(TEST only).
+MR.
 
 HISTORICAL A5 → QA PRIORITY (AUCIS_V2_STRATEGY_LAYER.md, 2026-07-27):
 PRESERVED — not superseded, not rewritten. JSR-B is a prospective
@@ -1207,7 +1246,7 @@ Classification:                     KEEP — CANONICAL PRODUCT SCOPE, LATER
 | Case Blueprint | AUSCIS | Versioned strategy artifact | Blueprint Contract v2 → v3 (docs/A5_CASE_BLUEPRINT_SPECIFICATION_V3.md, narrow MTCS-06 amendment) | FROZEN | FROZEN | PARTIAL | PARTIAL | KEEP | LATER | `locked` unreachable; no general immutability enforcement (MTCS-06.4 added a narrow PATCH guard for Historical Reliance fields — foundational_evidence/evidence_dependencies/evidence_dependencies_reliance — only, not general lock enforcement); Evidence references beyond MTCS-06's scoped fields remain incomplete | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Human Review Gate | AUSCIS | Draft→approved lifecycle for A3 letters | Evidence Item Contract V2 §46-47; docs/HUMAN_REVIEW_GATE_APPROVED_TO_SENT_FINAL_EXACT_DESIGN.md (SHA256 3b18a26d55110440220fe71cbcbed0e70101cb32cfa13cb0a0cf0265f63dba7d); migration 035; src/lib/documents/record-letter-delivery.ts; src/lib/documents/register-returned-gwp.ts (unchanged); src/app/api/case-letters/route.ts | FROZEN (concept) | **FROZEN — RECONCILED** (CR-CPS-24/CR-CPS-26) | **PARTIAL** (CR-CPS-07); Approved-to-Sent Transition **CLOSED (CR-CPS-30)** | INTEGRATED (draft/in_review/approved/rejected/sent-delivery, UI-wired) | KEEP | Scope B — precedes GWP re-entry's precondition, already satisfied | None within the closed Approved-to-Sent bounded scope; broader Human Review Gate work (e.g. `sent`→external actor portal/dispatch) remains out of scope, not a gap | **Human Review Gate — Approved-to-Sent Transition — CLOSED (CR-CPS-30), UNNUMBERED; 16/16 live assertions PASS; DTC 45/45, IMR 40/40; register-returned-gwp.ts/MTCS-08 design byte-for-byte unchanged** | NOT ESTABLISHED | NOT YET DETERMINABLE |
 | Generated Work Product re-entry | AUSCIS | Approved letter → new Case Document | docs/MTCS-08_FINAL_EXACT_DESIGN.md (current SHA256 7ed97a029b54afcaa03a1a2db6b370cb159fb4c708dd1e049fb2befe3fd70e01; implementation-entry SHA256 ae73ab1e4bf4e00e9cfcc0b1fff92073f0fa301d505848e85434d4a6dc31a5dd) | FROZEN | FROZEN | **CLOSED** | INTEGRATED | KEEP | **MTCS-08 — CLOSED (CR-CPS-12)** | None within MTCS-08 scope | — | NO |
-| AUSCIS Intake Intelligence Layer — Coach / CV / A0 / Structured Profile / Prefill Engine (Final Exact Design frozen CR-CPS-34, Implementation Authorization Gate CR-CPS-35, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + CV extraction, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md; AUCIS_CV_COACH_INTEGRATION.md | FROZEN | FROZEN (design only) | GAP — Implementation AUTHORIZED (TEST only), zero implementation performed | NOT INTEGRATED | KEEP | **IMPLEMENTATION AUTHORIZED — TEST ONLY (CR-CPS-35)** | structured_profile column confirmed absent (IMPLEMENTATION GAP, not conflict); intake/upload/route.ts caller-identity check absent — mandatory implementation condition; CV version-handling and Coach session-retention policy explicitly NOT ESTABLISHED (non-blocking) | AUSCIS Intake Intelligence Layer — Implementation (TEST only) | NO |
+| AUSCIS Intake Intelligence Layer — Coach / CV / A0 / Structured Profile / Prefill Engine (Final Exact Design CR-CPS-34, Implementation Authorization CR-CPS-35, Implementation CR-CPS-36, reconciled from CR-CPS-32/33) | AUSCIS | Stage 1 acquisition/discovery/structuring/completion of beneficiary case information via Coach-led conversational discovery + CV extraction, prior to A1 handoff | docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md; AUCIS_EVIDENCE_ITEM_CONTRACT_V2.md; AUCIS_CV_COACH_INTEGRATION.md | FROZEN | FROZEN (design), IMPLEMENTED (TEST only) | IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR | INTEGRATED (TEST only) | KEEP | **IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR (CR-CPS-36)** | None within this slice's bounded scope; CV version-handling and Coach session-retention policy remain explicitly NOT ESTABLISHED (non-blocking); Module10 per-criterion structured mapping remains narrative-only by design | AUSCIS Intake Intelligence Layer — Implementation MR | NO |
 | Organization / Multi-Tenant root | AUSCIS | Tenant isolation root entity | ADR-001, Principle #10 | APPROVED | APPROVED | GAP | NOT INTEGRATED | KEEP | LATER CANONICAL PRODUCT SCOPE | Root entity + `cases.organization_id` missing | NOT ESTABLISHED | NO |
 | QA Engine | AUSCIS | Criterion documentary coverage + Blueprint currency precondition (bounded MVP) | docs/QA_ENGINE_FINAL_EXACT_DESIGN.md (SHA256 33d5f7f07cebfd1acc261e66ea1d10e4f2298671b3c0271a8f0ef8ab678510ab) | FROZEN | FROZEN | **CLOSED** | INTEGRATED (TEST only) | KEEP | **QA Engine — CLOSED (CR-CPS-20), UNNUMBERED** | None within QA Engine's bounded MVP scope; migration 034 applied to TEST (utpsqevarnxscdqzywkk) only, qa_runs table + trg_qa_runs_same_case + trg_qa_runs_immutability + staff_select_qa_runs RLS all verified live; 17/17 live assertions PASS, 25/25 AC PASS, IV 31/32 PASS (1 NOT EXECUTABLE, non-QA-attributable) | — | NO |
 | Market Intelligence Engine | AUSCIS | Generalized external research | AUCIS_V2_STRATEGY_LAYER.md | CURRENT DESIGN | DESIGNED | GAP | NOT ESTABLISHED | KEEP/RECONCILE | LATER (boundary caveat) | Entirely unbuilt; mechanism unspecified | NOT ESTABLISHED | NOT YET DETERMINABLE |
@@ -1273,7 +1312,9 @@ Learning Engine
 
 **Final Exact Design (CR-CPS-34):** FROZEN. `docs/AUSCIS_INTAKE_INTELLIGENCE_LAYER_FINAL_EXACT_DESIGN.md`, SHA256 `51928f1d53a6249a8a5117ac8d8b58dac037645314ee658ff83fbfc7d1eef981`. Refines CR-CPS-33's linear topology (text above unchanged) per live Project Owner clarification: Module0 CV/résumé upload and Coach discovery are decoupled mandatory tracks — an existing beneficiary CV, not only a Coach-generated PDF, satisfies the Module0 gate, and Coach is never bypassed. The Evidence-relationship question resolved SOURCE-DETERMINED via the FROZEN Evidence Item Contract V2 (§7/§8/§18/§19) — no Project Owner choice required. Intake Complete represented by the existing, currently-unused `intake_submissions.status = 'complete'` value — zero schema change, zero A1 modification. Structured Profile persists as an additive `structured_profile` JSONB column (Model SP-B) with an explicit per-field `status` enum (not_yet_acquired/acquired_unconfirmed/beneficiary_confirmed/conflicting) so absence/uncertainty is never collapsed into `null`. Three genuine Project Owner decisions resolved live, each with an explicit clarifying constraint: DDR-CV-01 (Module0 MANDATORY, either CV source, Coach never bypassed), DDR-TRIGGER-01 (A0 trigger AUTOMATIC, extraction ≠ confirmation/verification/adjudication), DDR-CONFIRM-01 (beneficiary reviews first, beneficiary confirmation ≠ Evidence Verification/legal assessment/staff approval; staff review follows under its existing authority). Name `AUSCIS Intake Intelligence Layer` CANONIZED. Zero load-bearing open items; CV version-handling and Coach session-retention explicitly NOT ESTABLISHED, non-blocking.
 
-**Implementation Authorization Gate (CR-CPS-35):** GRANTED — TEST ONLY. IAG 50/50 PASS against the frozen artifact (SHA re-verified unchanged). `structured_profile` confirmed absent from all current migrations — IMPLEMENTATION GAP, not architectural conflict (the frozen design's own "zero schema change" language was already correctly scoped only to the existing `status='complete'` value, re-verified by direct re-read). A1 confirmed to require zero modification (unconditional `select("*")`, `a1-intake-analyzer/route.ts:331`); A2–A5/AKAE/AEPE unaffected. Evidence firewall re-verified unchanged. Coach: zero existing conversational infrastructure found (largest build item, not a blocker, no new authority required). One real pre-existing finding made a mandatory implementation condition: `intake/upload/route.ts` currently performs no caller-identity verification — must be hardened as part of Module0, not silently inherited. Authorized scope (TEST only): structured_profile migration, Module0+hardened upload, A0, Coach, Prefill Engine, beneficiary/staff review UI, Intake Complete code path. Excluded: any A1–A5/AKAE/AEPE change, CV version-handling, Coach session-retention policy, Production. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation (TEST only). NEXT MTCS remains NOT ESTABLISHED, not inferred; Production remains HARD-DENIED.
+**Implementation Authorization Gate (CR-CPS-35):** GRANTED — TEST ONLY. IAG 50/50 PASS against the frozen artifact (SHA re-verified unchanged). `structured_profile` confirmed absent from all current migrations — IMPLEMENTATION GAP, not architectural conflict (the frozen design's own "zero schema change" language was already correctly scoped only to the existing `status='complete'` value, re-verified by direct re-read). A1 confirmed to require zero modification (unconditional `select("*")`, `a1-intake-analyzer/route.ts:331`); A2–A5/AKAE/AEPE unaffected. Evidence firewall re-verified unchanged. Coach: zero existing conversational infrastructure found (largest build item, not a blocker, no new authority required). One real pre-existing finding made a mandatory implementation condition: `intake/upload/route.ts` currently performs no caller-identity verification — must be hardened as part of Module0, not silently inherited. Authorized scope (TEST only): structured_profile migration, Module0+hardened upload, A0, Coach, Prefill Engine, beneficiary/staff review UI, Intake Complete code path. Excluded: any A1–A5/AKAE/AEPE change, CV version-handling, Coach session-retention policy, Production.
+
+**Implementation (CR-CPS-36):** IMPLEMENTED — TEST ONLY — PENDING IMPLEMENTATION MR. Commit `7342c10`, 18 files. Migrations 036/037 applied live to AUSCIS-TEST: additive `structured_profile`/`coach_conversation` columns on `intake_submissions`, additive extension of the existing `submit_intake_for_invitation()` RPC to persist them. Security prerequisite closed (upload route now requires/validates the invitation token, reusing the page's existing eligibility check). New framework-agnostic domain modules `src/lib/intake/{structured-profile,prefill-engine,a0-extract,coach}.ts`. New `Module0.tsx` intake step (mandatory CV/résumé gate, either source, decoupled from mandatory Coach; beneficiary review/confirm). New staff review + `/api/intake-intelligence/complete` (reuses existing admin/supervisor/assigned-agent pattern; enforces implementation-determinable CR-CPS-34 prerequisites; sets the pre-existing dormant `status='complete'` value). TEST validation `supabase/tests/intake-intelligence-layer-validate.ts`: **32/32 PASS** live, including live Claude-backed A0 extraction and Coach conversation (anti-minimization and uncertainty-preservation verified live) and a live `status='complete'` transition proving zero A1 modification. A1–A5/AKAE/AEPE: unchanged. Production: untouched. Design artifact SHA re-verified unchanged. NOT CLOSED. Next governed act: `AUSCIS Intake Intelligence Layer` — Implementation MR. NEXT MTCS remains NOT ESTABLISHED, not inferred; Production remains HARD-DENIED.
 
 **PROCESS NOTE:** an earlier draft of this act (commit b045287) was executed without authorization by a subagent tasked with read-only source recovery only; it was independently audited against this repository's actual sources (all citations found accurate, no fabrication, but several design-detail gaps identified against this act's own governing requirements), then reverted in full (commit c0b2cca) at the Project Owner's explicit direction. This act was then re-executed directly, from the clean reverted state, with all three Project Owner decisions asked and answered live in this session.
 
@@ -1395,11 +1436,14 @@ ECOSYSTEM
     │   │      zero load-bearing open items · A1–A5/AKAE/AEPE
     │   │      untouched · IMPLEMENTATION AUTHORIZATION GATE GRANTED
     │   │      — TEST ONLY (CR-CPS-35) · IAG 50/50 PASS ·
-    │   │      structured_profile confirmed absent (IMPLEMENTATION
-    │   │      GAP not conflict) · intake/upload/route.ts caller-
-    │   │      identity check absent — mandatory implementation
-    │   │      condition · UNNUMBERED · Production HARD-DENIED ·
-    │   │      next act: Implementation (TEST only)
+    │   │      IMPLEMENTED — TEST ONLY, PENDING IMPLEMENTATION MR
+    │   │      (CR-CPS-36) · commit 7342c10 · migrations 036/037 live
+    │   │      in TEST · upload route hardened (invitation-token
+    │   │      ownership check) · Module0 + A0 + Coach + Prefill Engine
+    │   │      + beneficiary/staff review + Intake Complete all built ·
+    │   │      32/32 live TEST assertions PASS (incl. live Claude
+    │   │      A0/Coach calls) · A1–A5/AKAE/AEPE untouched · UNNUMBERED
+    │   │      · Production HARD-DENIED · next act: Implementation MR
     │   ├── ○ Organization/Multi-Tenant
     │   ├── ✓ QA Engine — CLOSED (CR-CPS-20), UNNUMBERED
     │   │      Implementation MR: PASS · 17/17 live assertions ·
