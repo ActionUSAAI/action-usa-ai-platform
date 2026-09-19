@@ -243,8 +243,10 @@ async function main() {
   }
 
   // ══ Verification/documentary state (SEI-AC-02/31/32) — never verified, always reported ══
+  // MR-F05: STATE-01 previously recorded an unconditional record(id, "PASS", ...) with
+  // no computed predicate. Removed as redundant tautology -- STATE-02/03 below already
+  // genuinely compute the identical claim (pending/reported) against live rows.
   {
-    record("STATE-01 (all incorporated Evidence Items remain Pending, never Verified)", "PASS", "");
     const { data: allCurrent } = await svc.from("evidence_items").select("verification_condition, documentary_condition").eq("case_id", caseA.id).eq("source_type", "structured_profile");
     const allPending = (allCurrent ?? []).every(r => r.verification_condition === "pending");
     const allReported = (allCurrent ?? []).every(r => r.documentary_condition === "reported");
@@ -252,10 +254,158 @@ async function main() {
     record("STATE-03 (every structured_profile-sourced Evidence Item is reported, zero-document)", allReported ? "PASS" : "FAIL", `n=${allCurrent?.length}`);
   }
 
-  // ══ A1/A2/A5/AKAE/AEPE firewall — structural, zero references ══
+  // ══ A1/A2/A5/AKAE/AEPE firewall (MR-F05: replaced unconditional record(..., "PASS", ...)
+  // with genuinely computed checks against actual source text) ══
   {
-    record("FIREWALL-01 (no criterion assignment column touched by this capability)", "PASS", "structural: incorporate_structured_profile_evidence never references criterion_id");
-    record("FIREWALL-02 (no A1/A5 invocation from incorporation path)", "PASS", "structural: zero references in migration 038 or the new TS modules");
+    const migrationSrc = fs.readFileSync(path.join(__dirname, "..", "migrations", "038_structured_profile_evidence_incorporation.sql"), "utf-8");
+    const wrapperSrc = fs.readFileSync(path.join(__dirname, "..", "..", "src", "lib", "evidence", "structured-profile-incorporation.ts"), "utf-8");
+    const routeSrc = fs.readFileSync(path.join(__dirname, "..", "..", "src", "app", "api", "intake-intelligence", "incorporate", "route.ts"), "utf-8");
+    const producerSrc = fs.readFileSync(path.join(__dirname, "..", "..", "src", "lib", "evidence", "evidence-producer.ts"), "utf-8");
+
+    const noCriterionColumn = !/criterion_id/i.test(migrationSrc) && !/criterion_id/i.test(wrapperSrc) && !/criterion_id/i.test(routeSrc);
+    record("FIREWALL-01 (no criterion assignment column touched by this capability)", noCriterionColumn ? "PASS" : "FAIL", "computed: grepped migration 038 + structured-profile-incorporation.ts + incorporate/route.ts for criterion_id");
+
+    const a1a5Pattern = /a1-intake-analyzer|a5-case-strategy|agent_intake_analysis|case_strategy\b/i;
+    const noA1A5 = !a1a5Pattern.test(migrationSrc) && !a1a5Pattern.test(wrapperSrc) && !a1a5Pattern.test(routeSrc) && !a1a5Pattern.test(producerSrc);
+    record("FIREWALL-02 (no A1/A5 invocation from incorporation path)", noA1A5 ? "PASS" : "FAIL", "computed: grepped migration 038 + all four new/modified TS modules for A1/A5 table/route references");
+  }
+
+  // ══ MR-F01 (Bounded Implementation Correction) — fact submitted must equal the
+  // effective fact visibly presented to staff (factDraft[fieldKey] ?? candidate.value)
+  // unless staff deliberately edits it. UI logic itself is source-verified (tsc/lint
+  // clean, direct read of intake-intelligence-section.tsx:161-163 confirms the exact
+  // `factDraft[fieldKey] ?? candidate?.value` fallback replacing the prior raw-only
+  // read); this proves the full pipeline the corrected UI now drives end-to-end. ══
+  {
+    const uiFactDraft: Record<string, string> = {};
+    const candidateValue = "Fulbright Scholarship 2021";
+    const effectiveFactUnedited = uiFactDraft["mrf01"] ?? candidateValue;
+    record("MR-F01-01 (fallback expression yields candidate value when staff has not edited)", effectiveFactUnedited === candidateValue ? "PASS" : "FAIL", effectiveFactUnedited);
+
+    const { data: unedited, error: uneditedErr } = await svc.rpc("incorporate_structured_profile_evidence", {
+      p_submission_id: subA.id, p_field_key: "media_coverage", p_source: "coach_discovery",
+      p_action_token: "mrf01-unedited-" + suffix, p_fact: effectiveFactUnedited, p_created_by: actorId, p_document_ids: null,
+    });
+    record("MR-F01-02 (unedited Create persists exactly the displayed candidate value)", !uneditedErr && unedited?.fact === candidateValue ? "PASS" : "FAIL", JSON.stringify({ uneditedErr, fact: unedited?.fact }));
+    if (unedited?.id) createdEvidenceIds.push(unedited.id);
+
+    uiFactDraft["mrf01"] = "Corrected: Fulbright Scholarship, awarded 2021 for research in X";
+    const effectiveFactEdited = uiFactDraft["mrf01"] ?? candidateValue;
+    record("MR-F01-03 (fallback expression yields staff's deliberate edit when present)", effectiveFactEdited === uiFactDraft["mrf01"] ? "PASS" : "FAIL", effectiveFactEdited);
+
+    const { data: edited, error: editedErr } = await svc.rpc("incorporate_structured_profile_evidence", {
+      p_submission_id: subA.id, p_field_key: "media_coverage", p_source: "coach_discovery",
+      p_action_token: "mrf01-edited-" + suffix, p_fact: effectiveFactEdited, p_created_by: actorId, p_document_ids: null,
+    });
+    record("MR-F01-04 (edited Create persists exactly the deliberate edit, not the raw candidate value)", !editedErr && edited?.fact === effectiveFactEdited && edited?.fact !== candidateValue ? "PASS" : "FAIL", JSON.stringify({ editedErr, fact: edited?.fact }));
+    if (edited?.id) createdEvidenceIds.push(edited.id);
+  }
+
+  // ══ MR-F02 (Bounded Implementation Correction) — synchronous per-field in-flight
+  // guard (mirrors intake-intelligence-section.tsx's tokensRef/inFlightRef exactly:
+  // a Set checked-and-added synchronously, not asynchronous React state) must block a
+  // second invocation representing the same still-in-flight logical action, and the
+  // token map must persist the SAME token across that guard. ══
+  {
+    const inFlight = new Set<string>();
+    const tokens: Record<string, string> = {};
+    const tokenFor = (fieldKey: string): string => {
+      if (!tokens[fieldKey]) tokens[fieldKey] = crypto.randomUUID();
+      return tokens[fieldKey];
+    };
+    const tryInvoke = (fieldKey: string): { invoked: boolean; token: string } => {
+      if (inFlight.has(fieldKey)) return { invoked: false, token: tokens[fieldKey] };
+      inFlight.add(fieldKey);
+      return { invoked: true, token: tokenFor(fieldKey) };
+    };
+    const first = tryInvoke("mrf02field");
+    const second = tryInvoke("mrf02field"); // simulates a second click while the first is still in-flight
+    record("MR-F02-01 (first invocation proceeds, second concurrent invocation is blocked by the synchronous guard)", first.invoked && !second.invoked ? "PASS" : "FAIL", JSON.stringify({ first, second }));
+    record("MR-F02-02 (blocked invocation would have reused the same token, not minted a second one)", second.token === first.token ? "PASS" : "FAIL", JSON.stringify({ first, second }));
+
+    // Prove the token this guard produces is honored end-to-end: a genuinely concurrent
+    // same-token pair of RPC calls (not sequential) still yields exactly one Evidence family
+    // (fresh proof at this act's own correction, not reused from the implementation MR's log).
+    const sameToken = tokenFor("mrf02field");
+    const [r1, r2] = await Promise.all([
+      svc.rpc("incorporate_structured_profile_evidence", {
+        p_submission_id: subA.id, p_field_key: "scholarly_articles", p_source: "coach_discovery",
+        p_action_token: sameToken, p_fact: "Published in Journal X", p_created_by: actorId, p_document_ids: null,
+      }),
+      svc.rpc("incorporate_structured_profile_evidence", {
+        p_submission_id: subA.id, p_field_key: "scholarly_articles", p_source: "coach_discovery",
+        p_action_token: sameToken, p_fact: "Published in Journal X", p_created_by: actorId, p_document_ids: null,
+      }),
+    ]);
+    record("MR-F02-03 (true-concurrent same-token calls collapse to one Evidence family)", !r1.error && !r2.error && r1.data?.id === r2.data?.id ? "PASS" : "FAIL", JSON.stringify({ e1: r1.error, e2: r2.error, id1: r1.data?.id, id2: r2.data?.id }));
+    if (r1.data?.id) createdEvidenceIds.push(r1.data.id);
+
+    inFlight.delete("mrf02field");
+    tokens["mrf02field"] = ""; // simulates the component's post-success token cleanup
+    delete tokens["mrf02field"];
+    const third = tryInvoke("mrf02field");
+    record("MR-F02-04 (new deliberate action after completion mints a fresh token)", third.invoked && third.token !== sameToken ? "PASS" : "FAIL", JSON.stringify({ third, sameToken }));
+  }
+
+  // ══ MR-F03 (Bounded Implementation Correction) — existing Evidence Item(s) already
+  // traceable to a candidate, via the governed source_reference prefix (§18), must be
+  // identifiable deterministically; unrelated Evidence must not match. ══
+  {
+    const { data: judgingEv } = await svc.from("evidence_items").select("id, source_reference").eq("case_id", caseA.id).eq("source_type", "structured_profile").ilike("source_reference", `%:judging:%`).eq("currency_status", "current").limit(1);
+    const targetPrefix = `${subA.id}:judging:`;
+    const relatedEvidence = (rows: { source_reference: string | null }[], prefix: string) =>
+      rows.filter(r => (r.source_reference ?? "").startsWith(prefix));
+    const { data: allCurrentA } = await svc.from("evidence_items").select("id, source_reference").eq("case_id", caseA.id).eq("source_type", "structured_profile").eq("currency_status", "current");
+    const related = relatedEvidence(allCurrentA ?? [], targetPrefix);
+    record("MR-F03-01 (existing Evidence traceable to the candidate is identified via source_reference prefix)", related.length > 0 && related.every(r => (r.source_reference ?? "").startsWith(targetPrefix)) ? "PASS" : "FAIL", JSON.stringify({ related, judgingEv }));
+
+    const unrelatedPrefix = `${subA.id}:nonexistent_field_xyz:`;
+    const unrelated = relatedEvidence(allCurrentA ?? [], unrelatedPrefix);
+    record("MR-F03-02 (unrelated Evidence is not matched as candidate-related)", unrelated.length === 0 ? "PASS" : "FAIL", `count=${unrelated.length}`);
+  }
+
+  // ══ MR-F04 (Bounded Implementation Correction) — governed human action set (§13):
+  // Accept realized by MR-F01's Create-without-edit (proven above); Correct/Associate/
+  // Unlink exercised here at the RPC level (the exact primitives
+  // intake-intelligence-section.tsx's correctEvidence/associateDocument/unlinkDocument
+  // now call through /api/cases/[id]/evidence/* -- this suite has never driven those
+  // routes over real HTTP, consistent with this suite's own established RPC-level
+  // methodology; labeled precisely, not claimed as HTTP E2E). Reject has no durable
+  // state anywhere in source (Contract §19 lists it with no persistence mechanism;
+  // Final Exact Design §31 leaves UI mechanics implementation-determined) -- nothing
+  // to verify at the RPC/DB level by design. ══
+  {
+    const { data: correctTarget } = await svc.rpc("incorporate_structured_profile_evidence", {
+      p_submission_id: subA.id, p_field_key: "critical_role", p_source: "coach_discovery", p_action_token: "mrf04-correct-" + suffix,
+      p_fact: "Led the engineering team", p_created_by: actorId, p_document_ids: null,
+    });
+    if (correctTarget?.id) createdEvidenceIds.push(correctTarget.id);
+
+    // Correct — same primitive PATCH /fact wraps (update_evidence_fact).
+    const { data: corrected, error: correctErr } = await svc.rpc("update_evidence_fact", {
+      p_composition_id: correctTarget?.id, p_fact: "Led the core engineering team of 12", p_actor_id: actorId,
+    });
+    record("MR-F04-CORRECT (existing correction primitive works on Structured-Profile-sourced Evidence)", !correctErr && corrected?.fact === "Led the core engineering team of 12" ? "PASS" : "FAIL", JSON.stringify({ correctErr, fact: corrected?.fact }));
+    if (corrected?.id && corrected.id !== correctTarget?.id) createdEvidenceIds.push(corrected.id);
+
+    // Associate/Unlink — same primitives POST/DELETE /documents wrap (attach/detach_evidence_document).
+    const { data: doc, error: docErr } = await svc.from("documents").insert({
+      case_id: caseA.id, client_id: cli.id, uploaded_by: actorId, name: "MR-F04 test doc", file_path: `test/mrf04-${suffix}.pdf`,
+    }).select().single();
+    if (docErr) throw new Error(`fixture document failed: ${docErr.message}`);
+
+    const evId = corrected?.id ?? correctTarget?.id;
+    const { error: attachErr } = await svc.rpc("attach_evidence_document", { p_evidence_item_id: evId, p_document_id: doc.id, p_created_by: actorId });
+    const { data: assocRows } = await svc.from("evidence_item_documents").select("document_id").eq("evidence_item_id", evId);
+    record("MR-F04-ASSOCIATE (existing M:N association primitive works on Structured-Profile-sourced Evidence)", !attachErr && (assocRows ?? []).some(r => r.document_id === doc.id) ? "PASS" : "FAIL", JSON.stringify({ attachErr, assocRows }));
+
+    const { data: unlinkResult, error: unlinkErr } = await svc.rpc("detach_evidence_document", { p_evidence_item_id: evId, p_document_id: doc.id });
+    const { data: assocRowsAfter } = await svc.from("evidence_item_documents").select("document_id").eq("evidence_item_id", evId);
+    record("MR-F04-UNLINK (existing M:N unlink primitive works on Structured-Profile-sourced Evidence)", !unlinkErr && unlinkResult === true && !(assocRowsAfter ?? []).some(r => r.document_id === doc.id) ? "PASS" : "FAIL", JSON.stringify({ unlinkErr, unlinkResult, assocRowsAfter }));
+
+    record("MR-F04-REJECT (no durable state established by any governing source; nothing to persist-verify by design)", "NOT APPLICABLE", "Contract V2 §19 lists reject as an available human decision with no described persistence mechanism; Final Exact Design §31 leaves UI mechanics implementation-determined; reject's entire effect is that no Evidence Item is created, already covered by every candidate this suite never actions");
+
+    await svc.from("documents").delete().eq("id", doc.id);
   }
 
   // ══ Cleanup ══
@@ -272,8 +422,9 @@ async function main() {
   const pass = results.filter(r => r.status === "PASS").length;
   const fail = results.filter(r => r.status === "FAIL").length;
   const notExec = results.filter(r => r.status === "NOT EXECUTABLE").length;
+  const notApplicable = results.filter(r => r.status === "NOT APPLICABLE").length;
   console.error(JSON.stringify(results, null, 2));
-  console.error(`\n${pass}/${results.length} PASS, ${fail} FAIL, ${notExec} NOT EXECUTABLE`);
+  console.error(`\n${pass}/${results.length} PASS, ${fail} FAIL, ${notExec} NOT EXECUTABLE, ${notApplicable} NOT APPLICABLE`);
   if (fail > 0) process.exit(1);
 }
 

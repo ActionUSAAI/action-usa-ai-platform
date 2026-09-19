@@ -239,6 +239,11 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             status={submission?.status ?? null}
             structuredProfile={(submission?.structured_profile as Record<string, { value: string | null; source: string | null; confidence: string | null; status: string }>) ?? null}
             coachTurns={((submission?.coach_conversation as { turns?: unknown[] } | null)?.turns ?? []).length}
+            structuredProfileEvidence={(evidenceCompositions ?? [])
+              .filter((e) => e.source_type === "structured_profile" && e.currency_status === "current")
+              .map((e) => ({ id: e.id as string, fact: e.fact as string, source_reference: e.source_reference as string | null, verification_condition: e.verification_condition as string }))}
+            evidenceDocumentAssociations={evidenceAssociationMap}
+            caseDocuments={(caseDocuments ?? []) as { id: string; name: string }[]}
           />
 
           {/* ── Identidad Jurídica del Caso — capa fundacional del dominio ── */}
