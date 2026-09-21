@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 
@@ -310,6 +310,30 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   const [draftBanner, setDraftBanner] = useState(false);
   const [errors, setErrors]           = useState<Record<string, string>>({});
 
+  // Latest Intake data available to the periodic saver without recreating
+  // the timer on every keystroke (P7-R5).
+  const dataRef = useRef(data);
+  useEffect(() => { dataRef.current = data; }, [data]);
+
+  // Marks the setData performed by draft hydration so the dirty-state
+  // effect below does not treat "we just loaded the persisted draft" as
+  // a new, unsaved edit (P7-R5).
+  const justHydratedRef = useRef(false);
+
+  // ── Canonical draft persistence (P7-R5) — the single function that
+  // writes the localStorage draft; used by the periodic timer, the
+  // Siguiente checkpoint, and final submission alike. Reads
+  // dataRef.current rather than closing over `data` directly so its
+  // identity stays stable across edits -- the interval built from it is
+  // created once, not recreated (and its 30s countdown restarted) on
+  // every keystroke.
+  const save = useCallback(() => {
+    try {
+      localStorage.setItem(storageKey, JSON.stringify(dataRef.current));
+      setSavedAt(new Date());
+    } catch { /* ignore */ }
+  }, [storageKey]);
+
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
     try {
@@ -322,6 +346,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
       const raw = localStorage.getItem(storageKey);
       if (raw) {
         const saved = JSON.parse(raw) as Partial<IntakeFormData>;
+        justHydratedRef.current = true;
         setData({
           ...INITIAL,
           ...saved,
@@ -341,18 +366,25 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
     } catch { /* ignore */ }
   }, []);
 
-  // ── Autosave every 30 seconds ──────────────────────────────────────────────
-  const save = useCallback(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(data));
-      setSavedAt(new Date());
-    } catch { /* ignore */ }
-  }, [data]);
-
+  // ── Autosave every 30 seconds — stable interval, independent of how
+  // often `data` changes (P7-R5: previously `save` closed over `data`
+  // directly, so its useCallback identity -- and the interval built from
+  // it -- was recreated on every edit, restarting the 30s countdown and
+  // potentially deferring persistence indefinitely during continuous
+  // active editing). ──────────────────────────────────────────────────
   useEffect(() => {
     const id = setInterval(save, 30_000);
     return () => clearInterval(id);
   }, [save]);
+
+  // ── Saved indicator must be truthful (P7-R5): invalidate it as soon as
+  // Intake data changes after the last successful save. The change
+  // hydration itself performs is not a new, unsaved edit -- it IS what's
+  // already persisted -- so it is excluded via justHydratedRef. ─────────
+  useEffect(() => {
+    if (justHydratedRef.current) { justHydratedRef.current = false; return; }
+    setSavedAt(null);
+  }, [data]);
 
   // Prefill Engine (design §5.5): runs whenever Structured Profile
   // changes, never overwrites a field the beneficiary/staff already
@@ -392,6 +424,9 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
   function next() {
     if (!validate()) return;
+    // P7-R5: persist the state being navigated from before advancing,
+    // rather than leaving it to wait for the next periodic tick.
+    save();
     const nextStep = step === 10 && !show12 ? 12 : step + 1;
     setStep(Math.min(nextStep, TOTAL));
     window.scrollTo({ top: 0, behavior: "smooth" });
