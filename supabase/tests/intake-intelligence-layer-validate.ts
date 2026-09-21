@@ -131,6 +131,75 @@ async function main() {
     record("PF-03 (prefill still fills the OTHER empty field in the same call)", notOverwritten.profession === "Engineer" ? "PASS" : "FAIL", JSON.stringify(notOverwritten));
   }
 
+  // ══ PF-04..08 (P7-R2) — fullName synchronization on the real prefill path ══
+  // Regression coverage for the P7 Production Smoke Test blocker: Structured
+  // Profile prefill populating familyName/givenName/middleName without
+  // fullName being resynchronized. Exercises prefillModule1() itself (the
+  // actual corrected integration point), never composeFullName() in isolation.
+  {
+    // R2-01 — prefill on an empty Module1: fullName composed from the newly
+    // prefilled name fields.
+    const p1 = emptyStructuredProfile();
+    p1.familyName = acquireField(p1.familyName, { value: "Test", source: "cv_extraction", confidence: "high" });
+    p1.givenName  = acquireField(p1.givenName,  { value: "P7 Production Smoke", source: "cv_extraction", confidence: "high" });
+    const m1Empty = { familyName: "", givenName: "", middleName: "", fullName: "" };
+    const r1 = prefillModule1(m1Empty, p1);
+    record(
+      "PF-04 / R2-01 (prefill on empty Module1 synchronizes fullName)",
+      r1.familyName === "Test" && r1.givenName === "P7 Production Smoke" && r1.fullName === "P7 Production Smoke Test" ? "PASS" : "FAIL",
+      JSON.stringify(r1)
+    );
+
+    // R2-02 — no-silent-overwrite preserved for familyName; fullName
+    // synchronized from the RESULTING state ("Existing" + "Jane"), never
+    // from the raw, rejected Structured Profile value ("Profile").
+    const p2 = emptyStructuredProfile();
+    p2.familyName = acquireField(p2.familyName, { value: "Profile", source: "cv_extraction", confidence: "high" });
+    p2.givenName  = acquireField(p2.givenName,  { value: "Jane", source: "cv_extraction", confidence: "high" });
+    const m1Existing = { familyName: "Existing", givenName: "", middleName: "", fullName: "" };
+    const r2 = prefillModule1(m1Existing, p2);
+    record(
+      "PF-05 / R2-02 (no-silent-overwrite preserved; fullName from resulting state)",
+      r2.familyName === "Existing" && r2.givenName === "Jane" && r2.fullName === "Jane Existing" ? "PASS" : "FAIL",
+      JSON.stringify(r2)
+    );
+
+    // R2-03 — middle-name composition, all three fields prefilled.
+    const p3 = emptyStructuredProfile();
+    p3.familyName = acquireField(p3.familyName, { value: "Doe", source: "cv_extraction", confidence: "high" });
+    p3.givenName  = acquireField(p3.givenName,  { value: "Jane", source: "cv_extraction", confidence: "high" });
+    p3.middleName = acquireField(p3.middleName, { value: "Marie", source: "cv_extraction", confidence: "high" });
+    const m1Empty2 = { familyName: "", givenName: "", middleName: "", fullName: "" };
+    const r3 = prefillModule1(m1Empty2, p3);
+    record(
+      "PF-06 / R2-03 (middle-name composition)",
+      r3.fullName === "Jane Marie Doe" ? "PASS" : "FAIL",
+      JSON.stringify(r3)
+    );
+
+    // R2-04 — empty-name safety: no identity data acquired, fullName stays
+    // the canonical empty composition — no "undefined"/"null"/whitespace artifact.
+    const p4 = emptyStructuredProfile();
+    const m1Empty3 = { familyName: "", givenName: "", middleName: "", fullName: "" };
+    const r4 = prefillModule1(m1Empty3, p4);
+    record(
+      "PF-07 / R2-04 (empty-name safety, no fabricated fullName)",
+      r4.fullName === "" ? "PASS" : "FAIL",
+      JSON.stringify(r4)
+    );
+
+    // R2-05 — unrelated Module1 field untouched by the fullName sync branch.
+    const p5 = emptyStructuredProfile();
+    p5.familyName = acquireField(p5.familyName, { value: "Test", source: "cv_extraction", confidence: "high" });
+    const m1WithUnrelated = { familyName: "", givenName: "", middleName: "", fullName: "", profession: "Profesional ecuestre" };
+    const r5 = prefillModule1(m1WithUnrelated, p5);
+    record(
+      "PF-08 / R2-05 (unrelated pre-existing field preserved)",
+      r5.profession === "Profesional ecuestre" ? "PASS" : "FAIL",
+      JSON.stringify(r5)
+    );
+  }
+
   // ══ Fixtures — real invitation + case + client in TEST ══
   const { data: cli, error: cliErr } = await svc
     .from("clients").insert({ first_name: "IIL", last_name: "SyntheticClient", preferred_language: "es" }).select().single();

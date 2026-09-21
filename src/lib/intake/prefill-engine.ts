@@ -7,6 +7,7 @@
 
 import type { StructuredProfile } from "./structured-profile";
 import { IDENTITY_FIELDS } from "./structured-profile";
+import { composeFullName } from "@/app/intake/name-utils";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function prefillModule1<T extends Record<string, any>>(module1: T, profile: StructuredProfile): T {
@@ -23,5 +24,22 @@ export function prefillModule1<T extends Record<string, any>>(module1: T, profil
       result[key] = field.value;
     }
   }
+
+  // fullName is a derived-only field (types.ts: "derivado automáticamente
+  // de familyName/givenName/middleName -- no editar directamente"), never
+  // itself a Structured Profile field (excluded from IDENTITY_FIELDS) and
+  // never independently writable elsewhere. Module1.tsx's updateNameField()
+  // recomputes it on every manual edit to one of the three name fields;
+  // this prefill path must keep it in sync the same way, from the
+  // RESULTING (post-no-overwrite) name fields, whenever prefill actually
+  // changed one of them.
+  if (
+    result.familyName !== module1.familyName ||
+    result.givenName !== module1.givenName ||
+    result.middleName !== module1.middleName
+  ) {
+    result.fullName = composeFullName(result.familyName, result.givenName, result.middleName);
+  }
+
   return result as T;
 }
