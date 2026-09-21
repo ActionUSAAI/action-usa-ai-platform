@@ -157,7 +157,8 @@ async function main() {
   }).select().single();
   if (letterA2Err) throw new Error(`fixture letterA2 failed: ${letterA2Err.message}`);
 
-  const { data: t01Row } = await svc.from("documents").select("id").eq("file_path", docT01Path).single();
+  const { data: t01Row, error: t01RowErr } = await svc.from("documents").select("id").eq("file_path", docT01Path).single();
+  if (t01RowErr || !t01Row) throw new Error(`fixture: T01 document row not found: ${t01RowErr && t01RowErr.message}`);
   {
     const { error } = await svc.from("documents").update({ originating_recommendation_letter_id: letterA2.id }).eq("id", t01Row.id);
     record("T04", !error ? "PASS" : "FAIL", `lineage repoint GWP-A→GWP-A2, same Case → ${error ? error.message : "allowed"}`);
@@ -181,7 +182,8 @@ async function main() {
   // ══ T07 — delete originating GWP → returned Document survives,
   // lineage NULLed, case_id unchanged ══
   {
-    const { data: before } = await svc.from("documents").select("case_id, originating_recommendation_letter_id").eq("id", t01Row.id).single();
+    const { data: before, error: beforeErr } = await svc.from("documents").select("case_id, originating_recommendation_letter_id").eq("id", t01Row.id).single();
+    if (beforeErr || !before) throw new Error(`fixture: T07 pre-delete document row not found: ${beforeErr && beforeErr.message}`);
     const { error: delErr } = await svc.from("agent_recommendation_letters").delete().eq("id", letterA2.id);
     const { data: after } = await svc.from("documents").select("case_id, originating_recommendation_letter_id").eq("id", t01Row.id).single();
     const survived = !delErr && after && after.originating_recommendation_letter_id === null && after.case_id === before.case_id;
