@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendCoachTurn } from "@/lib/intake/coach";
+import { sendCoachTurn, type CoachProfileContext } from "@/lib/intake/coach";
 
 // Coach -- integrated AUSCIS Stage 1 conversational discovery capability
 // (AUSCIS Intake Intelligence Layer, CR-CPS-34/35, design §5.1). Stateless
@@ -32,6 +32,11 @@ export async function POST(request: NextRequest) {
     const token = (body.token as string | null)?.trim() ?? "";
     const history = (body.history as { role: "user" | "assistant"; content: string }[] | null) ?? [];
     const message = (body.message as string | null)?.trim() ?? "";
+    // CR-CPS-57 §7: data-minimized Structured Profile context, already
+    // minimized client-side (minimizedProfileContext()) before it ever
+    // reaches this route -- passed through unmodified, never enriched
+    // with any server-side case/Evidence/A1/A5 data.
+    const profileContext = (body.profileContext as CoachProfileContext | null) ?? undefined;
 
     if (!token) return NextResponse.json({ error: "Falta el token de invitación." }, { status: 401 });
     if (!message) return NextResponse.json({ error: "Falta el mensaje." }, { status: 400 });
@@ -49,7 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invitación inválida o expirada." }, { status: 403 });
     }
 
-    const { reply, fields } = await sendCoachTurn(history, message, ANTHROPIC_KEY);
+    const { reply, fields } = await sendCoachTurn(history, message, ANTHROPIC_KEY, profileContext);
     return NextResponse.json({ reply, fields });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";

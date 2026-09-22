@@ -21,11 +21,12 @@ import fs from "fs";
 import path from "path";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import {
-  emptyStructuredProfile, acquireField, confirmField, isConflicting, hasAnyAcquiredInformation, emptyField,
+  emptyStructuredProfile, acquireField, acquireCoachFields, confirmField, isConflicting, hasAnyAcquiredInformation, emptyField,
+  minimizedProfileContext,
 } from "../../src/lib/intake/structured-profile";
 import { prefillModule1 } from "../../src/lib/intake/prefill-engine";
 import { extractCvFields } from "../../src/lib/intake/a0-extract";
-import { sendCoachTurn } from "../../src/lib/intake/coach";
+import { sendCoachTurn, parseCoachResponse, buildSystemPrompt } from "../../src/lib/intake/coach";
 import { evaluateReadiness } from "../../src/lib/intake/readiness";
 import { resolveUploadNamespace, buildStoragePath, isSafeUploadPath, resolveExtension, isCvPathAuthorizedForInvitation } from "../../src/lib/intake/upload-authorization";
 
@@ -197,6 +198,152 @@ async function main() {
       "PF-08 / R2-05 (unrelated pre-existing field preserved)",
       r5.profession === "Profesional ecuestre" ? "PASS" : "FAIL",
       JSON.stringify(r5)
+    );
+  }
+
+  // ══ CR57-01..10 (P7-ALDO-M0-IMP-01) — A0/Coach criterion-enrichment
+  // boundary. Exercises acquireCoachFields(), minimizedProfileContext(),
+  // parseCoachResponse(), and buildSystemPrompt() — the actual pure
+  // integration points, never a reimplementation of their logic. ══
+  {
+    // T1 — PATH A / confirmed name: Coach restates a combined name;
+    // confirmed givenName must remain untouched (no reopening/replacement).
+    const p1 = emptyStructuredProfile();
+    p1.familyName = confirmField(acquireField(p1.familyName, { value: "Garibay Olachea", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    p1.givenName  = confirmField(acquireField(p1.givenName,  { value: "Aldo", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    p1.middleName = confirmField(acquireField(p1.middleName, { value: "Omar", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    const m1 = acquireCoachFields(p1, { givenName: { value: "Aldo Omar", confidence: "high" } });
+    record(
+      "CR57-01 / T1 (confirmed givenName protected from Coach restatement)",
+      m1.givenName.value === "Aldo" && m1.givenName.status === "beneficiary_confirmed" ? "PASS" : "FAIL",
+      JSON.stringify(m1.givenName)
+    );
+
+    // T2 — nationality language variation must not reopen a confirmed fact.
+    const p2 = emptyStructuredProfile();
+    p2.nationalities = confirmField(acquireField(p2.nationalities, { value: "Mexican", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    const m2 = acquireCoachFields(p2, { nationalities: { value: "mexicana", confidence: "high" } });
+    record(
+      "CR57-02 / T2 (confirmed nationality protected from Coach language variation)",
+      m2.nationalities.value === "Mexican" && m2.nationalities.status === "beneficiary_confirmed" ? "PASS" : "FAIL",
+      JSON.stringify(m2.nationalities)
+    );
+
+    // T3 — Class A2 (profession) is NOT frozen like Class A1: a differing
+    // Coach value still surfaces via the unmodified acquireField() conflict
+    // path (existing fact preserved, not destroyed, per SP-05 precedent) --
+    // no new storage semantics invented. Class B (awards) acquires normally.
+    const p3 = emptyStructuredProfile();
+    p3.profession = confirmField(acquireField(p3.profession, { value: "11 Mexican National Championships", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    const m3 = acquireCoachFields(p3, { profession: { value: "30+ State Championships", confidence: "high" } });
+    record(
+      "CR57-03 / T3 (Class A2 remains enrichable via existing conflict path, not frozen)",
+      m3.profession.status === "conflicting" && m3.profession.value === "11 Mexican National Championships" ? "PASS" : "FAIL",
+      JSON.stringify(m3.profession)
+    );
+    const m3b = acquireCoachFields(emptyStructuredProfile(), { awards: { value: "National Champion 2019", confidence: "high" } });
+    record(
+      "CR57-03b / T3 (Class B field acquires normally via Coach)",
+      m3b.awards.status === "acquired_unconfirmed" && m3b.awards.value === "National Champion 2019" ? "PASS" : "FAIL",
+      JSON.stringify(m3b.awards)
+    );
+
+    // T4 — PATH B (no CV): Coach may acquire missing Class A1 pre-confirmation.
+    const m4 = acquireCoachFields(emptyStructuredProfile(), {
+      familyName: { value: "Garibay Olachea", confidence: "high" },
+      dateOfBirth: { value: "1985-03-10", confidence: "medium" },
+      profession: { value: "Rodeo professional", confidence: "high" },
+    });
+    record(
+      "CR57-04 / T4 (PATH B: Coach may acquire missing Class A1 pre-confirmation)",
+      m4.familyName.status === "acquired_unconfirmed" && m4.familyName.value === "Garibay Olachea" &&
+      m4.dateOfBirth.status === "acquired_unconfirmed" && m4.profession.status === "acquired_unconfirmed"
+        ? "PASS" : "FAIL",
+      JSON.stringify({ familyName: m4.familyName, dateOfBirth: m4.dateOfBirth })
+    );
+
+    // T5 — PATH B post-confirmation: protection is identical regardless of
+    // which mechanism originally acquired the Class A1 fact (coach_discovery
+    // here, vs. cv_extraction in T1) -- proves path-independence.
+    const p5 = emptyStructuredProfile();
+    p5.givenName = confirmField(acquireField(p5.givenName, { value: "Aldo", source: "coach_discovery", confidence: "high" }), "beneficiary");
+    const m5 = acquireCoachFields(p5, { givenName: { value: "Aldo Omar", confidence: "high" } });
+    record(
+      "CR57-05 / T5 (post-confirmation Class A1 protection identical regardless of original acquisition source)",
+      m5.givenName.value === "Aldo" && m5.givenName.status === "beneficiary_confirmed" ? "PASS" : "FAIL",
+      JSON.stringify(m5.givenName)
+    );
+
+    // T6-backbone — pure-logic proof that beneficiary-initiated correction
+    // (re-confirming with a new value) remains possible after an initial
+    // confirmation; this is exactly what Module0's new "Editar" affordance
+    // invokes. The affordance itself (local React toggle state) is a UI
+    // behavior, NOT DIRECTLY EXECUTABLE by this Node-only harness.
+    const p6 = emptyStructuredProfile();
+    p6.givenName = confirmField(acquireField(p6.givenName, { value: "Aldo", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    const corrected = confirmField(p6.givenName, "beneficiary", "Aldo Omar");
+    record(
+      "CR57-06 / T6-backbone (beneficiary can re-confirm a corrected value after initial confirmation)",
+      corrected.status === "beneficiary_confirmed" && corrected.value === "Aldo Omar" && corrected.confirmed_by === "beneficiary" ? "PASS" : "FAIL",
+      JSON.stringify(corrected)
+    );
+
+    // T7 — valid ---REPLY---/---FACTS--- protocol: beneficiary sees only
+    // the reply; structured extraction still works.
+    const validRaw = '---REPLY---\nHola, ¿a qué te dedicas?\n---FACTS---\n{"fields":{"profession":{"value":"Rodeo","confidence":"high"}}}';
+    const parsedValid = parseCoachResponse(validRaw);
+    record(
+      "CR57-07 / T7 (valid protocol: beneficiary sees only reply, facts extracted)",
+      parsedValid.reply === "Hola, ¿a qué te dedicas?" && !parsedValid.reply.includes("FACTS") && parsedValid.fields.profession?.value === "Rodeo" ? "PASS" : "FAIL",
+      JSON.stringify(parsedValid)
+    );
+
+    // T8 — malformed/missing ---REPLY--- delimiter with FACTS present: the
+    // internal payload must never reach the beneficiary-facing reply.
+    const malformedRaw = 'Hola, cuéntame más sobre tu carrera.\n---FACTS---\n{"fields":{"profession":{"value":"Rodeo","confidence":"high"}}}';
+    const parsedMalformed = parseCoachResponse(malformedRaw);
+    record(
+      "CR57-08 / T8 (malformed REPLY delimiter + FACTS present: internal payload never beneficiary-visible)",
+      !parsedMalformed.reply.includes("FACTS") && !parsedMalformed.reply.includes("{") && parsedMalformed.reply === "Hola, cuéntame más sobre tu carrera." ? "PASS" : "FAIL",
+      JSON.stringify(parsedMalformed)
+    );
+    const plainRaw = "Solo una respuesta libre, sin marcadores.";
+    const parsedPlain = parseCoachResponse(plainRaw);
+    record(
+      "CR57-08b (plain free-text reply unaffected, no regression)",
+      parsedPlain.reply === plainRaw ? "PASS" : "FAIL",
+      JSON.stringify(parsedPlain)
+    );
+
+    // T9 — legal/eligibility firewall text present regardless of context
+    // (structural presence check, not a live-model behavioral test --
+    // behavioral compliance is only verifiable via the existing live
+    // COACH-01..04 precedent below). Context-aware criterion-enrichment
+    // guidance appended only when the profile already carries information.
+    const promptNoContext = buildSystemPrompt();
+    const promptWithContext = buildSystemPrompt({ profession: { value: "Rodeo", status: "acquired_unconfirmed" } });
+    record(
+      "CR57-09 / T9 (firewall prohibition text present regardless of context)",
+      promptNoContext.includes("determinar si un criterio USCIS está satisfecho") && promptWithContext.includes("determinar si un criterio USCIS está satisfecho") ? "PASS" : "FAIL",
+      ""
+    );
+    record(
+      "CR57-09b (context-aware enrichment guidance only appended when context has data)",
+      !promptNoContext.includes("Ya existe información profesional de base") && promptWithContext.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
+      ""
+    );
+
+    // Data minimization proof for the Coach context payload itself.
+    const p7 = emptyStructuredProfile();
+    p7.givenName = confirmField(acquireField(p7.givenName, { value: "Aldo", source: "cv_extraction", confidence: "high" }), "beneficiary");
+    const ctx = minimizedProfileContext(p7);
+    record(
+      "CR57-10 (minimizedProfileContext strips source/confidence/confirmed_by/at, excludes not_yet_acquired)",
+      ctx.givenName?.value === "Aldo" && ctx.givenName?.status === "beneficiary_confirmed" &&
+      !("source" in (ctx.givenName as object)) && !("confidence" in (ctx.givenName as object)) &&
+      !("dateOfBirth" in ctx)
+        ? "PASS" : "FAIL",
+      JSON.stringify(ctx)
     );
   }
 

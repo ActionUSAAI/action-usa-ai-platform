@@ -5,8 +5,8 @@ import { Paperclip, X, Send, CheckCircle2, AlertTriangle } from "lucide-react";
 import { IntakeTokenContext } from "../primitives";
 import type { Module0 as Module0Data, CoachTurn } from "../types";
 import {
-  acquireField, confirmField, ALL_STRUCTURED_PROFILE_FIELDS,
-  IDENTITY_FIELDS, hasAnyAcquiredInformation,
+  acquireField, acquireCoachFields, confirmField, ALL_STRUCTURED_PROFILE_FIELDS,
+  IDENTITY_FIELDS, hasAnyAcquiredInformation, minimizedProfileContext,
 } from "@/lib/intake/structured-profile";
 
 // Module0 -- CV/résumé source document + integrated Coach discovery
@@ -39,6 +39,11 @@ export function Module0({ data, onChange, sessionId, errors }: {
   const [chatInput, setChatInput] = useState("");
   const [sending, setSending] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  // CR-CPS-57 §11: local UI state only, no new persistence -- reopens the
+  // existing disabled input/Confirmar toggle for a beneficiary-initiated
+  // correction of an already-confirmed field. Automated Coach protection
+  // (acquireCoachFields) is entirely independent of this and unaffected.
+  const [reopenedFields, setReopenedFields] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -110,15 +115,17 @@ export function Module0({ data, onChange, sessionId, errors }: {
       const res = await fetch("/api/intake/coach", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, history: historyForApi, message }),
+        // CR-CPS-57 §7: minimized Structured Profile context (value/status
+        // only, computed client-side) so Coach can avoid redundant
+        // acquisition and prioritize criterion-relevant follow-up.
+        body: JSON.stringify({ token, history: historyForApi, message, profileContext: minimizedProfileContext(data.structuredProfile) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error");
       const assistantTurn: CoachTurn = { role: "assistant", content: json.reply, at: new Date().toISOString() };
-      let profile = data.structuredProfile;
-      for (const [key, f] of Object.entries((json.fields ?? {}) as Record<string, { value: string; confidence: "high" | "medium" | "low" }>)) {
-        profile = { ...profile, [key]: acquireField(profile[key], { value: f.value, source: "coach_discovery", confidence: f.confidence }) };
-      }
+      // CR-CPS-57 D-03: acquireCoachFields() structurally protects any
+      // beneficiary-confirmed Class A1 fact from this automated merge.
+      const profile = acquireCoachFields(data.structuredProfile, (json.fields ?? {}) as Record<string, { value: string; confidence: "high" | "medium" | "low" }>);
       onChange({ ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile });
     } catch {
       const errTurn: CoachTurn = { role: "assistant", content: "No pude procesar tu respuesta. Intenta de nuevo.", at: new Date().toISOString() };
@@ -217,6 +224,8 @@ export function Module0({ data, onChange, sessionId, errors }: {
             {acquiredFields.map(key => {
               const f = data.structuredProfile[key];
               const isIdentity = (IDENTITY_FIELDS as readonly string[]).includes(key);
+              const isReopened = reopenedFields.has(key);
+              const isLocked = f.status === "beneficiary_confirmed" && !isReopened;
               return (
                 <div key={key} className={`rounded-lg border px-3 py-2 ${f.status === "conflicting" ? "border-amber-300 bg-amber-50" : f.status === "beneficiary_confirmed" ? "border-green-200 bg-green-50" : "border-gray-200 bg-white"}`}>
                   <div className="flex items-center justify-between gap-2">
@@ -224,12 +233,20 @@ export function Module0({ data, onChange, sessionId, errors }: {
                     {f.status === "conflicting" && <span className="text-[10px] font-bold uppercase text-amber-600">Conflicto</span>}
                   </div>
                   <input
-                    type="text" value={f.value ?? ""} disabled={f.status === "beneficiary_confirmed"}
+                    type="text" value={f.value ?? ""} disabled={isLocked}
                     onChange={e => onChange({ ...data, structuredProfile: { ...data.structuredProfile, [key]: { ...f, value: e.target.value } } })}
                     className="mt-1 w-full rounded border border-gray-300 px-2 py-1 text-sm disabled:bg-gray-50 disabled:text-gray-500"
                   />
-                  {f.status !== "beneficiary_confirmed" && (
-                    <button type="button" onClick={() => confirmProfileField(key, f.value ?? undefined)}
+                  {isLocked ? (
+                    <button type="button" onClick={() => setReopenedFields(prev => new Set(prev).add(key))}
+                      className="mt-1 text-xs font-medium text-gray-500 hover:text-brand-blue hover:underline">
+                      Editar
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => {
+                        confirmProfileField(key, f.value ?? undefined);
+                        setReopenedFields(prev => { const n = new Set(prev); n.delete(key); return n; });
+                      }}
                       className="mt-1 text-xs font-medium text-brand-blue hover:underline">
                       Confirmar
                     </button>
