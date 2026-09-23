@@ -4,6 +4,7 @@
 // intake/coach/route.ts handles HTTP + token auth and delegates here.
 
 import { A0_FIELD_LIST, type A0Confidence } from "./a0-extract";
+import { CLASS_A1_FIELDS } from "./structured-profile";
 
 export type CoachHistoryTurn = { role: "user" | "assistant"; content: string };
 export type CoachFields = Record<string, { value: string; confidence: A0Confidence }>;
@@ -38,35 +39,65 @@ Responde EXACTAMENTE en este formato:
 ---FACTS---
 {"fields": {"<campo>": {"value": "...", "confidence": "high|medium|low"}, ...}}`;
 
-// CR-CPS-57 §8 -- context-dependent operating guidance appended to the
-// base prompt. Confirmed Class A1 facts are never re-asked (and are also
-// structurally protected regardless, by acquireCoachFields() -- this is
-// belt-and-suspenders, not the sole protection). When professional
-// baseline/criterion information already exists, Coach's stated priority
-// shifts to reinforcement/enrichment of that information relative to
-// applicable extraordinary-ability criteria -- this happens naturally
-// (no separate persisted PATH A/PATH B flag) because the guidance is
-// conditioned on there being anything yet to enrich.
+// CR-CPS-57 §8, corrected under P7-ALDO-M0-IMP-01-R1 (MR findings F-01/
+// F-02) -- context-dependent operating guidance appended to the base
+// prompt. Three, and only three, categories are distinguished:
+//
+//   PROTECTED CLASS A1  -- beneficiary_confirmed Class A1 fact. Never
+//     re-asked, never re-emitted in FACTS. This is belt-and-suspenders --
+//     acquireCoachFields() enforces the same rule structurally regardless
+//     of prompt compliance.
+//   MISSING/UNCONFIRMED CLASS A1 -- everything else in CLASS_A1_FIELDS
+//     (absent, not_yet_acquired, acquired_unconfirmed, or conflicting).
+//     Acquisition/confirmation of these remains an explicitly active
+//     responsibility -- this is what keeps R-01's PATH B "information
+//     completeness mandatory" guarantee intact once any single
+//     professional fact has already been acquired.
+//   ENRICHABLE (Class A2/B) -- ANY field outside CLASS_A1_FIELDS with a
+//     value, confirmed or not. F-01 fix: these are never placed in the
+//     protected-A1 list merely because they are beneficiary_confirmed --
+//     confirmation attests the value, it does not freeze the topic.
+//
+// No persisted PATH A/PATH B flag exists or is introduced -- the same
+// three-category logic applies unconditionally on both paths (§8 of the
+// R1 authorization).
 export function describeProfileContext(profileContext?: CoachProfileContext): string {
   if (!profileContext) return "";
-  const confirmed: string[] = [];
-  const known: string[] = [];
+
+  const protectedA1: string[] = [];
+  const missingA1: string[] = [];
+  for (const key of CLASS_A1_FIELDS) {
+    const f = profileContext[key];
+    if (f && f.value && f.status === "beneficiary_confirmed") protectedA1.push(key);
+    else missingA1.push(key);
+  }
+
+  const enrichable: string[] = [];
   for (const key of A0_FIELD_LIST) {
+    if ((CLASS_A1_FIELDS as readonly string[]).includes(key)) continue;
     const f = profileContext[key];
     if (!f || !f.value) continue;
-    if (f.status === "beneficiary_confirmed") confirmed.push(key);
-    else known.push(key);
+    enrichable.push(key);
   }
-  if (confirmed.length === 0 && known.length === 0) return "";
+
+  // Nothing known at all yet (first PATH B turn, or before A0/Coach has
+  // acquired anything on PATH A): no context guidance needed -- broad
+  // acquisition via the unmodified base prompt remains fully available.
+  if (protectedA1.length === 0 && enrichable.length === 0) return "";
 
   const lines: string[] = [];
-  if (confirmed.length > 0) {
-    lines.push(`Estos campos YA fueron confirmados por el beneficiario -- NUNCA los vuelvas a preguntar ni los incluyas en FACTS, incluso si el beneficiario los menciona de nuevo con otra redacción, idioma o formato: ${confirmed.join(", ")}.`);
+  if (protectedA1.length > 0) {
+    lines.push(`Estos campos YA fueron confirmados por el beneficiario -- NUNCA los vuelvas a preguntar ni los incluyas en FACTS, incluso si el beneficiario los menciona de nuevo con otra redacción, idioma o formato: ${protectedA1.join(", ")}.`);
   }
-  if (known.length > 0) {
-    lines.push(`Estos campos ya tienen información (del CV o de esta conversación) pero aún no están confirmados por el beneficiario -- no los repreguntes salvo que el beneficiario aporte espontáneamente más detalle: ${known.join(", ")}.`);
+  if (missingA1.length > 0) {
+    lines.push(`Estos campos de identidad/contacto AÚN no han sido confirmados por el beneficiario (o no tienen información todavía): ${missingA1.join(", ")}. Completarlos y ayudar a confirmarlos sigue siendo tu responsabilidad activa, en paralelo con cualquier profundización profesional -- no la sustituye.`);
   }
-  lines.push("Ya existe información profesional de base. Tu prioridad principal ahora es reforzar, profundizar y enriquecer esa información en relación con los criterios de habilidad extraordinaria aplicables -- alcance, impacto, selectividad, relevancia, responsabilidad, liderazgo, reconocimiento, corroboración independiente, resultados medibles, fechas/duración, alcance geográfico, distinción organizacional, audiencia/circulación/adopción, contexto de compensación, responsabilidad de jurado/evaluación, disponibilidad de soporte documental -- cuando sean relevantes a los hechos ya conocidos. También puedes descubrir hechos profesionales/de criterio adicionales que no estén en el CV. Nunca determines si un criterio está satisfecho ni si el beneficiario califica -- eso permanece prohibido.");
+  if (enrichable.length > 0) {
+    const pendingClause = missingA1.length > 0
+      ? " Esto es un complemento a -- no un reemplazo de -- completar la información de identidad/contacto aún pendiente indicada arriba."
+      : "";
+    lines.push(`Ya existe información profesional de base (${enrichable.join(", ")}). Puedes profundizarla y enriquecerla en relación con los criterios de habilidad extraordinaria aplicables -- alcance, impacto, selectividad, relevancia, responsabilidad, liderazgo, reconocimiento, corroboración independiente, resultados medibles, fechas/duración, alcance geográfico, distinción organizacional, audiencia/circulación/adopción, contexto de compensación, responsabilidad de jurado/evaluación, disponibilidad de soporte documental -- cuando sean relevantes. También puedes descubrir hechos profesionales/de criterio adicionales que no estén en el CV. Que un campo profesional ya haya sido confirmado por el beneficiario NO significa que debas dejar de preguntar sobre ese tema -- solo significa que el valor ya atestiguado nunca debe descartarse o reemplazarse en silencio.${pendingClause} Nunca determines si un criterio está satisfecho ni si el beneficiario califica -- eso permanece prohibido.`);
+  }
 
   return "\n\n" + lines.join("\n");
 }

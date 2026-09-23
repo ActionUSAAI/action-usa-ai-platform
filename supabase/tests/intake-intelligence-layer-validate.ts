@@ -347,6 +347,93 @@ async function main() {
     );
   }
 
+  // ══ R1-T1..T6 (P7-ALDO-M0-IMP-01-R1) — describeProfileContext() prompt-scope
+  // correction. Exercises buildSystemPrompt() directly, asserting exactly
+  // which fields land in the protected-Class-A1 vs. enrichable text, closing
+  // the F-01/F-02/F-03 MR findings against the actual integration point. ══
+  {
+    // R1-T1 — confirmed Class A1 (givenName): identified as protected,
+    // instructed never to re-ask/re-emit.
+    const promptT1 = buildSystemPrompt({ givenName: { value: "Aldo", status: "beneficiary_confirmed" } });
+    record(
+      "R1-T1 (confirmed Class A1 identified as protected, never re-ask)",
+      promptT1.includes("NUNCA los vuelvas a preguntar") && promptT1.includes("givenName") ? "PASS" : "FAIL",
+      ""
+    );
+
+    // R1-T2 — confirmed Class A2 (profession): MUST NOT appear in the
+    // protected list; enrichment guidance MUST be present.
+    const promptT2 = buildSystemPrompt({ profession: { value: "Professional Rodeo Cowboy", status: "beneficiary_confirmed" } });
+    const protectedLineT2 = (promptT2.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    record(
+      "R1-T2 (confirmed Class A2 NOT placed in protected list; enrichment preserved)",
+      !protectedLineT2.includes("profession") && promptT2.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
+      protectedLineT2
+    );
+
+    // R1-T3 — confirmed Class B (awards): same requirement as T2.
+    const promptT3 = buildSystemPrompt({ awards: { value: "11 Mexican National Championships", status: "beneficiary_confirmed" } });
+    const protectedLineT3 = (promptT3.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    record(
+      "R1-T3 (confirmed Class B NOT placed in protected list; enrichment preserved)",
+      !protectedLineT3.includes("awards") && promptT3.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
+      protectedLineT3
+    );
+
+    // R1-T4 — PATH B partial profile / multi-turn: TURN 1 acquired only
+    // profession (Class A2, unconfirmed); Class A1 entirely absent. TURN 2
+    // prompt must preserve missing-Class-A1 acquisition guidance alongside
+    // enrichment, and must not imply identity acquisition is complete.
+    const turn2Context = minimizedProfileContext(
+      (() => {
+        const p = emptyStructuredProfile();
+        p.profession = acquireField(p.profession, { value: "Professional Rodeo Cowboy", source: "coach_discovery", confidence: "high" });
+        return p;
+      })()
+    );
+    const promptT4 = buildSystemPrompt(turn2Context);
+    record(
+      "R1-T4 (PATH B partial profile: missing Class A1 acquisition explicitly preserved alongside enrichment)",
+      promptT4.includes("Ya existe información profesional de base") &&
+      promptT4.includes("AÚN no han sido confirmados") &&
+      promptT4.includes("familyName") && promptT4.includes("givenName") && promptT4.includes("dateOfBirth") &&
+      promptT4.includes("nationalities") && promptT4.includes("countryOfResidence")
+        ? "PASS" : "FAIL",
+      ""
+    );
+
+    // R1-T5 — mixed profile: givenName + nationalities confirmed (Class A1,
+    // protected); profession + awards confirmed (Class A2/B, NOT protected).
+    const promptT5 = buildSystemPrompt({
+      givenName:     { value: "Aldo", status: "beneficiary_confirmed" },
+      nationalities: { value: "Mexican", status: "beneficiary_confirmed" },
+      profession:    { value: "Professional Rodeo Cowboy", status: "beneficiary_confirmed" },
+      awards:        { value: "11 Mexican National Championships", status: "beneficiary_confirmed" },
+    });
+    const protectedLineT5 = (promptT5.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    record(
+      "R1-T5 (mixed profile: only Class A1 fields protected, Class A2/B remain enrichable)",
+      protectedLineT5.includes("givenName") && protectedLineT5.includes("nationalities") &&
+      !protectedLineT5.includes("profession") && !protectedLineT5.includes("awards") &&
+      promptT5.includes("Ya existe información profesional de base")
+        ? "PASS" : "FAIL",
+      protectedLineT5
+    );
+
+    // R1-T6 — no context / empty context: broad acquisition remains
+    // available (base prompt unmodified); no false claim that professional
+    // information already exists.
+    const promptT6a = buildSystemPrompt();
+    const promptT6b = buildSystemPrompt(minimizedProfileContext(emptyStructuredProfile()));
+    record(
+      "R1-T6 (no/empty context: no premature professional-info claim, broad acquisition intact)",
+      !promptT6a.includes("Ya existe información profesional de base") && !promptT6b.includes("Ya existe información profesional de base") &&
+      promptT6a.includes("inclúyela en FACTS") && promptT6b.includes("inclúyela en FACTS")
+        ? "PASS" : "FAIL",
+      ""
+    );
+  }
+
   // ══ Fixtures — real invitation + case + client in TEST ══
   const { data: cli, error: cliErr } = await svc
     .from("clients").insert({ first_name: "IIL", last_name: "SyntheticClient", preferred_language: "es" }).select().single();
