@@ -26,6 +26,55 @@ import { Module15 } from "./modules/Module15";
 
 const TOTAL = 14;
 
+// P7-R4 draft envelope (CR-CPS-60): `step` is navigation/resume
+// metadata, never a beneficiary fact -- kept structurally outside
+// IntakeFormData and never spread into the /api/intake submission
+// payload. `savedAt` is informational only, not restored into React
+// state during hydration.
+export type DraftEnvelope = { data: IntakeFormData; step: number; savedAt: string };
+
+// P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
+// by IntakeForm itself (hydration effect, next()/back()) so tests can
+// exercise the actual implementation, not a reimplementation of it.
+
+// Validates a hydrated resume step: integer, within the executable
+// 0..total range. Invalid/missing -> 0, matching today's unconditional
+// default (no step was ever persisted before this correction).
+export function validateResumeStep(rawStep: unknown, total: number): number {
+  if (typeof rawStep === "number" && Number.isInteger(rawStep) && rawStep >= 0 && rawStep <= total) {
+    return rawStep;
+  }
+  return 0;
+}
+
+// Discriminates a P7-R4 envelope ({data, step, savedAt}) from a legacy
+// bare IntakeFormData draft (any prior version of this code), and
+// returns the module data to hydrate plus the validated resume step.
+// Neither "data" nor "step" exists as a top-level IntakeFormData key,
+// so there is no ambiguity between the two shapes.
+export function parseDraftEnvelope(raw: string, total: number): { saved: Partial<IntakeFormData>; resumeStep: number } {
+  const parsed = JSON.parse(raw) as Partial<DraftEnvelope> & Partial<IntakeFormData>;
+  const isEnvelope = typeof parsed === "object" && parsed !== null && "data" in parsed && "step" in parsed;
+  if (isEnvelope) {
+    const envelope = parsed as DraftEnvelope;
+    return { saved: envelope.data ?? {}, resumeStep: validateResumeStep(envelope.step, total) };
+  }
+  return { saved: parsed as Partial<IntakeFormData>, resumeStep: 0 };
+}
+
+// The exact destination-step arithmetic next()/back() apply, extracted
+// so it is independently testable against the real branching logic
+// (Module 10 -> 12 skip when Module 12 is not shown, clamped to the
+// executable 0..total range) rather than a parallel reimplementation.
+export function computeNextStep(step: number, show12: boolean, total: number): number {
+  const raw = step === 10 && !show12 ? 12 : step + 1;
+  return Math.min(raw, total);
+}
+export function computePrevStep(step: number, show12: boolean): number {
+  const raw = step === 12 && !show12 ? 10 : step - 1;
+  return Math.max(raw, 0);
+}
+
 const MODULE_TITLES = [
   { title: "Identidad del Aplicante",     subtitle: "Información básica para comenzar tu evaluación." },
   { title: "Documentos y Grupo Familiar", subtitle: "Documentos migratorios, estado civil e información de hijos." },
@@ -315,24 +364,71 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
 
+  // Latest navigation position, mirroring dataRef so the stable-interval
+  // autosave (and manual "Guardar borrador") can serialize the current
+  // step without recreating the interval (P7-R4, CR-CPS-60).
+  const stepRef = useRef(step);
+  useEffect(() => { stepRef.current = step; }, [step]);
+
   // Marks the setData performed by draft hydration so the dirty-state
   // effect below does not treat "we just loaded the persisted draft" as
   // a new, unsaved edit (P7-R5).
   const justHydratedRef = useRef(false);
 
-  // ── Canonical draft persistence (P7-R5) — the single function that
-  // writes the localStorage draft; used by the periodic timer, the
-  // Siguiente checkpoint, and final submission alike. Reads
-  // dataRef.current rather than closing over `data` directly so its
-  // identity stays stable across edits -- the interval built from it is
-  // created once, not recreated (and its 30s countdown restarted) on
-  // every keystroke.
-  const save = useCallback(() => {
+  // Marks a setData that is itself the direct, synchronous result of a
+  // just-succeeded deterministic checkpoint (CP-01/02/03) so the
+  // dirty-state effect below does not immediately re-invalidate the
+  // savedAt that checkpoint just established (P7-R4, CR-CPS-60). Armed
+  // ONLY by the onCheckpoint wiring below, only on a successful save();
+  // never by save() itself, never unconditionally.
+  const justCheckpointedRef = useRef(false);
+
+  // Resume position read from a persisted draft envelope, held pending
+  // until the beneficiary explicitly chooses Retomar (P7-R4, CR-CPS-60)
+  // -- never applied to live navigation state before that choice.
+  const [pendingResumeStep, setPendingResumeStep] = useState(0);
+
+  // ── Canonical draft persistence (P7-R4/P7-R5) — the single function
+  // that writes the localStorage draft envelope; used by the periodic
+  // timer, the manual button, the Siguiente/Anterior position
+  // checkpoints, and the CP-01/02/03 deterministic checkpoints alike.
+  // Reads dataRef.current/stepRef.current rather than closing over
+  // `data`/`step` directly so its identity stays stable across edits --
+  // the interval built from it is created once, not recreated (and its
+  // 30s countdown restarted) on every keystroke. Returns whether the
+  // write succeeded so callers that need to know (the CP-01/02/03
+  // checkpoint wiring) can react; callers that don't (autosave, manual
+  // button, Siguiente/Anterior) may ignore the result.
+  const save = useCallback((explicitData?: IntakeFormData, explicitStep?: number): boolean => {
     try {
-      localStorage.setItem(storageKey, JSON.stringify(dataRef.current));
+      const envelope: DraftEnvelope = {
+        data: explicitData ?? dataRef.current,
+        step: explicitStep ?? stepRef.current,
+        savedAt: new Date().toISOString(),
+      };
+      localStorage.setItem(storageKey, JSON.stringify(envelope));
       setSavedAt(new Date());
-    } catch { /* ignore */ }
+      return true;
+    } catch {
+      return false;
+    }
   }, [storageKey]);
+
+  // ── CP-01/02/03 canonical checkpoint wiring (P7-R4, CR-CPS-60): Module0
+  // computes its own next Module0Data slice exactly as it already does
+  // for onChange (runA0()/confirmProfileField()/sendCoachMessage()'s
+  // successful-turn branch), and this composes the full next
+  // IntakeFormData from dataRef.current (never a possibly-stale `data`
+  // closure) before checkpointing. onChange (here: setData) is always
+  // called, whether persistence succeeded or failed -- a local storage
+  // failure must never block the beneficiary's successful A0/Confirmar/
+  // Coach result from reaching React state.
+  const onModule0Checkpoint = useCallback((nextModule0: IntakeFormData["module0"]) => {
+    const nextData: IntakeFormData = { ...dataRef.current, module0: nextModule0 };
+    const persisted = save(nextData);
+    if (persisted) { justCheckpointedRef.current = true; }
+    setData(nextData);
+  }, [save]);
 
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
@@ -345,7 +441,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
       setSessionId(sid);
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const saved = JSON.parse(raw) as Partial<IntakeFormData>;
+        const { saved, resumeStep } = parseDraftEnvelope(raw, TOTAL);
         justHydratedRef.current = true;
         setData({
           ...INITIAL,
@@ -361,6 +457,9 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
           module14: { ...INITIAL.module14, ...(saved.module14 ?? {}) },
           module15: { ...INITIAL.module15, ...(saved.module15 ?? {}) },
         });
+        // Validated resume position is held pending, not applied yet --
+        // live `step` remains 0 until the beneficiary clicks Retomar.
+        setPendingResumeStep(resumeStep);
         setDraftBanner(true);
       }
     } catch { /* ignore */ }
@@ -373,16 +472,20 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
   // potentially deferring persistence indefinitely during continuous
   // active editing). ──────────────────────────────────────────────────
   useEffect(() => {
-    const id = setInterval(save, 30_000);
+    const id = setInterval(() => save(), 30_000);
     return () => clearInterval(id);
   }, [save]);
 
   // ── Saved indicator must be truthful (P7-R5): invalidate it as soon as
   // Intake data changes after the last successful save. The change
   // hydration itself performs is not a new, unsaved edit -- it IS what's
-  // already persisted -- so it is excluded via justHydratedRef. ─────────
+  // already persisted -- so it is excluded via justHydratedRef. A
+  // successful CP-01/02/03 checkpoint's own setData is likewise excluded
+  // via justCheckpointedRef (P7-R4, CR-CPS-60) -- it IS what was just
+  // persisted, not a new unsaved edit either. ─────────────────────────
   useEffect(() => {
     if (justHydratedRef.current) { justHydratedRef.current = false; return; }
+    if (justCheckpointedRef.current) { justCheckpointedRef.current = false; return; }
     setSavedAt(null);
   }, [data]);
 
@@ -424,17 +527,25 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
   function next() {
     if (!validate()) return;
-    // P7-R5: persist the state being navigated from before advancing,
-    // rather than leaving it to wait for the next periodic tick.
-    save();
-    const nextStep = step === 10 && !show12 ? 12 : step + 1;
-    setStep(Math.min(nextStep, TOTAL));
+    // P7-R4/P7-R5: persist the state being navigated from, together with
+    // the destination step, before advancing -- rather than leaving
+    // either to wait for the next periodic tick. The same clamped
+    // destination value is both persisted and rendered.
+    const nextStep = computeNextStep(step, show12, TOTAL);
+    save(undefined, nextStep);
+    setStep(nextStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   function back() {
-    const prevStep = step === 12 && !show12 ? 10 : step - 1;
-    setStep(Math.max(prevStep, 0));
+    // P7-R4: Anterior is an intentional navigation action too -- persist
+    // the destination step here as well, so Retomar cannot resume at a
+    // later step than the one the beneficiary deliberately stepped back
+    // to. `data` is unchanged by Anterior, so this is a step-only
+    // checkpoint (dataRef fallback).
+    const prevStep = computePrevStep(step, show12);
+    save(undefined, prevStep);
+    setStep(prevStep);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
@@ -495,7 +606,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
           <div className="mb-4 flex items-center justify-between gap-3 rounded-xl bg-white/10 border border-white/20 px-4 py-3 text-sm text-white backdrop-blur">
             <span>📋 Encontramos un borrador guardado.</span>
             <div className="flex gap-2">
-              <button onClick={() => setDraftBanner(false)}
+              <button onClick={() => { setDraftBanner(false); setStep(pendingResumeStep); }}
                 className="rounded-lg bg-white/20 px-3 py-1.5 text-xs font-medium hover:bg-white/30 transition-colors">
                 Retomar
               </button>
@@ -550,7 +661,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} sessionId={sessionId} errors={errors}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
             {step === 3  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
@@ -576,7 +687,7 @@ export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
 
             <div className="hidden text-center sm:block">
               <p className="text-xs text-gray-400">{progress}% completado</p>
-              <button type="button" onClick={save}
+              <button type="button" onClick={() => save()}
                 className="mt-0.5 flex items-center gap-1 text-xs text-gray-400 hover:text-brand-blue transition-colors">
                 <Save size={11}/> Guardar borrador
               </button>

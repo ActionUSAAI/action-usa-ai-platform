@@ -27,9 +27,15 @@ const FIELD_LABELS: Record<string, string> = {
   artistic_exhibitions: "Exhibiciones/éxito comercial artístico",
 };
 
-export function Module0({ data, onChange, sessionId, errors }: {
+export function Module0({ data, onChange, onCheckpoint, sessionId, errors }: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
+  // P7-R4 (CR-CPS-60): deterministic checkpoint for the three meaningful
+  // events (A0 completion, Confirmar, complete Coach turn) whose loss
+  // would repeat billable work or lose an explicit beneficiary decision.
+  // Parallel to onChange, not a replacement for it -- IntakeForm's
+  // wiring performs the equivalent of onChange as its own final step.
+  onCheckpoint: (d: Module0Data) => void;
   sessionId: string;
   errors: Record<string, string>;
 }) {
@@ -68,7 +74,9 @@ export function Module0({ data, onChange, sessionId, errors }: {
       for (const [key, f] of Object.entries(json.fields as Record<string, { value: string; confidence: "high" | "medium" | "low" }>)) {
         profile = { ...profile, [key]: acquireField(profile[key], { value: f.value, source: "cv_extraction", confidence: f.confidence }) };
       }
-      onChange({ ...data, structuredProfile: profile });
+      // CP-01 (P7-R4, CR-CPS-60): deterministic checkpoint of the exact
+      // post-merge state -- losing it would repeat billable A0 extraction.
+      onCheckpoint({ ...data, structuredProfile: profile });
     } catch {
       setUploadError("No se pudo extraer información del documento. Puedes continuar y completar la información manualmente.");
     } finally {
@@ -126,7 +134,11 @@ export function Module0({ data, onChange, sessionId, errors }: {
       // CR-CPS-57 D-03: acquireCoachFields() structurally protects any
       // beneficiary-confirmed Class A1 fact from this automated merge.
       const profile = acquireCoachFields(data.structuredProfile, (json.fields ?? {}) as Record<string, { value: string; confidence: "high" | "medium" | "low" }>);
-      onChange({ ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile });
+      // CP-03 (P7-R4, CR-CPS-60): deterministic checkpoint of the
+      // complete successful turn -- losing it would repeat a billable
+      // Coach/Anthropic call. An errored/incomplete turn (catch branch
+      // below) does not receive this checkpoint.
+      onCheckpoint({ ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile });
     } catch {
       const errTurn: CoachTurn = { role: "assistant", content: "No pude procesar tu respuesta. Intenta de nuevo.", at: new Date().toISOString() };
       onChange({ ...data, coachConversation: [...data.coachConversation, userTurn, errTurn] });
@@ -136,7 +148,11 @@ export function Module0({ data, onChange, sessionId, errors }: {
   }
 
   function confirmProfileField(key: string, correctedValue?: string) {
-    onChange({ ...data, structuredProfile: { ...data.structuredProfile, [key]: confirmField(data.structuredProfile[key], "beneficiary", correctedValue) } });
+    // CP-02 (P7-R4, CR-CPS-60): deterministic checkpoint of the exact
+    // post-confirmation state -- losing it would lose an explicit
+    // beneficiary decision (confirmed_by/confirmed_at). Synchronous, no
+    // await, so `data` here is guaranteed current.
+    onCheckpoint({ ...data, structuredProfile: { ...data.structuredProfile, [key]: confirmField(data.structuredProfile[key], "beneficiary", correctedValue) } });
   }
 
   const acquiredFields = ALL_STRUCTURED_PROFILE_FIELDS.filter(k => data.structuredProfile[k]?.status !== "not_yet_acquired");

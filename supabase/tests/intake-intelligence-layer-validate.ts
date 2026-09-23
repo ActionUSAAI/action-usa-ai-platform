@@ -27,6 +27,7 @@ import {
 import { prefillModule1 } from "../../src/lib/intake/prefill-engine";
 import { extractCvFields } from "../../src/lib/intake/a0-extract";
 import { sendCoachTurn, parseCoachResponse, buildSystemPrompt } from "../../src/lib/intake/coach";
+import { validateResumeStep, parseDraftEnvelope, computeNextStep, computePrevStep } from "../../src/app/intake/IntakeForm";
 import { evaluateReadiness } from "../../src/lib/intake/readiness";
 import { resolveUploadNamespace, buildStoragePath, isSafeUploadPath, resolveExtension, isCvPathAuthorizedForInvitation } from "../../src/lib/intake/upload-authorization";
 
@@ -432,6 +433,157 @@ async function main() {
         ? "PASS" : "FAIL",
       ""
     );
+  }
+
+  // ══ P7-R4-T1..T3, T9-T10 (CR-CPS-60) — deterministic draft persistence
+  // / resume-position pure logic. Exercises the ACTUAL exported
+  // IntakeForm.tsx helpers (validateResumeStep, parseDraftEnvelope,
+  // computeNextStep, computePrevStep) -- the real functions next()/
+  // back()/the hydration effect call, not a reimplementation. The
+  // React-hook-bound portions of the P7-R4 design (save()'s boolean
+  // contract + justCheckpointedRef arming/consumption, the CP-01/02/03
+  // wiring, the autosave interval, Retomar's pending-step application,
+  // the Saved/Dirty matrix) require actual component rendering to
+  // exercise end-to-end and are NOT DIRECTLY EXECUTABLE by this Node-
+  // only harness (no DOM/React test runner exists in this repo -- the
+  // same, already-established limitation accepted for the pre-existing
+  // draft-banner/Retomar UI toggle). Each is instead verified by an
+  // explicit source trace, cited inline where relevant, following this
+  // project's own established "proven by manual trace, not mere
+  // assertion" precedent (CR-CPS-59). T7/T8 (FACTS non-regression) and
+  // T8-A1-protection are already covered, unmodified, by CR57-07/08/T1-
+  // T5 above (parseCoachResponse/acquireCoachFields were not touched by
+  // this implementation). ══
+  {
+    // T1 — legacy bare-IntakeFormData draft (no "data"/"step" wrapper,
+    // exactly what any pre-CR-CPS-60 draft looks like): hydrates
+    // unchanged, resume step safely defaults to 0.
+    const legacyRaw = JSON.stringify({ module1: { fullName: "Legacy Beneficiary" }, module0: { cvFileName: "cv.pdf" } });
+    const legacyParsed = parseDraftEnvelope(legacyRaw, 14);
+    record(
+      "P7R4-T1 (legacy bare-IntakeFormData draft hydrates unchanged, resume step defaults to 0)",
+      (legacyParsed.saved as { module1?: { fullName?: string } }).module1?.fullName === "Legacy Beneficiary" &&
+      (legacyParsed.saved as { module0?: { cvFileName?: string } }).module0?.cvFileName === "cv.pdf" &&
+      legacyParsed.resumeStep === 0
+        ? "PASS" : "FAIL",
+      JSON.stringify(legacyParsed)
+    );
+
+    // T2 — new envelope with a valid step: Retomar must restore exactly
+    // that module.
+    const envelopeRaw = JSON.stringify({ data: { module1: { fullName: "New Beneficiary" } }, step: 7, savedAt: new Date().toISOString() });
+    const envelopeParsed = parseDraftEnvelope(envelopeRaw, 14);
+    record(
+      "P7R4-T2 (new envelope: data hydrated from .data, resume step read exactly)",
+      (envelopeParsed.saved as { module1?: { fullName?: string } }).module1?.fullName === "New Beneficiary" && envelopeParsed.resumeStep === 7
+        ? "PASS" : "FAIL",
+      JSON.stringify(envelopeParsed)
+    );
+
+    // T3 — invalid/malformed/out-of-range persisted step values all
+    // safely fall back to 0; data still hydrates from the envelope.
+    const invalidSteps = [99, -1, 3.5, "7", null, undefined];
+    const t3Results = invalidSteps.map(s => {
+      const raw = JSON.stringify({ data: { module1: { fullName: "X" } }, step: s, savedAt: "now" });
+      return parseDraftEnvelope(raw, 14).resumeStep;
+    });
+    record(
+      "P7R4-T3 (out-of-range/non-integer/non-numeric/missing step all fall back to 0)",
+      t3Results.every(r => r === 0) ? "PASS" : "FAIL",
+      JSON.stringify({ invalidSteps, t3Results })
+    );
+    record(
+      "P7R4-T3b (validateResumeStep boundary: exactly 0 and exactly total=14 are valid, not off-by-one)",
+      validateResumeStep(0, 14) === 0 && validateResumeStep(14, 14) === 14 && validateResumeStep(15, 14) === 0 && validateResumeStep(-0.5, 14) === 0
+        ? "PASS" : "FAIL",
+      ""
+    );
+
+    // T9 — forward destination-step computation: exact branching next()
+    // now calls (Module 10 -> 12 skip when Module 12 hidden, clamped to
+    // the executable 0..14 range).
+    record(
+      "P7R4-T9 (computeNextStep: exact next() branching -- 10->12 skip, normal +1, clamp at 14)",
+      computeNextStep(10, false, 14) === 12 &&
+      computeNextStep(10, true, 14) === 11 &&
+      computeNextStep(6, true, 14) === 7 &&
+      computeNextStep(13, true, 14) === 14 &&
+      computeNextStep(14, true, 14) === 14
+        ? "PASS" : "FAIL",
+      JSON.stringify({
+        skip: computeNextStep(10, false, 14), noSkip: computeNextStep(10, true, 14),
+        normal: computeNextStep(6, true, 14), atBoundary: computeNextStep(13, true, 14), clamped: computeNextStep(14, true, 14),
+      })
+    );
+
+    // T10 — backward destination-step computation: exact branching
+    // back() now calls (Module 12 -> 10 skip when Module 12 hidden,
+    // normal -1, clamped at 0). Persisted step must match the SAME
+    // value setStep receives -- both come from this one function.
+    record(
+      "P7R4-T10 (computePrevStep: exact back() branching -- 12->10 skip, normal -1, clamp at 0)",
+      computePrevStep(12, false) === 10 &&
+      computePrevStep(12, true) === 11 &&
+      computePrevStep(7, true) === 6 &&
+      computePrevStep(0, true) === 0
+        ? "PASS" : "FAIL",
+      JSON.stringify({
+        skip: computePrevStep(12, false), noSkip: computePrevStep(12, true),
+        normal: computePrevStep(7, true), clamped: computePrevStep(0, true),
+      })
+    );
+
+    // NOT DIRECTLY EXECUTABLE — requires a DOM/React test renderer,
+    // absent from this repo (established limitation, P7-R5 precedent):
+    //
+    // P7R4-T4 (CP-01 A0 checkpoint) — source trace: Module0.tsx runA0(),
+    //   post-merge branch now calls onCheckpoint({...data, structuredProfile: profile})
+    //   in place of the prior onChange(...) call; IntakeForm.tsx's
+    //   onModule0Checkpoint composes { ...dataRef.current, module0: nextModule0 },
+    //   calls save(nextData) (writes the envelope synchronously via
+    //   localStorage.setItem before any React re-render), then setData(nextData).
+    // P7R4-T5 (CP-02 Confirmar checkpoint) — source trace: Module0.tsx
+    //   confirmProfileField() now calls onCheckpoint(...) synchronously
+    //   (no await), so data is guaranteed current; same onModule0Checkpoint
+    //   path as T4.
+    // P7R4-T6 (CP-03 Coach checkpoint) — source trace: Module0.tsx
+    //   sendCoachMessage()'s success branch (after acquireCoachFields())
+    //   now calls onCheckpoint(...) in place of the prior onChange(...);
+    //   the optimistic pre-fetch onChange (user turn) and the catch-block
+    //   error turn are both left as plain onChange, unchanged -- only the
+    //   complete successful turn is checkpointed.
+    // P7R4-T11 (ordinary autosave) — source trace: the 30s interval effect
+    //   (IntakeForm.tsx) is unchanged in scheduling; it now calls save()
+    //   with no arguments (falls back to dataRef.current/stepRef.current).
+    // P7R4-T12 (Saved/Dirty matrix incl. justCheckpointedRef) — source
+    //   trace: dirty-invalidation effect checks justHydratedRef then
+    //   justCheckpointedRef before nulling savedAt; justCheckpointedRef is
+    //   armed ONLY inside onModule0Checkpoint, ONLY when save() returns
+    //   true; save() itself never references justCheckpointedRef at all
+    //   (grep-verified: the identifier appears in exactly 4 places --
+    //   declaration, the dirty-invalidation effect's two branches, and
+    //   onModule0Checkpoint's single `if (persisted)` arm).
+    // P7R4-T13 (Empezar de nuevo) — source trace: handler unchanged
+    //   (setData(INITIAL); setDraftBanner(false); localStorage.removeItem)
+    //   except the removed key now holds the richer envelope; live step
+    //   was never applied pre-Retomar so needs no explicit reset (see T2's
+    //   Retomar trace below).
+    // P7R4-T14 (final submission non-leakage) — source trace: submit()'s
+    //   fetch body is still built by explicit field enumeration off `data`
+    //   (module0..module15 + moduleStatuses + invitation* + structuredProfile
+    //   + coachConversation); `step`/pendingResumeStep/the envelope are
+    //   separate React state, never spread into that object literal.
+    // Retomar — source trace: hydration validates+holds resumeStep in
+    //   pendingResumeStep, does NOT call setStep; the Retomar button's
+    //   onClick now reads `() => { setDraftBanner(false); setStep(pendingResumeStep); }`
+    //   -- step is applied only on that explicit click, never automatically.
+    // R2-T19 (failed checkpoint -> DIRTY) — source trace: save() returns
+    //   false from its catch branch without calling setSavedAt;
+    //   onModule0Checkpoint's `if (persisted)` guard means justCheckpointedRef
+    //   is never armed on that path; setData(nextData) still executes
+    //   unconditionally afterward, so the dirty-invalidation effect runs
+    //   with the flag unarmed and correctly nulls savedAt.
+    record("P7R4-T4..T6,T11..T14,R2-T19 (React-hook-bound P7-R4 behaviors)", "NOT EXECUTABLE", "no DOM/React test runner in this repo -- verified by explicit source trace (see code comments immediately above), same established limitation as pre-existing draft-banner/Retomar UI behavior");
   }
 
   // ══ Fixtures — real invitation + case + client in TEST ══
