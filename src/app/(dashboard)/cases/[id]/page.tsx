@@ -6,6 +6,7 @@ import { Badge, statusBadgeVariant, statusLabels, priorityBadgeVariant, priority
 import type { CaseStatus, Priority } from "@/types/database";
 import { InvitationPanel } from "./invitation-panel";
 import { IntakeIntelligenceSection } from "./intake-intelligence-section";
+import { CbrReviewSection } from "./cbr-review-section";
 import { LegalIdentitySection } from "./legal-identity-section";
 import { LegalDecisionSection } from "./legal-decision-section";
 import type { IntakeAnalysis } from "./legal-decision-section";
@@ -245,6 +246,9 @@ export default async function CaseDetailPage({ params }: CasePageProps) {
             evidenceDocumentAssociations={evidenceAssociationMap}
             caseDocuments={(caseDocuments ?? []) as { id: string; name: string }[]}
           />
+
+          {/* ── CBR — Revisión de Identidad Canónica (Fase B, alcance acotado) ── */}
+          {caso.clients?.id && <CbrReviewSection clientId={caso.clients.id} />}
 
           {/* ── Identidad Jurídica del Caso — capa fundacional del dominio ── */}
           <LegalIdentitySection

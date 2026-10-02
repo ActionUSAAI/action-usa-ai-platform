@@ -111,6 +111,37 @@ export async function POST(request: NextRequest) {
       console.error("[intake] readiness evaluation failed:", e instanceof Error ? e.message : e);
     }
 
+    // CBR Governed Confirmation & Promotion Flow — best-effort, per-field,
+    // independently isolated (K§ "per-field invocation and failure
+    // isolation"). Mirrors the readiness block above exactly: a thrown
+    // error here NEVER fails the Intake submission response (AC-69). Each
+    // field's TX-01/TX-02 call is its own try/catch so one field's failure
+    // cannot affect any other field's processing (established design
+    // requirement, not new policy). migration 040 remains NOT AUTHORIZED
+    // for deployment/enablement — these calls are inert no-ops (DISABLED)
+    // until an authorized administrator enables the relevant gate via
+    // cbr_internal.cbr_toggle_gate; wiring the call sites now is within
+    // this implementation's bounded authorization and does not itself
+    // enable anything.
+    const CBR_G1G2_FIELDS = ["email", "whatsapp", "countryOfResidence", "cityOfResidence"] as const;
+    const CBR_G3_FIELDS = ["middleName", "dateOfBirth", "firstName", "lastName"] as const;
+    for (const field of CBR_G1G2_FIELDS) {
+      try {
+        const { error: cbrErr } = await db.rpc("cbr_tx01_realize_g1g2", { p_submission_id: submissionId, p_field_key: field });
+        if (cbrErr) console.error(`[intake][cbr] tx01 ${field} failed:`, cbrErr.message);
+      } catch (e) {
+        console.error(`[intake][cbr] tx01 ${field} threw:`, e instanceof Error ? e.message : e);
+      }
+    }
+    for (const field of CBR_G3_FIELDS) {
+      try {
+        const { error: cbrErr } = await db.rpc("cbr_tx02_observe_g3", { p_submission_id: submissionId, p_field_key: field });
+        if (cbrErr) console.error(`[intake][cbr] tx02 ${field} failed:`, cbrErr.message);
+      } catch (e) {
+        console.error(`[intake][cbr] tx02 ${field} threw:`, e instanceof Error ? e.message : e);
+      }
+    }
+
     // Normal-path canonical document registration (MTCS-02B). Best-effort:
     // a registration failure here never fails the Intake submission itself —
     // the explicit staff reconciliation action (POST
