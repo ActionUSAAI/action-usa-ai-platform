@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 
 import type { IntakeForm as IntakeFormData, ModuleStatus } from "./types";
 import { IntakeTokenProvider } from "./primitives";
-import { emptyStructuredProfile } from "@/lib/intake/structured-profile";
+import { emptyStructuredProfile, emptyField, acquireField } from "@/lib/intake/structured-profile";
 import { prefillModule1 } from "@/lib/intake/prefill-engine";
 import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
@@ -343,14 +343,45 @@ interface IntakeFormProps {
   token: string;
   caseId: string;
   clientId: string;
+  // B1 (M1-GAP-07, frozen design docs/intake/
+  // A0-STRUCTURED-PROFILE-MODULE1-EXACT-DESIGN.md §J): the invitation's
+  // already-known beneficiary email. Seeded into Structured Profile (never
+  // assigned directly into Module 1) so the existing prefill path -- not a
+  // new one -- carries it forward.
+  invitationEmail: string;
 }
 
-export function IntakeForm({ token, caseId, clientId }: IntakeFormProps) {
+// B1: builds the first-mount initial state, seeding Structured Profile's
+// email field from the invitation when present -- without ever mutating
+// the shared, module-level INITIAL constant (a fresh object is returned
+// via spread). source="staff_entered" (an existing, previously-unused
+// StructuredProfileSource member) -- never "beneficiary_confirmed": the
+// invitation knowing the email is not the beneficiary confirming it.
+// Used only as a useState lazy initializer (see call site) -- runs
+// exactly once, on first mount, never on hydration/resume (hydration's
+// own setData({...INITIAL, ...saved, ...}) always wins with the restored
+// draft, per the existing P7-R4 resume path, untouched by this change).
+export function buildInitialIntakeFormData(invitationEmail: string): IntakeFormData {
+  const trimmed = invitationEmail.trim();
+  if (!trimmed) return INITIAL;
+  return {
+    ...INITIAL,
+    module0: {
+      ...INITIAL.module0,
+      structuredProfile: {
+        ...INITIAL.module0.structuredProfile,
+        email: acquireField(emptyField(), { value: trimmed, source: "staff_entered", confidence: "high" }),
+      },
+    },
+  };
+}
+
+export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeFormProps) {
   const storageKey    = `aucis_intake_draft_${token}`;
   const sessionIdKey  = `aucis_session_${token}`;
 
   const [step, setStep]               = useState(0);
-  const [data, setData]               = useState<IntakeFormData>(INITIAL);
+  const [data, setData]               = useState<IntakeFormData>(() => buildInitialIntakeFormData(invitationEmail));
   const [sessionId, setSessionId]     = useState("");
   const [loading, setLoading]         = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);

@@ -27,7 +27,7 @@ export default async function IntakePage({ searchParams }: Props) {
 
   const { data: invitation } = await db
     .from("intake_invitations")
-    .select("id, status, case_id, client_id")
+    .select("id, status, case_id, client_id, email")
     .eq("token", token)
     .in("status", ["pending", "opened"])
     .gt("expires_at", now)
@@ -50,6 +50,7 @@ export default async function IntakePage({ searchParams }: Props) {
       token={token}
       caseId={invitation.case_id as string}
       clientId={invitation.client_id as string}
+      invitationEmail={invitation.email as string}
     />
   );
 }
