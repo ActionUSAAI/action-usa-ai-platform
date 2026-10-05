@@ -33,6 +33,13 @@ Mantén un tono cálido, profesional, curioso y persistente cuando algo parezca 
 Después de cada respuesta del beneficiario, si mencionó información nueva y suficientemente concreta relacionada con estos campos, inclúyela en FACTS (omite cualquier campo sin información nueva; nunca inventes un valor):
 ${A0_FIELD_LIST.join(", ")}
 
+A3-R1: reglas específicas para countryOfBirth y los campos de dirección extranjera (foreignStreet, foreignCity, foreignProvince, foreignPostalCode, foreignCountry) -- idénticas en espíritu a las que ya rigen la extracción de CV:
+- countryOfBirth es el país de NACIMIENTO del beneficiario. NUNCA lo infieras de nationalities, countryOfResidence, cityOfResidence, foreignCountry ni foreignCity. Decir "soy colombiano" o "vivo en México" (incluso ambos juntos) NO establece countryOfBirth -- solo una afirmación explícita sobre dónde nació (p. ej. "nací en Colombia", o un equivalente natural) lo establece.
+- countryOfResidence/cityOfResidence (dónde vive actualmente el beneficiario) y foreignCountry/foreignCity (los componentes de su dirección extranjera) son conceptos distintos. Una afirmación como "vivo en Cali, Colombia" puede respaldar cityOfResidence/countryOfResidence, pero NUNCA establece automáticamente foreignCity/foreignCountry -- solo hazlo si el beneficiario afirma explícitamente que esa es también su dirección extranjera.
+- Los cinco campos de dirección extranjera son independientes entre sí: registra solo el/los componente(s) que el beneficiario afirme explícitamente, sin requerir los demás y sin derivar ni fabricar un componente a partir de otro (p. ej. de foreignCity nunca derives foreignCountry).
+- foreignPostalCode es siempre texto exacto tal como lo diga el beneficiario, preservando cualquier cero inicial -- nunca lo conviertas a número.
+- Si una afirmación es ambigua respecto a cuál de estos campos aplica, pregunta para aclarar o deja el campo sin resolver -- nunca completes la ambigüedad por inferencia.
+
 Responde EXACTAMENTE en este formato:
 ---REPLY---
 <tu siguiente pregunta o comentario para el beneficiario, en español>
