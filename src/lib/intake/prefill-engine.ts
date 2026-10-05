@@ -9,6 +9,20 @@ import type { StructuredProfile } from "./structured-profile";
 import { IDENTITY_FIELDS } from "./structured-profile";
 import { composeFullName } from "@/app/intake/name-utils";
 
+// A0-M1-SLICE-A4: Structured Profile keys whose Module 1 target name
+// differs from the acquisition-layer key (M1-GAP-02..06, frozen design
+// docs/intake/A0-STRUCTURED-PROFILE-MODULE1-EXACT-DESIGN.md §H). countryOfBirth
+// needs no entry here -- its SP key and Module 1 key are identical, so it is
+// already covered by the same-name IDENTITY_FIELDS loop below (A1 added it to
+// IDENTITY_FIELDS; zero additional code was required for that one field).
+const FOREIGN_ADDRESS_FIELD_MAP: Record<string, string> = {
+  foreignStreet: "beneficiaryForeignStreetNumberName",
+  foreignCity: "beneficiaryForeignCity",
+  foreignProvince: "beneficiaryForeignProvince",
+  foreignPostalCode: "beneficiaryForeignPostalCode",
+  foreignCountry: "beneficiaryForeignCountry",
+};
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export function prefillModule1<T extends Record<string, any>>(module1: T, profile: StructuredProfile): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -22,6 +36,20 @@ export function prefillModule1<T extends Record<string, any>>(module1: T, profil
     // partial one, is never replaced by this function.
     if (existing === undefined || existing === null || existing === "") {
       result[key] = field.value;
+    }
+  }
+
+  // A0-M1-SLICE-A4: second, small loop for the five renamed foreign-address
+  // fields. Identical no-overwrite guard to the loop above -- each of the
+  // five components is independently eligible (no all-or-nothing address
+  // object), and foreignPostalCode is copied as-is (string throughout; no
+  // numeric coercion anywhere in this path, so leading zeros survive).
+  for (const [spKey, module1Key] of Object.entries(FOREIGN_ADDRESS_FIELD_MAP)) {
+    const field = profile[spKey];
+    if (!field || field.value === null || field.value === "") continue;
+    const existing = result[module1Key];
+    if (existing === undefined || existing === null || existing === "") {
+      result[module1Key] = field.value;
     }
   }
 
