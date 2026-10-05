@@ -56,6 +56,12 @@ export const IDENTITY_FIELDS = [
   "familyName", "givenName", "middleName", "dateOfBirth", "nationalities",
   "countryOfResidence", "cityOfResidence", "email", "whatsapp",
   "profession", "industry", "yearsExperience",
+  // A0-M1-SLICE-A1: current-case acquisition representation for Module 1's
+  // countryOfBirth + foreign-address fields (M1-GAP-01..06, frozen design
+  // docs/intake/A0-STRUCTURED-PROFILE-MODULE1-EXACT-DESIGN.md §D/§E). Vocabulary/
+  // classification only -- A0 extraction (A0_FIELD_LIST) is a separate, later slice.
+  "countryOfBirth", "foreignStreet", "foreignCity", "foreignProvince",
+  "foreignPostalCode", "foreignCountry",
 ] as const;
 
 export const CRITERION_NARRATIVE_FIELDS = [
@@ -75,6 +81,12 @@ export const ALL_STRUCTURED_PROFILE_FIELDS = [...IDENTITY_FIELDS, ...CRITERION_N
 export const CLASS_A1_FIELDS = [
   "familyName", "givenName", "middleName", "dateOfBirth", "nationalities",
   "countryOfResidence", "cityOfResidence", "email", "whatsapp",
+  // A0-M1-SLICE-A1: same stable-identity/current-foreign-address character
+  // as countryOfResidence/cityOfResidence above (already Class A1) -- frozen
+  // design §Field Classification. Inherits the existing Class A1 freeze/
+  // protection mechanism unchanged; no new classification introduced.
+  "countryOfBirth", "foreignStreet", "foreignCity", "foreignProvince",
+  "foreignPostalCode", "foreignCountry",
 ] as const;
 
 export function emptyField(): StructuredProfileField {
