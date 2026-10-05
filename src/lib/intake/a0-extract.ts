@@ -9,6 +9,12 @@ export const A0_FIELD_LIST = [
   "familyName", "givenName", "middleName", "dateOfBirth", "nationalities",
   "countryOfResidence", "cityOfResidence", "email", "whatsapp",
   "profession", "industry", "yearsExperience",
+  // A0-M1-SLICE-A2: current-case acquisition for Module 1's countryOfBirth +
+  // foreign-address fields (M1-GAP-01..06, frozen design docs/intake/
+  // A0-STRUCTURED-PROFILE-MODULE1-EXACT-DESIGN.md §F). Same IDENTITY_FIELDS
+  // membership established for these keys in Slice A1 (structured-profile.ts).
+  "countryOfBirth", "foreignStreet", "foreignCity", "foreignProvince",
+  "foreignPostalCode", "foreignCountry",
   "awards", "memberships", "media_coverage", "judging",
   "original_contributions", "scholarly_articles", "critical_role",
   "high_salary", "artistic_exhibitions",
@@ -22,8 +28,13 @@ const SYSTEM_PROMPT = `Eres A0, el motor extractor de CVs de AUSCIS (docs/AUCIS_
 Extrae, cuando estén presentes en el documento, estos campos exactos:
 ${A0_FIELD_LIST.map(f => `- ${f}`).join("\n")}
 
-Los campos familyName..yearsExperience son datos de identidad/profesionales directos.
+Los campos familyName..foreignCountry son datos de identidad/profesionales/dirección directos.
 Los campos awards..artistic_exhibitions son resúmenes narrativos breves (1-3 frases) de cualquier información relevante para ese criterio que el documento mencione explícitamente -- NO los evalúes, solo resume lo que el documento dice.
+
+Reglas específicas para countryOfBirth y los campos de dirección extranjera (foreignStreet, foreignCity, foreignProvince, foreignPostalCode, foreignCountry):
+- countryOfBirth es el país de nacimiento. NUNCA lo infieras de nationalities, countryOfResidence, ni cityOfResidence -- extráelo solo si el documento lo afirma explícitamente como país de nacimiento.
+- Los cinco campos de dirección extranjera son independientes entre sí: extrae cada uno solo si el documento lo afirma explícitamente, sin requerir que los demás estén presentes y sin inventar ni derivar un componente a partir de otro (p. ej. no derives foreignCountry a partir de foreignCity).
+- foreignPostalCode es siempre texto exacto, preservando cualquier cero inicial -- nunca lo conviertas a número.
 
 Para cada campo que puedas extraer, asigna confidence:
 - "high": el documento lo afirma directa y claramente
