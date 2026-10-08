@@ -1,63 +1,65 @@
-import type { Module10, StrategicAnswer } from "../types";
-import { Textarea, YesNo, InfoBox, FileUpload } from "../primitives";
+import type { Module11 } from "../types";
 
-type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: string };
+type Props = { data: Module11; onChange: (d: Module11) => void };
 
-const QUESTIONS: { key: keyof Module10; question: string; hint: string }[] = [
-  { key: "createdMethod",        question: "¿Ha creado algún método, proceso, herramienta, sistema o forma de trabajo que otras personas o empresas hayan utilizado?",       hint: "Metodologías propias, frameworks, sistemas que otros adoptaron..." },
-  { key: "ledImpactProjects",    question: "¿Ha liderado proyectos que hayan tenido impacto significativo en su industria o comunidad?",                                     hint: "Proyectos con alcance más allá de su empresa o entorno inmediato..." },
-  { key: "solvedComplexProblems",question: "¿Ha resuelto problemas complejos o poco comunes dentro de su campo profesional?",                                               hint: "Soluciones innovadoras, desafíos técnicos o artísticos difíciles..." },
-  { key: "trainedProfessionals", question: "¿Ha capacitado o formado a otros profesionales en su área?",                                                                    hint: "Docencia, mentorías, talleres, entrenamientos corporativos..." },
-  { key: "consultedForExpertise",question: "¿Ha sido consultado por su experiencia por otras empresas, instituciones o medios?",                                            hint: "Consultoría, asesoría, entrevistas como experto..." },
-  { key: "evaluatedOthers",      question: "¿Ha evaluado el trabajo de otros profesionales (como jurado, revisor, comité, mentor)?",                                        hint: "Revisiones por pares, jurado en concursos, comités editoriales..." },
-  { key: "workedForRecognized",  question: "¿Ha trabajado para empresas, instituciones o proyectos ampliamente reconocidos en su industria?",                               hint: "Marcas líderes, instituciones de renombre, proyectos icónicos..." },
-  { key: "aboveAverageIncome",   question: "¿Sus ingresos han sido superiores al promedio de su campo o país?",                                                             hint: "Honorarios, salarios o contratos que superen el estándar del sector..." },
-  { key: "willingToConfirm",     question: "¿Existen personas dispuestas a confirmar públicamente su impacto profesional?",                                                 hint: "Colegas, clientes, supervisores que firmarían cartas de soporte..." },
-  { key: "additionalInfo",       question: "¿Hay algo más relevante sobre su trayectoria que no hayamos preguntado?",                                                       hint: "Cualquier logro, situación o contexto que consideres importante..." },
+const OPTIONS = [
+  {
+    value: "si",
+    label: "Sí, deseo que evalúen esta posibilidad",
+    desc: "Un especialista revisará tu caso y te contactará para explorar estrategias legítimas.",
+    cls: "border-brand-blue bg-brand-blue/5 text-brand-blue",
+    selected: "border-brand-blue bg-brand-blue text-white",
+  },
+  {
+    value: "tal_vez",
+    label: "Tal vez más adelante",
+    desc: "Puedes retomar esta opción desde tu portal de cliente cuando quieras.",
+    cls: "border-amber-400 bg-amber-50 text-amber-700",
+    selected: "border-amber-500 bg-amber-500 text-white",
+  },
+  {
+    value: "no",
+    label: "No por ahora",
+    desc: "Continuaremos con la evidencia existente. Siempre puedes cambiar tu decisión.",
+    cls: "border-gray-200 bg-gray-50 text-gray-600",
+    selected: "border-gray-400 bg-gray-400 text-white",
+  },
 ];
 
-export function Module11({ data: d, onChange, sessionId }: Props) {
-  const upd = (key: keyof Module10, patch: Partial<StrategicAnswer>) =>
-    onChange({ ...d, [key]: { ...d[key], ...patch } });
-
+export function Module11({ data: d, onChange }: Props) {
   return (
-    <div className="space-y-4">
-      <InfoBox>
-        Esta sección nos permite entender mejor tu impacto profesional.
-        No hay respuestas correctas o incorrectas — sé tan específico/a como puedas.
-      </InfoBox>
+    <div className="space-y-5">
+      <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-5 space-y-3">
+        <p className="font-semibold text-brand-blue">Evaluación de estrategias de posicionamiento</p>
+        <p className="text-sm text-gray-700">
+          Hemos identificado que algunas categorías de tu caso podrían fortalecerse.
+          ACTION USA puede evaluar si existen estrategias legítimas de posicionamiento
+          profesional para desarrollar evidencia adicional real y documentable.
+        </p>
+        <p className="text-sm text-gray-700">
+          Esta evaluación es <strong>completamente gratuita</strong>, no implica ningún
+          compromiso y únicamente nos permite determinar si existen oportunidades reales
+          para tu caso.
+        </p>
+      </div>
 
-      {QUESTIONS.map(({ key, question, hint }) => (
-        <div key={key} className="rounded-xl border border-gray-200 p-4 space-y-3">
-          <div>
-            <p className="font-medium text-gray-800 leading-snug">{question}</p>
-            <p className="mt-0.5 text-xs text-gray-400">{hint}</p>
-          </div>
-          <Textarea
-            value={d[key].answer}
-            onChange={v => upd(key, { answer: v })}
-            placeholder="Describe específicamente cómo aplica a tu caso..."
-            rows={3}
-          />
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-gray-500 shrink-0">¿Tienes evidencia de esto?</span>
-            <YesNo
-              value={d[key].hasEvidence}
-              onChange={v => upd(key, { hasEvidence: v })}
-              yesLabel="Sí" noLabel="No"
-            />
-          </div>
-          {d[key].hasEvidence === true && (
-            <FileUpload
-              sessionId={sessionId}
-              storagePath={`module11/${key}`}
-              filePath={d[key].filePath}
-              fileName={d[key].fileName}
-              onChange={({ filePath, fileName }) => upd(key, { filePath, fileName })}
-            />
-          )}
-        </div>
-      ))}
+      <div className="space-y-3">
+        {OPTIONS.map(opt => (
+          <button
+            key={opt.value}
+            type="button"
+            onClick={() => onChange({ interest: opt.value })}
+            className={`w-full text-left rounded-xl border-2 p-4 transition-all ${
+              d.interest === opt.value ? opt.selected : `${opt.cls} hover:opacity-80`
+            }`}
+          >
+            <p className="font-semibold text-sm">{opt.label}</p>
+            <p className={`mt-0.5 text-xs ${d.interest === opt.value ? "opacity-90" : "opacity-70"}`}>
+              {opt.desc}
+            </p>
+          </button>
+        ))}
+      </div>
     </div>
   );
 }

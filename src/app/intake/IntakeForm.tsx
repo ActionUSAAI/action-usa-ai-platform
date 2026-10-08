@@ -11,6 +11,7 @@ import { prefillModule1 } from "@/lib/intake/prefill-engine";
 import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
 import { Module2 }  from "./modules/Module2";
+import { Module3 }  from "./modules/Module3";
 import { Module4 }  from "./modules/Module4";
 import { Module5 }  from "./modules/Module5";
 import { Module6 }  from "./modules/Module6";
@@ -21,8 +22,7 @@ import { Module10 } from "./modules/Module10";
 import { Module11 } from "./modules/Module11";
 import { Module12 } from "./modules/Module12";
 import { Module13 } from "./modules/Module13";
-import { Module14 } from "./modules/Module14";
-import { Module15 } from "./modules/Module15";
+import { Summary }  from "./modules/Summary";
 
 const TOTAL = 14;
 
@@ -695,18 +695,18 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
             {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} sessionId={sessionId} errors={errors}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
-            {step === 3  && <Module4  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
-            {step === 4  && <Module5  data={data.module5}  onChange={m => setData(p => ({ ...p, module5:  m }))} sessionId={sessionId}/>}
-            {step === 5  && <Module6  data={data.module6}  onChange={m => setData(p => ({ ...p, module6:  m }))} sessionId={sessionId}/>}
-            {step === 6  && <Module7  data={data.module7}  onChange={m => setData(p => ({ ...p, module7:  m }))}/>}
-            {step === 7  && <Module8  data={data.module8}  onChange={m => setData(p => ({ ...p, module8:  m }))}/>}
-            {step === 8  && <Module9  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))} visaType={data.module1.visaType}/>}
-            {step === 9  && <Module10 data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
-            {step === 10 && <Module11 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
-            {step === 11 && <Module12 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
-            {step === 12 && <Module14 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId} visaType={data.module1.visaType}/>}
-            {step === 13 && <Module15 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId} profession={data.module1.profession} industry={data.module1.industry} visaType={data.module1.visaType}/>}
-            {step === 14 && <Module13 statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
+            {step === 3  && <Module3  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
+            {step === 4  && <Module4  data={data.module5}  onChange={m => setData(p => ({ ...p, module5:  m }))} sessionId={sessionId}/>}
+            {step === 5  && <Module5  data={data.module6}  onChange={m => setData(p => ({ ...p, module6:  m }))} sessionId={sessionId}/>}
+            {step === 6  && <Module6  data={data.module7}  onChange={m => setData(p => ({ ...p, module7:  m }))}/>}
+            {step === 7  && <Module7  data={data.module8}  onChange={m => setData(p => ({ ...p, module8:  m }))}/>}
+            {step === 8  && <Module8  data={data.module9}  onChange={m => setData(p => ({ ...p, module9:  m }))} visaType={data.module1.visaType}/>}
+            {step === 9  && <Module9  data={data.module10} onChange={m => setData(p => ({ ...p, module10: m }))} sessionId={sessionId}/>}
+            {step === 10 && <Module10 data={data.module11} onChange={m => setData(p => ({ ...p, module11: m }))} sessionId={sessionId}/>}
+            {step === 11 && <Module11 data={data.module12} onChange={m => setData(p => ({ ...p, module12: m }))}/>}
+            {step === 12 && <Module12 data={data.module14} onChange={m => setData(p => ({ ...p, module14: m }))} sessionId={sessionId} visaType={data.module1.visaType}/>}
+            {step === 13 && <Module13 data={data.module15} onChange={m => setData(p => ({ ...p, module15: m }))} sessionId={sessionId} profession={data.module1.profession} industry={data.module1.industry} visaType={data.module1.visaType}/>}
+            {step === 14 && <Summary statuses={statuses} show12={show12} loading={loading} error={submitError} onSubmit={submit}/>}
           </div>
 
           {/* Navigation */}

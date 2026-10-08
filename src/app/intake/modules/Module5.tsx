@@ -1,82 +1,71 @@
-import type { Module4, DegreeEntry } from "../types";
-import { Field, TextInput, Select, AddBtn, Card, FileUpload } from "../primitives";
+import type { Module5, CertEntry } from "../types";
+import { Field, TextInput, Select, YesNo, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module4; onChange: (d: Module4) => void; sessionId: string };
+type Props = { data: Module5; onChange: (d: Module5) => void; sessionId: string };
 
-const emptyDegree = (): DegreeEntry => ({
+const emptyCert = (): CertEntry => ({
   id: Math.random().toString(36).slice(2,9),
-  institution:"", country:"", degreeType:"", degreeName:"",
-  startYear:"", graduationYear:"", hasDiploma:"",
+  name:"", institution:"", country:"", year:"", isActive:"", hasCertificate: null,
   filePath:"", fileName:"",
 });
 
 export function Module5({ data: d, onChange, sessionId }: Props) {
-  const addDegree = () => onChange({ degrees: [...d.degrees, emptyDegree()] });
-  const removeDegree = (i: number) => onChange({ degrees: d.degrees.filter((_,idx) => idx !== i) });
-  const updDegree = <K extends keyof DegreeEntry>(i: number, f: K, v: DegreeEntry[K]) => {
-    const arr = [...d.degrees]; arr[i] = { ...arr[i], [f]: v }; onChange({ degrees: arr });
+  const addCert = () => onChange({ certifications: [...d.certifications, emptyCert()] });
+  const removeCert = (i: number) => onChange({ certifications: d.certifications.filter((_,idx) => idx !== i) });
+  const updCert = <K extends keyof CertEntry>(i: number, f: K, v: CertEntry[K]) => {
+    const arr = [...d.certifications]; arr[i] = { ...arr[i], [f]: v }; onChange({ certifications: arr });
   };
-  // Actualiza múltiples campos en una sola operación — evita la condición de
-  // carrera de dos llamadas síncronas separadas pisándose sobre el mismo
-  // closure obsoleto (bug real encontrado 2026-07-31: filePath se perdía
-  // porque la llamada de fileName sobrescribía el estado con el filePath
-  // vacío del render anterior).
-  const updDegreeFields = (i: number, fields: Partial<DegreeEntry>) => {
-    const arr = [...d.degrees]; arr[i] = { ...arr[i], ...fields }; onChange({ degrees: arr });
+  // Ver nota de updDegreeFields en Module5.tsx — mismo bug, mismo fix.
+  const updCertFields = (i: number, fields: Partial<CertEntry>) => {
+    const arr = [...d.certifications]; arr[i] = { ...arr[i], ...fields }; onChange({ certifications: arr });
   };
 
   return (
     <div className="space-y-4">
-      {d.degrees.map((deg, i) => (
-        <Card key={deg.id} label="Título" index={i} onRemove={d.degrees.length > 1 ? () => removeDegree(i) : undefined}>
+      {d.certifications.length === 0 && (
+        <p className="text-sm text-gray-500 text-center py-4">
+          Si no tienes cursos o certificaciones relevantes, puedes dejar este módulo vacío.
+        </p>
+      )}
+      {d.certifications.map((c, i) => (
+        <Card key={c.id} label="Certificación" index={i} onRemove={() => removeCert(i)}>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Institución">
-              <TextInput value={deg.institution} onChange={v => updDegree(i,"institution",v)} placeholder="Universidad de los Andes"/>
+            <Field label="Nombre del curso o certificación">
+              <TextInput value={c.name} onChange={v => updCert(i,"name",v)} placeholder="AWS Solutions Architect, PMP, Google Analytics..."/>
+            </Field>
+            <Field label="Institución que lo emitió">
+              <TextInput value={c.institution} onChange={v => updCert(i,"institution",v)} placeholder="Amazon, PMI, Google, Coursera..."/>
             </Field>
             <Field label="País">
-              <TextInput value={deg.country} onChange={v => updDegree(i,"country",v)} placeholder="Colombia"/>
+              <TextInput value={c.country} onChange={v => updCert(i,"country",v)} placeholder="USA, Online..."/>
             </Field>
-            <Field label="Tipo de título">
-              <Select value={deg.degreeType} onChange={v => updDegree(i,"degreeType",v)}>
+            <Field label="Año">
+              <TextInput type="number" value={c.year} onChange={v => updCert(i,"year",v)} placeholder="2022"/>
+            </Field>
+            <Field label="¿Está vigente?">
+              <Select value={c.isActive} onChange={v => updCert(i,"isActive",v)}>
                 <option value="">Selecciona...</option>
-                <option value="pregrado">Pregrado / Licenciatura</option>
-                <option value="especializacion">Especialización</option>
-                <option value="maestria">Maestría</option>
-                <option value="mba">MBA</option>
-                <option value="doctorado">Doctorado (PhD / MD)</option>
-                <option value="otro">Otro</option>
+                <option value="si">Sí, vigente</option>
+                <option value="no">No, venció</option>
+                <option value="no_aplica">No aplica (no vence)</option>
               </Select>
             </Field>
-            <Field label="Nombre del título / Carrera">
-              <TextInput value={deg.degreeName} onChange={v => updDegree(i,"degreeName",v)} placeholder="Ingeniería de Sistemas, Medicina..."/>
-            </Field>
-            <Field label="Año de inicio">
-              <TextInput type="number" value={deg.startYear} onChange={v => updDegree(i,"startYear",v)} placeholder="2010"/>
-            </Field>
-            <Field label="Año de graduación">
-              <TextInput type="number" value={deg.graduationYear} onChange={v => updDegree(i,"graduationYear",v)} placeholder="2015"/>
-            </Field>
-            <Field label="¿Tiene el diploma físico?">
-              <Select value={deg.hasDiploma} onChange={v => updDegree(i,"hasDiploma",v)}>
-                <option value="">Selecciona...</option>
-                <option value="si">Sí, lo tengo</option>
-                <option value="no">No</option>
-                <option value="en_tramite">En trámite</option>
-              </Select>
+            <Field label="¿Tiene el certificado?">
+              <YesNo value={c.hasCertificate} onChange={v => updCert(i,"hasCertificate",v)} yesLabel="Sí" noLabel="No"/>
             </Field>
           </div>
           <div className="mt-3">
             <FileUpload
               sessionId={sessionId}
-              storagePath={`module5/${deg.id}`}
-              filePath={deg.filePath}
-              fileName={deg.fileName}
-              onChange={({ filePath, fileName }) => updDegreeFields(i, { filePath, fileName })}
+              storagePath={`module6/${c.id}`}
+              filePath={c.filePath}
+              fileName={c.fileName}
+              onChange={({ filePath, fileName }) => updCertFields(i, { filePath, fileName })}
             />
           </div>
         </Card>
       ))}
-      <AddBtn label="Agregar título académico" onClick={addDegree}/>
+      <AddBtn label="Agregar certificación" onClick={addCert}/>
     </div>
   );
 }

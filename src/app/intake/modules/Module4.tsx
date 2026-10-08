@@ -1,118 +1,82 @@
-import type { Module3, UsaVisit, VisaRejection } from "../types";
-import { Field, TextInput, Textarea, YesNo, AddBtn, Card } from "../primitives";
+import type { Module4, DegreeEntry } from "../types";
+import { Field, TextInput, Select, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module3; onChange: (d: Module3) => void };
+type Props = { data: Module4; onChange: (d: Module4) => void; sessionId: string };
 
-const emptyVisit = (): UsaVisit => ({ id: Math.random().toString(36).slice(2,9), entryDate:"", exitDate:"", visaType:"", purpose:"" });
-const emptyRejection = (): VisaRejection => ({ id: Math.random().toString(36).slice(2,9), country:"", visaType:"", year:"", reason:"" });
+const emptyDegree = (): DegreeEntry => ({
+  id: Math.random().toString(36).slice(2,9),
+  institution:"", country:"", degreeType:"", degreeName:"",
+  startYear:"", graduationYear:"", hasDiploma:"",
+  filePath:"", fileName:"",
+});
 
-export function Module4({ data: d, onChange }: Props) {
-  const u = <K extends keyof Module3>(f: K, v: Module3[K]) => onChange({ ...d, [f]: v });
-
-  const addVisit = () => u("usaVisits", [...d.usaVisits, emptyVisit()]);
-  const removeVisit = (i: number) => u("usaVisits", d.usaVisits.filter((_,idx) => idx !== i));
-  const updVisit = <K extends keyof UsaVisit>(i: number, f: K, v: UsaVisit[K]) => {
-    const arr = [...d.usaVisits]; arr[i] = { ...arr[i], [f]: v }; u("usaVisits", arr);
+export function Module4({ data: d, onChange, sessionId }: Props) {
+  const addDegree = () => onChange({ degrees: [...d.degrees, emptyDegree()] });
+  const removeDegree = (i: number) => onChange({ degrees: d.degrees.filter((_,idx) => idx !== i) });
+  const updDegree = <K extends keyof DegreeEntry>(i: number, f: K, v: DegreeEntry[K]) => {
+    const arr = [...d.degrees]; arr[i] = { ...arr[i], [f]: v }; onChange({ degrees: arr });
   };
-
-  const addRejection = () => u("visaRejections", [...d.visaRejections, emptyRejection()]);
-  const removeRejection = (i: number) => u("visaRejections", d.visaRejections.filter((_,idx) => idx !== i));
-  const updRejection = <K extends keyof VisaRejection>(i: number, f: K, v: VisaRejection[K]) => {
-    const arr = [...d.visaRejections]; arr[i] = { ...arr[i], [f]: v }; u("visaRejections", arr);
+  // Actualiza múltiples campos en una sola operación — evita la condición de
+  // carrera de dos llamadas síncronas separadas pisándose sobre el mismo
+  // closure obsoleto (bug real encontrado 2026-07-31: filePath se perdía
+  // porque la llamada de fileName sobrescribía el estado con el filePath
+  // vacío del render anterior).
+  const updDegreeFields = (i: number, fields: Partial<DegreeEntry>) => {
+    const arr = [...d.degrees]; arr[i] = { ...arr[i], ...fields }; onChange({ degrees: arr });
   };
 
   return (
-    <div className="space-y-6">
-      {/* USA visits */}
-      <div className="space-y-4">
-        <Field label="¿Ha estado alguna vez en Estados Unidos?" required>
-          <YesNo
-            value={d.hasBeenInUSA}
-            onChange={v => {
-              u("hasBeenInUSA", v);
-              if (v === true && d.usaVisits.length === 0) {
-                u("usaVisits", [emptyVisit()]);
-              }
-            }}
-            yesLabel="Sí, he estado" noLabel="Nunca"
-          />
-        </Field>
-        {d.hasBeenInUSA === true && (
-          <div className="space-y-3">
-            {d.usaVisits.map((v, i) => (
-              <Card key={v.id} label="Visita" index={i} onRemove={d.usaVisits.length > 1 ? () => removeVisit(i) : undefined}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="Fecha de entrada">
-                    <TextInput type="date" value={v.entryDate} onChange={val => updVisit(i,"entryDate",val)}/>
-                  </Field>
-                  <Field label="Fecha de salida">
-                    <TextInput type="date" value={v.exitDate} onChange={val => updVisit(i,"exitDate",val)}/>
-                  </Field>
-                  <Field label="Tipo de visa con la que entró">
-                    <TextInput value={v.visaType} onChange={val => updVisit(i,"visaType",val)} placeholder="B1/B2, F-1, H-1B..."/>
-                  </Field>
-                  <Field label="Propósito de la visita">
-                    <TextInput value={v.purpose} onChange={val => updVisit(i,"purpose",val)} placeholder="Turismo, estudios, trabajo..."/>
-                  </Field>
-                </div>
-              </Card>
-            ))}
-            <AddBtn label="Agregar otra visita" onClick={addVisit}/>
+    <div className="space-y-4">
+      {d.degrees.map((deg, i) => (
+        <Card key={deg.id} label="Título" index={i} onRemove={d.degrees.length > 1 ? () => removeDegree(i) : undefined}>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Field label="Institución">
+              <TextInput value={deg.institution} onChange={v => updDegree(i,"institution",v)} placeholder="Universidad de los Andes"/>
+            </Field>
+            <Field label="País">
+              <TextInput value={deg.country} onChange={v => updDegree(i,"country",v)} placeholder="Colombia"/>
+            </Field>
+            <Field label="Tipo de título">
+              <Select value={deg.degreeType} onChange={v => updDegree(i,"degreeType",v)}>
+                <option value="">Selecciona...</option>
+                <option value="pregrado">Pregrado / Licenciatura</option>
+                <option value="especializacion">Especialización</option>
+                <option value="maestria">Maestría</option>
+                <option value="mba">MBA</option>
+                <option value="doctorado">Doctorado (PhD / MD)</option>
+                <option value="otro">Otro</option>
+              </Select>
+            </Field>
+            <Field label="Nombre del título / Carrera">
+              <TextInput value={deg.degreeName} onChange={v => updDegree(i,"degreeName",v)} placeholder="Ingeniería de Sistemas, Medicina..."/>
+            </Field>
+            <Field label="Año de inicio">
+              <TextInput type="number" value={deg.startYear} onChange={v => updDegree(i,"startYear",v)} placeholder="2010"/>
+            </Field>
+            <Field label="Año de graduación">
+              <TextInput type="number" value={deg.graduationYear} onChange={v => updDegree(i,"graduationYear",v)} placeholder="2015"/>
+            </Field>
+            <Field label="¿Tiene el diploma físico?">
+              <Select value={deg.hasDiploma} onChange={v => updDegree(i,"hasDiploma",v)}>
+                <option value="">Selecciona...</option>
+                <option value="si">Sí, lo tengo</option>
+                <option value="no">No</option>
+                <option value="en_tramite">En trámite</option>
+              </Select>
+            </Field>
           </div>
-        )}
-      </div>
-
-      {/* Rejections */}
-      <div className="space-y-3">
-        <Field label="¿Ha tenido alguna visa rechazada?" required>
-          <YesNo
-            value={d.hasVisaRejection}
-            onChange={v => {
-              u("hasVisaRejection", v);
-              if (v === true && d.visaRejections.length === 0) {
-                u("visaRejections", [emptyRejection()]);
-              }
-            }}
-            yesLabel="Sí" noLabel="No"
-          />
-        </Field>
-        {d.hasVisaRejection === true && (
-          <div className="space-y-3">
-            {d.visaRejections.map((r, i) => (
-              <Card key={r.id} label="Rechazo" index={i} onRemove={d.visaRejections.length > 1 ? () => removeRejection(i) : undefined}>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                  <Field label="País">
-                    <TextInput value={r.country} onChange={v => updRejection(i,"country",v)} placeholder="USA, Canadá..."/>
-                  </Field>
-                  <Field label="Tipo de visa">
-                    <TextInput value={r.visaType} onChange={v => updRejection(i,"visaType",v)} placeholder="B2, F-1..."/>
-                  </Field>
-                  <Field label="Año aproximado">
-                    <TextInput type="number" value={r.year} onChange={v => updRejection(i,"year",v)} placeholder="2019"/>
-                  </Field>
-                  <Field label="Razón si la conoce" hint="Opcional">
-                    <TextInput value={r.reason} onChange={v => updRejection(i,"reason",v)} placeholder="Vínculos insuficientes con el país..."/>
-                  </Field>
-                </div>
-              </Card>
-            ))}
-            <AddBtn label="Agregar otro rechazo" onClick={addRejection}/>
+          <div className="mt-3">
+            <FileUpload
+              sessionId={sessionId}
+              storagePath={`module5/${deg.id}`}
+              filePath={deg.filePath}
+              fileName={deg.fileName}
+              onChange={({ filePath, fileName }) => updDegreeFields(i, { filePath, fileName })}
+            />
           </div>
-        )}
-      </div>
-
-      {/* Deportation */}
-      <div className="space-y-3">
-        <Field label="¿Ha sido deportado o ha tenido problemas migratorios serios?" required>
-          <YesNo value={d.hasDeportation} onChange={v => u("hasDeportation", v)} yesLabel="Sí" noLabel="No"/>
-        </Field>
-        {d.hasDeportation === true && (
-          <Field label="Descripción breve">
-            <Textarea value={d.deportationDescription} onChange={v => u("deportationDescription",v)}
-              placeholder="Describe brevemente qué ocurrió..." rows={3}/>
-          </Field>
-        )}
-      </div>
+        </Card>
+      ))}
+      <AddBtn label="Agregar título académico" onClick={addDegree}/>
     </div>
   );
 }
