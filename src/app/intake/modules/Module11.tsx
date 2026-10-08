@@ -1,9 +1,9 @@
-import type { Module11, StrategicAnswer } from "../types";
+import type { Module10, StrategicAnswer } from "../types";
 import { Textarea, YesNo, InfoBox, FileUpload } from "../primitives";
 
-type Props = { data: Module11; onChange: (d: Module11) => void; sessionId: string };
+type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: string };
 
-const QUESTIONS: { key: keyof Module11; question: string; hint: string }[] = [
+const QUESTIONS: { key: keyof Module10; question: string; hint: string }[] = [
   { key: "createdMethod",        question: "¿Ha creado algún método, proceso, herramienta, sistema o forma de trabajo que otras personas o empresas hayan utilizado?",       hint: "Metodologías propias, frameworks, sistemas que otros adoptaron..." },
   { key: "ledImpactProjects",    question: "¿Ha liderado proyectos que hayan tenido impacto significativo en su industria o comunidad?",                                     hint: "Proyectos con alcance más allá de su empresa o entorno inmediato..." },
   { key: "solvedComplexProblems",question: "¿Ha resuelto problemas complejos o poco comunes dentro de su campo profesional?",                                               hint: "Soluciones innovadoras, desafíos técnicos o artísticos difíciles..." },
@@ -17,7 +17,7 @@ const QUESTIONS: { key: keyof Module11; question: string; hint: string }[] = [
 ];
 
 export function Module11({ data: d, onChange, sessionId }: Props) {
-  const upd = (key: keyof Module11, patch: Partial<StrategicAnswer>) =>
+  const upd = (key: keyof Module10, patch: Partial<StrategicAnswer>) =>
     onChange({ ...d, [key]: { ...d[key], ...patch } });
 
   return (

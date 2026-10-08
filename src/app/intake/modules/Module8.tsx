@@ -1,7 +1,7 @@
-import type { Module8, BusinessEntry } from "../types";
+import type { Module7, BusinessEntry } from "../types";
 import { Field, TextInput, Textarea, Select, YesNo, AddBtn, Card } from "../primitives";
 
-type Props = { data: Module8; onChange: (d: Module8) => void };
+type Props = { data: Module7; onChange: (d: Module7) => void };
 
 const emptyBusiness = (): BusinessEntry => ({
   id: Math.random().toString(36).slice(2,9),
@@ -10,7 +10,7 @@ const emptyBusiness = (): BusinessEntry => ({
 });
 
 export function Module8({ data: d, onChange }: Props) {
-  const u = <K extends keyof Module8>(f: K, v: Module8[K]) => onChange({ ...d, [f]: v });
+  const u = <K extends keyof Module7>(f: K, v: Module7[K]) => onChange({ ...d, [f]: v });
 
   const addBusiness = () => u("businesses", [...d.businesses, emptyBusiness()]);
   const removeBusiness = (i: number) => u("businesses", d.businesses.filter((_,idx) => idx !== i));

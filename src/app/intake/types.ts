@@ -89,14 +89,14 @@ export type Module2 = {
   childrenDocs: ChildDocSet[];
 };
 
-// ─── Module 4 — Immigration History ──────────────────────────────────────────
+// ─── Module 3 — Immigration History ──────────────────────────────────────────
 export type UsaVisit = {
   id: string; entryDate: string; exitDate: string; visaType: string; purpose: string;
 };
 export type VisaRejection = {
   id: string; country: string; visaType: string; year: string; reason: string;
 };
-export type Module4 = {
+export type Module3 = {
   hasBeenInUSA: boolean | null;
   usaVisits: UsaVisit[];
   hasVisaRejection: boolean | null;
@@ -105,7 +105,7 @@ export type Module4 = {
   deportationDescription: string;
 };
 
-// ─── Module 5 — Formal Education ─────────────────────────────────────────────
+// ─── Module 4 — Formal Education ─────────────────────────────────────────────
 export type DegreeEntry = {
   id: string; institution: string; country: string;
   degreeType: string; degreeName: string;
@@ -114,18 +114,18 @@ export type DegreeEntry = {
   filePath: string;
   fileName: string;
 };
-export type Module5 = { degrees: DegreeEntry[] };
+export type Module4 = { degrees: DegreeEntry[] };
 
-// ─── Module 6 — Certifications ───────────────────────────────────────────────
+// ─── Module 5 — Certifications ───────────────────────────────────────────────
 export type CertEntry = {
   id: string; name: string; institution: string; country: string;
   year: string; isActive: string; hasCertificate: boolean | null;
   filePath: string;
   fileName: string;
 };
-export type Module6 = { certifications: CertEntry[] };
+export type Module5 = { certifications: CertEntry[] };
 
-// ─── Module 7 — Work Experience ──────────────────────────────────────────────
+// ─── Module 6 — Work Experience ──────────────────────────────────────────────
 export type EmploymentEntry = {
   id: string; company: string; country: string; city: string;
   title: string; startDate: string; endDate: string; isCurrent: boolean;
@@ -135,17 +135,17 @@ export type EmploymentEntry = {
   supervisorName: string; supervisorTitle: string; supervisorEmail: string; supervisorPhone: string;
   companyWebsite: string; internationalRecognition: string; // "si"|"no"|"no_se"
 };
-export type Module7 = { employment: EmploymentEntry[] };
+export type Module6 = { employment: EmploymentEntry[] };
 
-// ─── Module 8 — Own Businesses ───────────────────────────────────────────────
+// ─── Module 7 — Own Businesses ───────────────────────────────────────────────
 export type BusinessEntry = {
   id: string; name: string; country: string; foundedYear: string;
   industry: string; role: string; isActive: boolean | null;
   employeeCount: string; description: string; website: string;
 };
-export type Module8 = { hasOwnBusinesses: boolean | null; businesses: BusinessEntry[] };
+export type Module7 = { hasOwnBusinesses: boolean | null; businesses: BusinessEntry[] };
 
-// ─── Module 9 — References ───────────────────────────────────────────────────
+// ─── Module 8 — References ───────────────────────────────────────────────────
 export type ReferenceEntry = {
   id: string; name: string; currentTitle: string; company: string; country: string;
   email: string; phone: string;
@@ -155,9 +155,9 @@ export type ReferenceEntry = {
   specificAchievements: string;
   targetCriterionKey: string; // canonical-criteria.ts key this signer's letter will target
 };
-export type Module9 = { references: ReferenceEntry[] };
+export type Module8 = { references: ReferenceEntry[] };
 
-// ─── Module 10 — Evidence ────────────────────────────────────────────────────
+// ─── Module 9 — Evidence ─────────────────────────────────────────────────────
 export type EvidenceStatus = "tengo" | "no_tengo" | "tal_vez" | "";
 
 export type AwardEvidence      = { id: string; name: string; org: string; year: string; country: string; description: string; link: string; awardNominationAndJudgingCriteria: string; panelOrOrgReputationEvidence: string; awardFrequencyAndScope: string; filePath: string; fileName: string };
@@ -202,7 +202,7 @@ export type CriticalRoleEvidence =
       institutionalizationEvidence: string;
     };
 
-export type Module10 = {
+export type Module9 = {
   awardsStatus: EvidenceStatus;      awards: AwardEvidence[];      awardsDisposition: string;
   membershipsStatus: EvidenceStatus; memberships: MembershipEvidence[]; membershipsDisposition: string;
   mediaStatus: EvidenceStatus;       media: MediaEvidence[];       mediaDisposition: string;
@@ -226,9 +226,9 @@ export type Module10 = {
   criticalRole?: CriticalRoleEvidence; // un solo rol crítico por expediente
 };
 
-// ─── Module 11 — Strategic Information ───────────────────────────────────────
+// ─── Module 10 — Strategic Information ───────────────────────────────────────
 export type StrategicAnswer = { answer: string; hasEvidence: boolean | null; filePath: string; fileName: string };
-export type Module11 = {
+export type Module10 = {
   createdMethod: StrategicAnswer;
   ledImpactProjects: StrategicAnswer;
   solvedComplexProblems: StrategicAnswer;
@@ -241,10 +241,10 @@ export type Module11 = {
   additionalInfo: StrategicAnswer;
 };
 
-// ─── Module 12 — Optional Strategic Services ─────────────────────────────────
-export type Module12 = { interest: string }; // "si"|"tal_vez"|"no"|""
+// ─── Module 11 — Optional Strategic Services ─────────────────────────────────
+export type Module11 = { interest: string }; // "si"|"tal_vez"|"no"|""
 
-// ─── Module 14 — Petitioner Information ──────────────────────────────────────
+// ─── Module 12 — Petitioner Information ──────────────────────────────────────
 export type ItineraryItem = {
   id: string;
   eventDate: string;
@@ -256,7 +256,7 @@ export type ItineraryItem = {
   employerName: string;
 };
 
-export type Module14 = {
+export type Module12 = {
   petitionerType: "empresa" | "persona_natural" | "agente" | "";
   // empresa
   companyName: string;
@@ -328,7 +328,7 @@ export type Module14 = {
   filesI485Concurrent: boolean | null;
 };
 
-// ─── Module 15 — Consultative Opinion & O-2 Companions ───────────────────────
+// ─── Module 13 — Consultative Opinion & O-2 Companions ───────────────────────
 export type O2Companion = {
   id: string;
   fullName: string;
@@ -342,7 +342,7 @@ export type O2Companion = {
   employmentEvidenceName: string;
 };
 
-export type Module15 = {
+export type Module13 = {
   // Section A — Consultative opinion
   hasPeerGroup: "si" | "no" | "no_se" | "";
   peerGroupName: string;
@@ -388,17 +388,17 @@ export type IntakeForm = {
   module0:  Module0;
   module1:  Module1;
   module2:  Module2;
-  module4:  Module4;
-  module5:  Module5;
-  module6:  Module6;
-  module7:  Module7;
-  module8:  Module8;
-  module9:  Module9;
-  module10: Module10;
-  module11: Module11;
-  module12: Module12;
-  module14: Module14;
-  module15: Module15;
+  module4:  Module3;
+  module5:  Module4;
+  module6:  Module5;
+  module7:  Module6;
+  module8:  Module7;
+  module9:  Module8;
+  module10: Module9;
+  module11: Module10;
+  module12: Module11;
+  module14: Module12;
+  module15: Module13;
 };
 
 export type ModuleStatus = "complete" | "partial" | "empty";

@@ -1,7 +1,7 @@
-import type { Module7, EmploymentEntry } from "../types";
+import type { Module6, EmploymentEntry } from "../types";
 import { Field, TextInput, Textarea, Select, YesNo, AddBtn, Card, InfoBox, SectionDivider } from "../primitives";
 
-type Props = { data: Module7; onChange: (d: Module7) => void };
+type Props = { data: Module6; onChange: (d: Module6) => void };
 
 const emptyJob = (): EmploymentEntry => ({
   id: Math.random().toString(36).slice(2,9),

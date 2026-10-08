@@ -1,8 +1,8 @@
-import type { Module9, ReferenceEntry } from "../types";
+import type { Module8, ReferenceEntry } from "../types";
 import { Field, TextInput, Textarea, Select, AddBtn, Card, InfoBox } from "../primitives";
 import { resolveCriteriaSet, criteriaSetForClassification } from "@/lib/canonical-criteria";
 
-type Props = { data: Module9; onChange: (d: Module9) => void; visaType: string };
+type Props = { data: Module8; onChange: (d: Module8) => void; visaType: string };
 
 const emptyRef = (): ReferenceEntry => ({
   id: Math.random().toString(36).slice(2,9),

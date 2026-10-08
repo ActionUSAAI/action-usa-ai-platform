@@ -1,10 +1,10 @@
 import { Building2, User, Briefcase } from "lucide-react";
-import type { Module14, ItineraryItem } from "../types";
+import type { Module12, ItineraryItem } from "../types";
 import { Field, TextInput, Textarea, Select, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
 import { composeFullName } from "../name-utils";
 import { composeAddress } from "../address-utils";
 
-type Props = { data: Module14; onChange: (d: Module14) => void; sessionId: string; visaType: string };
+type Props = { data: Module12; onChange: (d: Module12) => void; sessionId: string; visaType: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9);
 
@@ -35,7 +35,7 @@ const PETITIONER_TYPES = [
 ];
 
 export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
-  const set = <K extends keyof Module14>(k: K, v: Module14[K]) => onChange({ ...d, [k]: v });
+  const set = <K extends keyof Module12>(k: K, v: Module12[K]) => onChange({ ...d, [k]: v });
 
   function updateRepresentativeNameField(field: "representativeFamilyName" | "representativeGivenName" | "representativeMiddleName", value: string) {
     const updated = { ...d, [field]: value };
@@ -332,7 +332,7 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                   placeholder="Científico Principal, Jugador Profesional, Director Musical..." />
               </Field>
               <Field label="Base de la clasificación solicitada" required>
-                <Select value={d.basisForClassification} onChange={v => set("basisForClassification", v as Module14["basisForClassification"])}>
+                <Select value={d.basisForClassification} onChange={v => set("basisForClassification", v as Module12["basisForClassification"])}>
                   <option value="">Seleccionar...</option>
                   <option value="new">Petición nueva</option>
                   <option value="change">Cambio de estatus/empleador</option>
@@ -343,7 +343,7 @@ export function Module14({ data: d, onChange, sessionId, visaType }: Props) {
                 </Select>
               </Field>
               <Field label="Acción solicitada" required>
-                <Select value={d.requestedAction} onChange={v => set("requestedAction", v as Module14["requestedAction"])}>
+                <Select value={d.requestedAction} onChange={v => set("requestedAction", v as Module12["requestedAction"])}>
                   <option value="">Seleccionar...</option>
                   <option value="notify_office">Notificar a la oficina consular/puerto de entrada</option>
                   <option value="change_status_extend">Cambiar estatus y extender estadía</option>

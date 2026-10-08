@@ -1,13 +1,13 @@
-import type { Module4, UsaVisit, VisaRejection } from "../types";
+import type { Module3, UsaVisit, VisaRejection } from "../types";
 import { Field, TextInput, Textarea, YesNo, AddBtn, Card } from "../primitives";
 
-type Props = { data: Module4; onChange: (d: Module4) => void };
+type Props = { data: Module3; onChange: (d: Module3) => void };
 
 const emptyVisit = (): UsaVisit => ({ id: Math.random().toString(36).slice(2,9), entryDate:"", exitDate:"", visaType:"", purpose:"" });
 const emptyRejection = (): VisaRejection => ({ id: Math.random().toString(36).slice(2,9), country:"", visaType:"", year:"", reason:"" });
 
 export function Module4({ data: d, onChange }: Props) {
-  const u = <K extends keyof Module4>(f: K, v: Module4[K]) => onChange({ ...d, [f]: v });
+  const u = <K extends keyof Module3>(f: K, v: Module3[K]) => onChange({ ...d, [f]: v });
 
   const addVisit = () => u("usaVisits", [...d.usaVisits, emptyVisit()]);
   const removeVisit = (i: number) => u("usaVisits", d.usaVisits.filter((_,idx) => idx !== i));

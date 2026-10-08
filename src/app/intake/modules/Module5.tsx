@@ -1,7 +1,7 @@
-import type { Module5, DegreeEntry } from "../types";
+import type { Module4, DegreeEntry } from "../types";
 import { Field, TextInput, Select, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module5; onChange: (d: Module5) => void; sessionId: string };
+type Props = { data: Module4; onChange: (d: Module4) => void; sessionId: string };
 
 const emptyDegree = (): DegreeEntry => ({
   id: Math.random().toString(36).slice(2,9),

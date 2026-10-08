@@ -1,5 +1,5 @@
 import type {
-  Module10, EvidenceStatus, IncomeEvidence,
+  Module9, EvidenceStatus, IncomeEvidence,
   AwardEvidence, MembershipEvidence, MediaEvidence, ArticleEvidence,
   BookEvidence, ConferenceEvidence, JudgingEvidence, PatentEvidence,
   ArtisticExhibitionEvidence, PerformingArtsCommercialSuccessEvidence,
@@ -12,7 +12,7 @@ import {
   AddBtn, Card, EvidenceSelector, SectionDivider, InfoBox, FileUpload, DispositionBox,
 } from "../primitives";
 
-type Props = { data: Module10; onChange: (d: Module10) => void; sessionId: string };
+type Props = { data: Module9; onChange: (d: Module9) => void; sessionId: string };
 
 const genId = () => Math.random().toString(36).slice(2,9);
 
@@ -88,7 +88,7 @@ function EvidenceSection<T extends { id: string }>({
 }
 
 export function Module10({ data: d, onChange, sessionId }: Props) {
-  const u = <K extends keyof Module10>(f: K, v: Module10[K]) => onChange({ ...d, [f]: v });
+  const u = <K extends keyof Module9>(f: K, v: Module9[K]) => onChange({ ...d, [f]: v });
   const uIncome = (patch: Partial<IncomeEvidence>) => u("incomeEvidence", { ...d.incomeEvidence, ...patch });
 
   return (

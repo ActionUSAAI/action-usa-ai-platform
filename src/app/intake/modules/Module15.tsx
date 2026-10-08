@@ -1,8 +1,8 @@
 import { useState, useEffect } from "react";
-import type { Module15, O2Companion } from "../types";
+import type { Module13, O2Companion } from "../types";
 import { Field, TextInput, Textarea, YesNo, AddBtn, Card, FileUpload, InfoBox, SectionDivider } from "../primitives";
 
-type Props = { data: Module15; onChange: (d: Module15) => void; sessionId: string; profession: string; industry: string; visaType: string };
+type Props = { data: Module13; onChange: (d: Module13) => void; sessionId: string; profession: string; industry: string; visaType: string };
 
 const genId = () => Math.random().toString(36).slice(2, 9);
 
@@ -37,7 +37,7 @@ const PEER_OPTIONS = [
 ];
 
 export function Module15({ data: d, onChange, sessionId, profession, industry, visaType }: Props) {
-  const set = <K extends keyof Module15>(k: K, v: Module15[K]) => onChange({ ...d, [k]: v });
+  const set = <K extends keyof Module13>(k: K, v: Module13[K]) => onChange({ ...d, [k]: v });
 
   const [suggestions, setSuggestions] = useState<{ id: string; organization_name: string; category: string }[]>([]);
 
@@ -163,7 +163,7 @@ export function Module15({ data: d, onChange, sessionId, profession, industry, v
                   <button
                     key={opt.value}
                     type="button"
-                    onClick={() => set("peerGroupLetterType", opt.value as Module15["peerGroupLetterType"])}
+                    onClick={() => set("peerGroupLetterType", opt.value as Module13["peerGroupLetterType"])}
                     className={`flex flex-col gap-0.5 rounded-lg border-2 p-3 text-left transition-all ${
                       d.peerGroupLetterType === opt.value
                         ? "border-[#1B2B5E] bg-[#1B2B5E]/5"

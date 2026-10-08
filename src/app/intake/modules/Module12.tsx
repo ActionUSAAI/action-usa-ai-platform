@@ -1,6 +1,6 @@
-import type { Module12 } from "../types";
+import type { Module11 } from "../types";
 
-type Props = { data: Module12; onChange: (d: Module12) => void };
+type Props = { data: Module11; onChange: (d: Module11) => void };
 
 const OPTIONS = [
   {

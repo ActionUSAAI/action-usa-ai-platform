@@ -1,7 +1,7 @@
-import type { Module6, CertEntry } from "../types";
+import type { Module5, CertEntry } from "../types";
 import { Field, TextInput, Select, YesNo, AddBtn, Card, FileUpload } from "../primitives";
 
-type Props = { data: Module6; onChange: (d: Module6) => void; sessionId: string };
+type Props = { data: Module5; onChange: (d: Module5) => void; sessionId: string };
 
 const emptyCert = (): CertEntry => ({
   id: Math.random().toString(36).slice(2,9),
