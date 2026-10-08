@@ -8,6 +8,10 @@ import type { IntakeForm as IntakeFormData, ModuleStatus } from "./types";
 import { IntakeTokenProvider } from "./primitives";
 import { emptyStructuredProfile, emptyField, acquireField } from "@/lib/intake/structured-profile";
 import { prefillModule1 } from "@/lib/intake/prefill-engine";
+import {
+  type ProfessionalIntelligenceCandidates,
+  emptyProfessionalIntelligenceCandidates,
+} from "@/lib/intake/professional-intelligence";
 import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
 import { Module2 }  from "./modules/Module2";
@@ -31,7 +35,19 @@ const TOTAL = 14;
 // IntakeFormData and never spread into the /api/intake submission
 // payload. `savedAt` is informational only, not restored into React
 // state during hydration.
-export type DraftEnvelope = { data: IntakeFormData; step: number; savedAt: string };
+//
+// professionalIntelligenceCandidates (PI-B2A) is an additive, optional
+// sibling -- NEVER part of IntakeFormData, NEVER part of Module0Data,
+// and (like `step`/`savedAt`) never spread into the /api/intake
+// submission payload (see submit() below -- it has no reference to
+// this field at all). This is the exact PI-B2 Exact Design's frozen
+// draft-ownership boundary.
+export type DraftEnvelope = {
+  data: IntakeFormData;
+  step: number;
+  savedAt: string;
+  professionalIntelligenceCandidates?: ProfessionalIntelligenceCandidates;
+};
 
 // P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
 // by IntakeForm itself (hydration effect, next()/back()) so tests can
@@ -47,19 +63,49 @@ export function validateResumeStep(rawStep: unknown, total: number): number {
   return 0;
 }
 
+// Coarse, bounded structural guard (PI-B2A) -- deliberately NOT a
+// per-candidate/per-field validator (that duplicates PI-B1's own raw-
+// LLM-response validator for a different input shape, which is already
+// application-candidate-shaped, not raw-LLM-shaped). A value is
+// acceptable for hydration only if it is a non-null object with all
+// seven exact domain keys, each holding an array. Anything else
+// (null, a string, a missing domain, a non-array domain) causes the
+// WHOLE overlay to reset empty -- this can never affect IntakeFormData
+// hydration, since it is read into a fully separate return value below.
+// Malformed CONTENTS inside an otherwise-valid array (e.g. a candidate
+// missing required fields) are explicitly NOT inspected here.
+export function isValidProfessionalIntelligenceCandidatesOverlay(value: unknown): value is ProfessionalIntelligenceCandidates {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  const domains = ["employment", "education", "certification", "business", "reference", "evidence", "strategicAnswer"] as const;
+  return domains.every(d => Array.isArray(v[d]));
+}
+
 // Discriminates a P7-R4 envelope ({data, step, savedAt}) from a legacy
 // bare IntakeFormData draft (any prior version of this code), and
 // returns the module data to hydrate plus the validated resume step.
 // Neither "data" nor "step" exists as a top-level IntakeFormData key,
 // so there is no ambiguity between the two shapes.
-export function parseDraftEnvelope(raw: string, total: number): { saved: Partial<IntakeFormData>; resumeStep: number } {
+//
+// professionalIntelligenceCandidates (PI-B2A): always returns a fully
+// valid, possibly-all-empty container -- never undefined, never a raw
+// unvalidated value. A legacy bare-IntakeFormData draft (no envelope at
+// all) and an old envelope predating this field both correctly resolve
+// to an empty overlay via the exact same coarse guard.
+export function parseDraftEnvelope(
+  raw: string,
+  total: number
+): { saved: Partial<IntakeFormData>; resumeStep: number; professionalIntelligenceCandidates: ProfessionalIntelligenceCandidates } {
   const parsed = JSON.parse(raw) as Partial<DraftEnvelope> & Partial<IntakeFormData>;
   const isEnvelope = typeof parsed === "object" && parsed !== null && "data" in parsed && "step" in parsed;
   if (isEnvelope) {
     const envelope = parsed as DraftEnvelope;
-    return { saved: envelope.data ?? {}, resumeStep: validateResumeStep(envelope.step, total) };
+    const candidates = isValidProfessionalIntelligenceCandidatesOverlay(envelope.professionalIntelligenceCandidates)
+      ? envelope.professionalIntelligenceCandidates
+      : emptyProfessionalIntelligenceCandidates();
+    return { saved: envelope.data ?? {}, resumeStep: validateResumeStep(envelope.step, total), professionalIntelligenceCandidates: candidates };
   }
-  return { saved: parsed as Partial<IntakeFormData>, resumeStep: 0 };
+  return { saved: parsed as Partial<IntakeFormData>, resumeStep: 0, professionalIntelligenceCandidates: emptyProfessionalIntelligenceCandidates() };
 }
 
 // The exact destination-step arithmetic next()/back() apply, extracted
@@ -382,6 +428,13 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
   const [step, setStep]               = useState(0);
   const [data, setData]               = useState<IntakeFormData>(() => buildInitialIntakeFormData(invitationEmail));
+  // PI-B2A: independent of IntakeFormData/Module0Data by design (PI-B2
+  // Exact Design's frozen draft-ownership boundary). No runtime producer
+  // exists yet -- only initialization and draft hydration may populate
+  // this state until a future, separately-authorized slice wires actual
+  // A0 professional extraction.
+  const [professionalIntelligenceCandidates, setProfessionalIntelligenceCandidates] =
+    useState<ProfessionalIntelligenceCandidates>(() => emptyProfessionalIntelligenceCandidates());
   const [sessionId, setSessionId]     = useState("");
   const [loading, setLoading]         = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -394,6 +447,18 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // the timer on every keystroke (P7-R5).
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
+
+  // PI-B2A: mirrors dataRef's exact pattern so save() can serialize the
+  // latest candidate snapshot without recreating its own stable
+  // identity/interval. Set synchronously alongside the hydration
+  // setProfessionalIntelligenceCandidates call too (not only via this
+  // effect) so there is never a window where state holds hydrated
+  // candidates but the ref still holds the pre-hydration empty value --
+  // an immediate manual/checkpoint save between hydration and this
+  // effect's next run could otherwise overwrite the just-hydrated
+  // overlay with the stale ref value.
+  const professionalIntelligenceCandidatesRef = useRef(professionalIntelligenceCandidates);
+  useEffect(() => { professionalIntelligenceCandidatesRef.current = professionalIntelligenceCandidates; }, [professionalIntelligenceCandidates]);
 
   // Latest navigation position, mirroring dataRef so the stable-interval
   // autosave (and manual "Guardar borrador") can serialize the current
@@ -436,6 +501,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
         data: explicitData ?? dataRef.current,
         step: explicitStep ?? stepRef.current,
         savedAt: new Date().toISOString(),
+        professionalIntelligenceCandidates: professionalIntelligenceCandidatesRef.current,
       };
       localStorage.setItem(storageKey, JSON.stringify(envelope));
       setSavedAt(new Date());
@@ -472,8 +538,14 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       setSessionId(sid);
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const { saved, resumeStep } = parseDraftEnvelope(raw, TOTAL);
+        const { saved, resumeStep, professionalIntelligenceCandidates: hydratedCandidates } = parseDraftEnvelope(raw, TOTAL);
         justHydratedRef.current = true;
+        // Set the ref synchronously, in the same tick as the state update
+        // below, so there is never a window where state holds the
+        // hydrated overlay but the ref still holds the pre-hydration
+        // empty value (see the ref's own comment above).
+        professionalIntelligenceCandidatesRef.current = hydratedCandidates;
+        setProfessionalIntelligenceCandidates(hydratedCandidates);
         setData({
           ...INITIAL,
           ...saved,

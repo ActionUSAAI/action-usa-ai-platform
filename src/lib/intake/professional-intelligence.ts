@@ -295,3 +295,44 @@ export function strategicAnswerMaterialEquals(a: StrategicAnswerCandidate, b: St
   if (!strategicAnswerSameIdentity(a, b)) return false;
   return normalizedEquals(a.answer, b.answer);
 }
+
+// ── Source-scoped replacement (PI-B2A) ───────────────────────────────────────
+// Added for the future A0-professional-extraction runtime wiring (PI-B2B,
+// not yet implemented). Pure, non-mutating. Performs source-scoped
+// REPLACEMENT only -- never deduplication, same-identity comparison,
+// material-equality comparison, candidate merge, provenance merge,
+// conflict resolution, supersession, acceptance, or rejection. None of
+// the *SameIdentity/*MaterialEquals comparators above are consulted here.
+//
+// A candidate is considered exclusively cv_extraction-sourced, and is
+// therefore replaced, only when its provenance array is non-empty AND
+// every entry's source is "cv_extraction". A candidate with zero
+// provenance entries, or with at least one non-cv_extraction entry
+// (including a future multi-source candidate carrying both
+// cv_extraction and coach_discovery provenance), is preserved
+// unchanged -- never split, never rewritten. This conservative default
+// deliberately leaves the future multi-source-candidate replacement
+// question open rather than resolving it here (see the PI-B2 Exact
+// Design's own flagged ambiguity).
+function isCvExtractionOnly(provenance: readonly CandidateProvenance[]): boolean {
+  return provenance.length > 0 && provenance.every(p => p.source === "cv_extraction");
+}
+
+function replaceDomain<T extends { provenance: CandidateProvenance[] }>(current: T[], incoming: T[]): T[] {
+  return [...current.filter(c => !isCvExtractionOnly(c.provenance)), ...incoming];
+}
+
+export function replaceCvExtractionCandidates(
+  current: ProfessionalIntelligenceCandidates,
+  incoming: ProfessionalIntelligenceCandidates
+): ProfessionalIntelligenceCandidates {
+  return {
+    employment: replaceDomain(current.employment, incoming.employment),
+    education: replaceDomain(current.education, incoming.education),
+    certification: replaceDomain(current.certification, incoming.certification),
+    business: replaceDomain(current.business, incoming.business),
+    reference: replaceDomain(current.reference, incoming.reference),
+    evidence: replaceDomain(current.evidence, incoming.evidence),
+    strategicAnswer: replaceDomain(current.strategicAnswer, incoming.strategicAnswer),
+  };
+}
