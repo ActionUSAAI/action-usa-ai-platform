@@ -338,11 +338,19 @@ async function run() {
     check("T65 candidateId is never interpolated inside buildActiveContextBlock specifically", !buildActiveContextBlockBody.includes("candidateId"));
   }
 
-  // ── Production consumer count (expected 0 -- PI-D1B not authorized) ───────
+  // ── Production consumer boundary (PI-D1B-R1 reconciliation) ────────────────
+  // D1A extractor has exactly one authorized production consumer: Coach
+  // route. Pre-D1B this was correctly zero; PI-D1B's own authorized
+  // purpose is to wire the first and only production consumer
+  // (src/app/api/intake/coach/route.ts) into this extractor -- that is
+  // the permanent post-D1B boundary this file now protects, not merely
+  // "count === 1" (which alone would not catch a wrong or an additional
+  // consumer).
   {
     const grepResult = require("child_process").execSync(`grep -rl "coach-professional-extraction" src/ 2>/dev/null || true`, { cwd: process.cwd(), encoding: "utf8" }).trim();
     const consumers = grepResult.split("\n").filter((l: string) => l && !l.includes("coach-professional-extraction.ts"));
-    check("T66 zero production consumers of the new extractor (PI-D1B not authorized)", consumers.length === 0);
+    check("T66 exactly one production consumer of the new extractor", consumers.length === 1);
+    check("T66b the sole production consumer is the Coach route", consumers.length === 1 && consumers[0].endsWith("src/app/api/intake/coach/route.ts"));
   }
 
   console.log(failures === 0 ? `\nALL PI-D1A CHECKS PASS` : `\n${failures} PI-D1A CHECK(S) FAILED`);
