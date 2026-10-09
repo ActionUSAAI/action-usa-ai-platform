@@ -12,7 +12,14 @@ import {
   type ProfessionalIntelligenceCandidates,
   emptyProfessionalIntelligenceCandidates,
   replaceCvExtractionCandidates,
+  type CandidateStatus,
 } from "@/lib/intake/professional-intelligence";
+import {
+  candidateToEmploymentEntry, candidateToEducationEntry, candidateToCertificationEntry,
+  candidateToBusinessEntry, candidateToReferenceEntry, candidateToEvidenceStatusPatch,
+  candidateToStrategicAnswerPatch,
+} from "@/lib/intake/professional-intelligence-adapters";
+import { ProfessionalCandidateReview, type ProfessionalIntelligenceCandidateDomain } from "./professional-candidate-review";
 import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
 import { Module2 }  from "./modules/Module2";
@@ -80,6 +87,33 @@ export function isValidProfessionalIntelligenceCandidatesOverlay(value: unknown)
   const v = value as Record<string, unknown>;
   const domains = ["employment", "education", "certification", "business", "reference", "evidence", "strategicAnswer"] as const;
   return domains.every(d => Array.isArray(v[d]));
+}
+
+// PI-C3 — narrow, domain-agnostic candidate-array helpers (never moved
+// into professional-intelligence.ts, which deliberately has zero
+// production consumers by design). Used only by the Accept/Reject
+// derivation/commit phases below. Pure; never mutate the input array.
+//
+// Derivation-phase lookup+guard (D-PI-C3-03): returns the candidate
+// only when it exists AND is still "proposed" -- the single shared
+// precondition for every domain's Accept/Reject. Returns null for a
+// missing candidate or one already transitioned (e.g. a stale/repeated
+// action), which callers treat as a silent no-op.
+export function findProposedCandidate<T extends { id: string; status: CandidateStatus }>(
+  arr: readonly T[], candidateId: string
+): T | null {
+  const found = arr.find(c => c.id === candidateId);
+  return found && found.status === "proposed" ? found : null;
+}
+
+// Commit-phase array rebuild: replaces exactly one candidate's status,
+// preserving its id/payload/provenance and every other candidate/
+// domain array untouched. Only ever called after findProposedCandidate
+// (and any domain-specific precondition) has already succeeded.
+export function withCandidateStatus<T extends { id: string; status: CandidateStatus }>(
+  arr: readonly T[], candidateId: string, status: CandidateStatus
+): T[] {
+  return arr.map(c => (c.id === candidateId ? { ...c, status } : c));
 }
 
 // Discriminates a P7-R4 envelope ({data, step, savedAt}) from a legacy
@@ -539,6 +573,157 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setProfessionalIntelligenceCandidates(next);
   }, []);
 
+  // ── PI-C3 — explicit beneficiary Accept (D-PI-C3-01/02/03) ──────────────────
+  // Candidate ≠ module data until this runs. Derivation (lookup,
+  // proposed-status guard, domain precondition, adapter call,
+  // nextData/nextCandidates) completes fully and synchronously before
+  // any ref/state/draft mutation -- a guarded/failed derivation
+  // performs zero mutation of any kind (D-PI-C3-03). Reads the
+  // candidate ref, never the possibly-one-render-stale React state, so
+  // a rapid repeated click (Accept->Accept, Accept->Reject,
+  // Reject->Accept) always sees the just-committed status and becomes
+  // a no-op on its second invocation. Always reuses the existing,
+  // unmodified save(explicitData?) -- the candidate ref is assigned
+  // synchronously first (save() has no candidate-override parameter),
+  // then save(nextData) performs exactly one coherent draft write
+  // containing both the new module data and the new candidate status.
+  const handleAcceptCandidate = useCallback((domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => {
+    const candidates = professionalIntelligenceCandidatesRef.current;
+    const current = dataRef.current;
+    let nextData: IntakeFormData;
+    let nextCandidates: ProfessionalIntelligenceCandidates;
+
+    switch (domain) {
+      case "employment": {
+        const candidate = findProposedCandidate(candidates.employment, candidateId);
+        if (!candidate) return;
+        const entry = candidateToEmploymentEntry(candidate);
+        nextData = { ...current, module7: { employment: [...current.module7.employment, entry] } };
+        nextCandidates = { ...candidates, employment: withCandidateStatus(candidates.employment, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "education": {
+        const candidate = findProposedCandidate(candidates.education, candidateId);
+        if (!candidate) return;
+        const entry = candidateToEducationEntry(candidate);
+        nextData = { ...current, module5: { degrees: [...current.module5.degrees, entry] } };
+        nextCandidates = { ...candidates, education: withCandidateStatus(candidates.education, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "certification": {
+        const candidate = findProposedCandidate(candidates.certification, candidateId);
+        if (!candidate) return;
+        const entry = candidateToCertificationEntry(candidate);
+        nextData = { ...current, module6: { certifications: [...current.module6.certifications, entry] } };
+        nextCandidates = { ...candidates, certification: withCandidateStatus(candidates.certification, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "business": {
+        const candidate = findProposedCandidate(candidates.business, candidateId);
+        if (!candidate) return;
+        const entry = candidateToBusinessEntry(candidate);
+        nextData = {
+          ...current,
+          module8: { ...current.module8, hasOwnBusinesses: true, businesses: [...current.module8.businesses, entry] },
+        };
+        nextCandidates = { ...candidates, business: withCandidateStatus(candidates.business, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "reference": {
+        const candidate = findProposedCandidate(candidates.reference, candidateId);
+        if (!candidate) return;
+        const entry = candidateToReferenceEntry(candidate);
+        nextData = { ...current, module9: { references: [...current.module9.references, entry] } };
+        nextCandidates = { ...candidates, reference: withCandidateStatus(candidates.reference, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "evidence": {
+        const candidate = findProposedCandidate(candidates.evidence, candidateId);
+        if (!candidate) return;
+        // D-PI-C3-01: a {} patch (target status already decided) still
+        // resolves the beneficiary's explicit Accept -- the candidate
+        // transitions even though no module value changes.
+        const patch = candidateToEvidenceStatusPatch(candidate, current.module10);
+        nextData = { ...current, module10: { ...current.module10, ...patch } };
+        nextCandidates = { ...candidates, evidence: withCandidateStatus(candidates.evidence, candidateId, "accepted_in_module") };
+        break;
+      }
+      case "strategicAnswer": {
+        const candidate = findProposedCandidate(candidates.strategicAnswer, candidateId);
+        if (!candidate) return;
+        // D-PI-C3-02: only valid while the target answer is still
+        // blank -- a non-empty existing beneficiary-authored answer is
+        // a silent no-op (candidate remains proposed, zero mutation).
+        if (current.module11[candidate.targetField].answer.trim() !== "") return;
+        const patch = candidateToStrategicAnswerPatch(candidate, current.module11);
+        nextData = { ...current, module11: { ...current.module11, ...patch } };
+        nextCandidates = { ...candidates, strategicAnswer: withCandidateStatus(candidates.strategicAnswer, candidateId, "accepted_in_module") };
+        break;
+      }
+    }
+
+    professionalIntelligenceCandidatesRef.current = nextCandidates;
+    const persisted = save(nextData);
+    if (persisted) { justCheckpointedRef.current = true; }
+    setData(nextData);
+    setProfessionalIntelligenceCandidates(nextCandidates);
+  }, [save]);
+
+  // ── PI-C3 — explicit beneficiary Reject (D-PI-C3-03) ────────────────────────
+  // Module data is never touched. Same ref-based lookup/guard
+  // discipline as Accept, so a repeated/stale action is a silent
+  // no-op. save() is called with NO explicit data argument -- module
+  // data is unchanged, so dataRef.current (save()'s own default) is
+  // already correct; only the candidate ref needs a synchronous
+  // pre-assignment, for the same reason explained above.
+  const handleRejectCandidate = useCallback((domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => {
+    const candidates = professionalIntelligenceCandidatesRef.current;
+    let nextCandidates: ProfessionalIntelligenceCandidates;
+
+    switch (domain) {
+      case "employment": {
+        if (!findProposedCandidate(candidates.employment, candidateId)) return;
+        nextCandidates = { ...candidates, employment: withCandidateStatus(candidates.employment, candidateId, "rejected") };
+        break;
+      }
+      case "education": {
+        if (!findProposedCandidate(candidates.education, candidateId)) return;
+        nextCandidates = { ...candidates, education: withCandidateStatus(candidates.education, candidateId, "rejected") };
+        break;
+      }
+      case "certification": {
+        if (!findProposedCandidate(candidates.certification, candidateId)) return;
+        nextCandidates = { ...candidates, certification: withCandidateStatus(candidates.certification, candidateId, "rejected") };
+        break;
+      }
+      case "business": {
+        if (!findProposedCandidate(candidates.business, candidateId)) return;
+        nextCandidates = { ...candidates, business: withCandidateStatus(candidates.business, candidateId, "rejected") };
+        break;
+      }
+      case "reference": {
+        if (!findProposedCandidate(candidates.reference, candidateId)) return;
+        nextCandidates = { ...candidates, reference: withCandidateStatus(candidates.reference, candidateId, "rejected") };
+        break;
+      }
+      case "evidence": {
+        if (!findProposedCandidate(candidates.evidence, candidateId)) return;
+        nextCandidates = { ...candidates, evidence: withCandidateStatus(candidates.evidence, candidateId, "rejected") };
+        break;
+      }
+      case "strategicAnswer": {
+        if (!findProposedCandidate(candidates.strategicAnswer, candidateId)) return;
+        nextCandidates = { ...candidates, strategicAnswer: withCandidateStatus(candidates.strategicAnswer, candidateId, "rejected") };
+        break;
+      }
+    }
+
+    professionalIntelligenceCandidatesRef.current = nextCandidates;
+    const persisted = save();
+    if (persisted) { justCheckpointedRef.current = true; }
+    setProfessionalIntelligenceCandidates(nextCandidates);
+  }, [save]);
+
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
     try {
@@ -777,6 +962,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
             {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
             {step === 3  && <Module3  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}
