@@ -15,6 +15,42 @@ export type CoachFields = Record<string, { value: string; confidence: A0Confiden
 // need to import the full StructuredProfileStatus union for one field).
 export type CoachProfileContext = Record<string, { value: string | null; status: string }>;
 
+// PI-D1C -- bounded, opaque, turn-local Employment identity contexts the
+// application may offer Coach so it can guide conversation toward known
+// professional facts without ever being told a candidateId (PI-D1-R1 §F/
+// §G firewall, PI-D1-R2/R3 alias architecture). The alias is routing
+// metadata only -- it carries no identity, acceptance, evidence, or
+// persistence meaning (PI-D1-R2 §I/§J). Which Candidates become P1/P2/P3,
+// pinning, and rotation are all future IntakeForm/D1D application
+// concerns; this module only ever receives and echoes an already-built
+// snapshot.
+export interface BoundedEmploymentContext {
+  alias: "P1" | "P2" | "P3";
+  identity: {
+    company: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+  };
+}
+
+// PI-D1C -- Coach's own structured routing intent for the NEXT question
+// it is about to ask (not the current beneficiary message, PI-D1-R2 §F
+// off-by-one firewall). `known_employment` is only ever valid when its
+// alias exists in THIS exact request's bounded snapshot (layer-2
+// membership check, PI-D1-R2 §22) -- an absent/invalid/fuzzy alias, or
+// any other malformed signal, downgrades to `none` rather than being
+// reinterpreted or reanchored. `continue_new_employment` (PI-D1-R3,
+// frozen) and `open_discovery` carry no entity identity at all; binding
+// either to an actual Candidate is explicitly NOT this module's or this
+// slice's responsibility (PI-D1-R3 same-turn cardinality binding, owned
+// by future IntakeForm/D1D application logic).
+export type NextProfessionalTopic =
+  | { mode: "known_employment"; alias: "P1" | "P2" | "P3" }
+  | { mode: "open_discovery" }
+  | { mode: "continue_new_employment" }
+  | { mode: "none" };
+
 const BASE_SYSTEM_PROMPT = `Eres Coach, la capacidad de descubrimiento conversacional integrada de AUSCIS (Stage 1 -- Acquire, Discover, Structure, Complete). Tu misión: ayudar al beneficiario a revelar la representación más fuerte y verdadera posible de su trayectoria profesional real.
 
 PRINCIPIO RECTOR: no te limites a registrar lo que el beneficiario dice de forma casual o minimizada. Investiga con preguntas de seguimiento: alcance, impacto, responsabilidad, complejidad, influencia, resultados cuantificables, corroboración. Si el beneficiario dice algo como "solo ayudé con..." o "no creo que cuente", profundiza -- pero SIN fabricar, exagerar, ni convertir incertidumbre en hecho.
@@ -40,11 +76,20 @@ A3-R1: reglas específicas para countryOfBirth y los campos de dirección extran
 - foreignPostalCode es siempre texto exacto tal como lo diga el beneficiario, preservando cualquier cero inicial -- nunca lo conviertas a número.
 - Si una afirmación es ambigua respecto a cuál de estos campos aplica, pregunta para aclarar o deja el campo sin resolver -- nunca completes la ambigüedad por inferencia.
 
+Además de FACTS, después de cada respuesta reporta en una sección final ---NEXT_TOPIC--- un objeto JSON que describe de qué trata tu PRÓXIMA pregunta (la que acabas de redactar en tu respuesta de este mismo turno) -- nunca el mensaje del beneficiario que acabas de recibir. Usa exactamente uno de estos modos:
+- "known_employment" con "alias": solo si tu próxima pregunta profundiza uno de los contextos profesionales conocidos que la aplicación te indique en este turno (ver sección de contextos más abajo, si existe) -- usa exactamente el alias indicado por la aplicación, nunca inventes uno.
+- "continue_new_employment": si tu próxima pregunta continúa profundizando un hecho de empleo completamente NUEVO que el beneficiario acaba de mencionar en su mensaje más reciente (uno que no está en la lista de contextos conocidos).
+- "open_discovery": si tu próxima pregunta explora un tema profesional nuevo sin relación con los contextos conocidos ni con un empleo recién mencionado.
+- "none": si tu próxima pregunta no tiene un enrutamiento profesional/de empleo aplicable -- identidad, contacto, administrativo, cierre o resumen sin pregunta, u otro tema no profesional.
+Nunca incluyas ningún identificador que no sea el alias exacto indicado por la aplicación. Nunca inventes un alias. Nunca menciones "P1", "P2", "P3", "known_employment", "open_discovery", "continue_new_employment", "none" ni "NEXT_TOPIC" en tu respuesta al beneficiario -- son mecánica interna de enrutamiento, nunca terminología de cara al beneficiario.
+
 Responde EXACTAMENTE en este formato:
 ---REPLY---
 <tu siguiente pregunta o comentario para el beneficiario, en español>
 ---FACTS---
-{"fields": {"<campo>": {"value": "...", "confidence": "high|medium|low"}, ...}}`;
+{"fields": {"<campo>": {"value": "...", "confidence": "high|medium|low"}, ...}}
+---NEXT_TOPIC---
+{"mode": "known_employment|open_discovery|continue_new_employment|none"}`;
 
 // CR-CPS-57 §8, corrected under P7-ALDO-M0-IMP-01-R1 (MR findings F-01/
 // F-02) -- context-dependent operating guidance appended to the base
@@ -109,8 +154,73 @@ export function describeProfileContext(profileContext?: CoachProfileContext): st
   return "\n\n" + lines.join("\n");
 }
 
-export function buildSystemPrompt(profileContext?: CoachProfileContext): string {
-  return BASE_SYSTEM_PROMPT + describeProfileContext(profileContext);
+// PI-D1C -- appended only when a non-empty bounded snapshot exists for
+// this turn; the common no-context case leaves the prompt byte-identical
+// to its pre-D1C shape (empty string contributes nothing). Lists only
+// identity fields (company/title/startDate/endDate) -- never candidateId,
+// never material fields (mainFunctions/importantProjects/mainAchievements),
+// never provenance, never Candidate status (PI-D1-R1 §F/§G firewall;
+// PI-D1C §6/§8). Explicitly frames the listed facts as machine-held
+// context, not new beneficiary assertions, and reiterates that the
+// alias labels are internal routing mechanics never spoken to the
+// beneficiary.
+function describeBoundedEmploymentContexts(contexts: readonly BoundedEmploymentContext[]): string {
+  if (contexts.length === 0) return "";
+  const lines = contexts.map(c => {
+    const dates = c.identity.startDate || c.identity.endDate
+      ? ` (${c.identity.startDate || "?"} - ${c.identity.endDate || "Presente"})`
+      : "";
+    return `${c.alias}: ${c.identity.title || "(puesto no especificado)"} en ${c.identity.company || "(empresa no especificada)"}${dates}`;
+  }).join("\n");
+  return `\n\nCONTEXTOS PROFESIONALES CONOCIDOS DISPONIBLES PARA ESTE TURNO (datos ya registrados por la aplicación -- NO son afirmaciones nuevas del beneficiario; las etiquetas son mecánica interna de enrutamiento que nunca debes mencionar al beneficiario):\n${lines}\n\nPuedes usar esta información para guiar preguntas de seguimiento naturales cuando sea útil -- no asumas que está completa, no inventes hechos que no se muestren aquí, y no afirmes que esto es evidencia verificada. Si tu próxima pregunta profundiza uno de estos contextos, usa su alias exacto en NEXT_TOPIC.`;
+}
+
+export function buildSystemPrompt(
+  profileContext?: CoachProfileContext,
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
+): string {
+  return BASE_SYSTEM_PROMPT + describeProfileContext(profileContext) + describeBoundedEmploymentContexts(boundedEmploymentContexts ?? []);
+}
+
+// PI-D1C -- strict, defensive parser for the NEXT_TOPIC routing signal.
+// Layer 1 (vocabulary): mode must be exactly one of the four frozen
+// values; a known_employment alias must be exactly "P1"/"P2"/"P3" --
+// no normalization, no fuzzy variants ("p1","P01","1","job1" all fail).
+// Layer 2 (snapshot membership): a syntactically valid alias that was
+// NOT part of THIS exact request's bounded snapshot still downgrades to
+// "none" -- never reanchored, never semantically recovered from reply
+// prose. Any other malformed input (missing marker, empty marker,
+// malformed JSON, a JSON array, an unknown mode, a known_employment
+// with no alias) downgrades to "none" the same way -- this signal can
+// never fail the overall Coach response (PI-D1-R2/R3 off-by-one and
+// safe-fallback firewalls).
+function parseNextProfessionalTopic(
+  rawSection: string | undefined,
+  boundedEmploymentContexts: readonly BoundedEmploymentContext[]
+): NextProfessionalTopic {
+  if (!rawSection) return { mode: "none" };
+  const jsonMatch = rawSection.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return { mode: "none" };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    return { mode: "none" };
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return { mode: "none" };
+
+  const p = parsed as Record<string, unknown>;
+  if (p.mode === "open_discovery" || p.mode === "continue_new_employment" || p.mode === "none") {
+    return { mode: p.mode };
+  }
+  if (p.mode === "known_employment") {
+    const alias = p.alias;
+    if (alias !== "P1" && alias !== "P2" && alias !== "P3") return { mode: "none" };
+    if (!boundedEmploymentContexts.some(c => c.alias === alias)) return { mode: "none" };
+    return { mode: "known_employment", alias };
+  }
+  return { mode: "none" };
 }
 
 // P7-ALDO-M0-SF1 corrective invariant: internal structured Coach output
@@ -118,21 +228,33 @@ export function buildSystemPrompt(profileContext?: CoachProfileContext): string 
 // Extracted as a pure function (mirrors this module's own "framework-
 // agnostic, directly testable" design goal, already stated for A0) so the
 // parsing/sanitization boundary is testable without a live model call.
-export function parseCoachResponse(raw: string): { reply: string; fields: CoachFields } {
-  const replyMatch = raw.match(/---REPLY---\s*([\s\S]*?)\s*---FACTS---/);
-  const factsMatch = raw.match(/---FACTS---\s*([\s\S]*)$/);
+//
+// PI-D1C extends this additively with a third, fully independent marker
+// boundary (---NEXT_TOPIC---) -- FACTS parsing is unchanged and remains
+// unaffected by a malformed/missing NEXT_TOPIC section; NEXT_TOPIC
+// parsing is equally unaffected by a malformed/missing FACTS section.
+// `boundedEmploymentContexts` governs only NEXT_TOPIC's layer-2 alias
+// membership validation -- it never affects reply/FACTS extraction.
+export function parseCoachResponse(
+  raw: string,
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
+): { reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic } {
+  const replyMatch = raw.match(/---REPLY---\s*([\s\S]*?)\s*---(?:FACTS|NEXT_TOPIC)---/);
+  const factsMatch = raw.match(/---FACTS---\s*([\s\S]*?)(?=\s*---NEXT_TOPIC---|$)/);
+  const nextTopicMatch = raw.match(/---NEXT_TOPIC---\s*([\s\S]*)$/);
 
   let reply: string;
   if (replyMatch) {
     reply = replyMatch[1].trim();
   } else {
     // Defensive fallback: the model deviated from the exact ---REPLY---
-    // / ---FACTS--- contract. The internal FACTS payload must still never
-    // reach the beneficiary -- strip everything from the first literal
-    // ---FACTS--- marker onward, and any stray ---REPLY--- marker itself,
-    // before falling back to the remaining raw text. No-op when neither
-    // marker is present (plain free-text reply, unchanged behavior).
-    reply = raw.split(/---FACTS---/)[0].replace(/---REPLY---/g, "").trim();
+    // / ---FACTS--- / ---NEXT_TOPIC--- contract. The internal FACTS/
+    // NEXT_TOPIC payloads must still never reach the beneficiary -- strip
+    // everything from the first literal ---FACTS--- or ---NEXT_TOPIC---
+    // marker onward, and any stray ---REPLY--- marker itself, before
+    // falling back to the remaining raw text. No-op when none of the
+    // markers are present (plain free-text reply, unchanged behavior).
+    reply = raw.split(/---FACTS---|---NEXT_TOPIC---/)[0].replace(/---REPLY---/g, "").trim();
   }
 
   const fields: CoachFields = {};
@@ -151,15 +273,18 @@ export function parseCoachResponse(raw: string): { reply: string; fields: CoachF
     }
   }
 
-  return { reply, fields };
+  const nextProfessionalTopic = parseNextProfessionalTopic(nextTopicMatch?.[1], boundedEmploymentContexts ?? []);
+
+  return { reply, fields, nextProfessionalTopic };
 }
 
 export async function sendCoachTurn(
   history: CoachHistoryTurn[],
   message: string,
   apiKey: string,
-  profileContext?: CoachProfileContext
-): Promise<{ reply: string; fields: CoachFields }> {
+  profileContext?: CoachProfileContext,
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
+): Promise<{ reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic }> {
   const messages = [...history, { role: "user" as const, content: message }];
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -172,7 +297,7 @@ export async function sendCoachTurn(
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: buildSystemPrompt(profileContext),
+      system: buildSystemPrompt(profileContext, boundedEmploymentContexts),
       messages,
     }),
   });
@@ -182,5 +307,5 @@ export async function sendCoachTurn(
   const data = await res.json();
   const raw: string = data.content?.[0]?.text ?? "";
 
-  return parseCoachResponse(raw);
+  return parseCoachResponse(raw, boundedEmploymentContexts);
 }

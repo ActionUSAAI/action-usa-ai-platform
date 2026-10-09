@@ -1,6 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { sendCoachTurn, type CoachProfileContext, type CoachFields } from "@/lib/intake/coach";
+import {
+  sendCoachTurn,
+  type CoachProfileContext,
+  type CoachFields,
+  type BoundedEmploymentContext,
+  type NextProfessionalTopic,
+} from "@/lib/intake/coach";
 import {
   extractCoachProfessionalIntelligence,
   type CoachProfessionalExtractionInput,
@@ -33,9 +39,14 @@ import {
 // optional `professionalContext` request field is purely transient
 // application/server routing context (never persisted, never sent to
 // the normal Coach call, never model-visible as a candidate identifier)
-// -- it is NOT the future bounded Coach-guidance list, NOT a next-turn
-// topic-intent signal returned by Coach, and NOT rotation state; those
-// remain later slices (PI-D1C/PI-D1D).
+// -- it is distinct from PI-D1C's own `boundedEmploymentContexts`
+// request field (normal-Coach conversational guidance only, never sent
+// to the D1A extraction call) and from the Coach-returned next-turn
+// topic-intent signal (routing metadata only -- carries no candidateId,
+// resolves no alias to any Candidate, and binds nothing). Transient
+// client-runtime ownership of that signal (questionContext, rotation,
+// same-turn discovery binding, checkpoint integration) remains a later
+// slice (PI-D1D).
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://slasbfepqovdsezmadjh.supabase.co";
 const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY!;
@@ -66,6 +77,39 @@ function parseProfessionalContext(value: unknown): CoachProfessionalExtractionIn
   return { domain: "employment", candidateId, identity: { company: i.company, title: i.title, startDate: i.startDate, endDate: i.endDate } };
 }
 
+// PI-D1C -- separate, additive, route-local validator for the normal-
+// Coach-guidance bounded contexts (distinct purpose from
+// parseProfessionalContext above: this governs what Coach may discuss
+// next, never what D1A may enrich now -- PI-D1C §5/§33 separation,
+// frozen). Malformed entries are dropped individually rather than
+// rejecting the whole optional field -- a non-array value yields an
+// empty list; duplicate aliases keep only the first occurrence; more
+// than three valid entries are truncated to the first three -- all
+// consistent with this route's own established "malformed optional
+// field degrades gracefully, never breaks the request" convention
+// (parseProfessionalContext above; PI-D1B). No candidateId field exists
+// on this type at all, so there is nothing to strip -- the firewall is
+// structural, not a runtime check.
+function parseBoundedEmploymentContexts(value: unknown): BoundedEmploymentContext[] {
+  if (!Array.isArray(value)) return [];
+  const seenAliases = new Set<string>();
+  const result: BoundedEmploymentContext[] = [];
+  for (const item of value) {
+    if (result.length >= 3) break;
+    if (typeof item !== "object" || item === null) continue;
+    const v = item as Record<string, unknown>;
+    const alias = v.alias;
+    if (alias !== "P1" && alias !== "P2" && alias !== "P3") continue;
+    if (seenAliases.has(alias)) continue;
+    if (typeof v.identity !== "object" || v.identity === null) continue;
+    const i = v.identity as Record<string, unknown>;
+    if (typeof i.company !== "string" || typeof i.title !== "string" || typeof i.startDate !== "string" || typeof i.endDate !== "string") continue;
+    seenAliases.add(alias);
+    result.push({ alias, identity: { company: i.company, title: i.title, startDate: i.startDate, endDate: i.endDate } });
+  }
+  return result;
+}
+
 // PI-D1B orchestration core -- kept unexported (Next.js's App Router
 // route-module type validation statically rejects any named export from
 // route.ts other than the recognized HTTP-verb handlers/config, confirmed
@@ -87,10 +131,16 @@ async function runCoachTurnWithProfessionalExtraction(
   message: string,
   apiKey: string,
   profileContext: CoachProfileContext | undefined,
-  professionalContext: CoachProfessionalExtractionInput["activeContext"]
-): Promise<{ reply: string; fields: CoachFields; professionalIntelligence?: ProfessionalIntelligenceCoachResult }> {
+  professionalContext: CoachProfessionalExtractionInput["activeContext"],
+  boundedEmploymentContexts: readonly BoundedEmploymentContext[]
+): Promise<{ reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic; professionalIntelligence?: ProfessionalIntelligenceCoachResult }> {
+  // PI-D1C: boundedEmploymentContexts is forwarded ONLY to the normal
+  // Coach call (next-conversational-topic guidance) -- it is never part
+  // of the D1A extraction input, which remains exactly
+  // {currentMessage, activeContext?} (PI-D1C §30/§31, frozen D1A
+  // boundary, unmodified call below).
   const [coachResult, professionalResult] = await Promise.allSettled([
-    sendCoachTurn(history, message, apiKey, profileContext),
+    sendCoachTurn(history, message, apiKey, profileContext, boundedEmploymentContexts),
     extractCoachProfessionalIntelligence(
       { currentMessage: message, ...(professionalContext ? { activeContext: professionalContext } : {}) },
       apiKey
@@ -99,7 +149,11 @@ async function runCoachTurnWithProfessionalExtraction(
 
   if (coachResult.status === "rejected") throw coachResult.reason;
 
-  const base = { reply: coachResult.value.reply, fields: coachResult.value.fields };
+  const base = {
+    reply: coachResult.value.reply,
+    fields: coachResult.value.fields,
+    nextProfessionalTopic: coachResult.value.nextProfessionalTopic,
+  };
   if (professionalResult.status !== "fulfilled") return base;
   return { ...base, professionalIntelligence: professionalResult.value };
 }
@@ -118,6 +172,10 @@ export async function POST(request: NextRequest) {
     // PI-D1B: transient application/server extraction-routing context
     // only -- never persisted, never sent to the normal Coach call below.
     const professionalContext = parseProfessionalContext(body.professionalContext);
+    // PI-D1C: transient normal-Coach guidance only -- never persisted,
+    // never sent to the D1A extraction call below. Separate purpose from
+    // professionalContext above (PI-D1C §5/§33).
+    const boundedEmploymentContexts = parseBoundedEmploymentContexts(body.boundedEmploymentContexts);
 
     if (!token) return NextResponse.json({ error: "Falta el token de invitación." }, { status: 401 });
     if (!message) return NextResponse.json({ error: "Falta el mensaje." }, { status: 400 });
@@ -135,7 +193,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invitación inválida o expirada." }, { status: 403 });
     }
 
-    const result = await runCoachTurnWithProfessionalExtraction(history, message, ANTHROPIC_KEY, profileContext, professionalContext);
+    const result = await runCoachTurnWithProfessionalExtraction(history, message, ANTHROPIC_KEY, profileContext, professionalContext, boundedEmploymentContexts);
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";

@@ -198,7 +198,21 @@ async function run() {
   check("T-REQ-04 candidateId NEVER reaches D1A's model-visible prompt", !lastPiSystem.includes("cand-42"));
   check("T-REQ-05 candidateId NEVER reaches the normal Coach prompt", !lastCoachSystem.includes("cand-42"));
   check("T-REQ-06 professionalContext identity text NEVER reaches the normal Coach prompt", !lastCoachSystem.includes("Expedia"));
-  check("T-REQ-07 no bounded P1/P2/P3 list anywhere in either prompt", !lastCoachSystem.includes("P1") && !lastPiSystem.includes("P1"));
+  // T-REQ-07 (PI-D1C-R1 reconciliation): the pre-D1C absence of P1/P2/P3
+  // anywhere is no longer the correct invariant -- D1C intentionally
+  // introduces bounded opaque aliases to the NORMAL Coach prompt only.
+  // The permanent boundary this test now protects is asymmetric: EXPECTED
+  // on the normal Coach side, PROHIBITED on D1A's side, with candidateId
+  // prohibited on both regardless of whether bounded aliases are present.
+  {
+    const boundedCtxForThisCall = [{ alias: "P1", identity: { company: "Nordstrom", title: "Analyst", startDate: "2019", endDate: "2021" } }];
+    lastCoachSystem = ""; lastPiSystem = "";
+    await POST(fakeRequest(baseBody({ professionalContext: validProfessionalContext, boundedEmploymentContexts: boundedCtxForThisCall })));
+    check("T-REQ-07a normal Coach prompt MAY contain bounded alias vocabulary (P1 + its identity) when supplied", lastCoachSystem.includes("P1") && lastCoachSystem.includes("Nordstrom"));
+    check("T-REQ-07b D1A professional-extraction prompt MUST NOT receive bounded alias vocabulary even when supplied in the same request", !lastPiSystem.includes("P1") && !lastPiSystem.includes("Nordstrom") && !lastPiSystem.includes("boundedEmploymentContexts"));
+    check("T-REQ-07c candidateId still never reaches the normal Coach prompt when bounded aliases are also present", !lastCoachSystem.includes("cand-42"));
+    check("T-REQ-07d candidateId still never reaches the D1A prompt when bounded aliases are also present", !lastPiSystem.includes("cand-42"));
+  }
 
   // ── §40 — malformed optional context variants -> treated as absent ─────────
   const malformedContexts: Array<[string, unknown]> = [
@@ -294,7 +308,20 @@ async function run() {
   check("T-STATIC-03 no Candidate/Enrichment state mutation vocabulary", !routeSrc.includes("accepted_in_module") && !routeSrc.includes("withCandidateStatus") && !routeSrc.includes("composeEffectiveCandidate"));
   check("T-STATIC-04 no CBR reference", !/\bCBR\b/.test(routeSrc));
   check("T-STATIC-05 no Evidence persistence (no Module9/tengo)", !routeSrc.includes("Module9") && !routeSrc.includes("\"tengo\""));
-  check("T-STATIC-06 no nextProfessionalTopic/P1/P2/P3/rotation/questionContext vocabulary introduced", !routeSrc.includes("nextProfessionalTopic") && !routeSrc.includes("boundedEmploymentContexts") && !routeSrc.includes("rotationNextCandidateIdRef") && !routeSrc.includes("questionContextRef") && !routeSrc.includes("continue_new_employment"));
+  // T-STATIC-06 (PI-D1C-R1 reconciliation): the pre-D1C absence of this
+  // entire vocabulary is no longer the correct invariant -- D1C
+  // legitimately introduces the bounded-context/next-topic CONTRACT
+  // into the route. The permanent boundary this test now protects is
+  // D1C_CONTRACT_ALLOWED + D1D_RUNTIME_PROHIBITED: the route may carry
+  // boundedEmploymentContexts/nextProfessionalTopic, but must still
+  // contain none of the D1D client-runtime ownership vocabulary
+  // (rotation pointer, transient question-context ref, bounded-snapshot
+  // ref, alias-to-candidateId resolution, or same-turn cardinality
+  // binding) -- those remain exclusively future IntakeForm/D1D concerns.
+  check("T-STATIC-06 D1C contract present (boundedEmploymentContexts/nextProfessionalTopic); D1D runtime vocabulary still absent",
+    routeSrc.includes("nextProfessionalTopic") && routeSrc.includes("boundedEmploymentContexts") &&
+    !routeSrc.includes("rotationNextCandidateIdRef") && !routeSrc.includes("questionContextRef") && !routeSrc.includes("boundedSnapshotRef") &&
+    !routeSrc.includes("aliasToCandidateId") && !routeSrc.includes("continue_new_employment"));
   check("T-STATIC-07 no console logging of beneficiary message content", !/console\.(log|error|warn)\([^)]*message/.test(routeSrc));
   check("T-STATIC-08 no second/different API key env var introduced", (routeSrc.match(/process\.env\.\w*ANTHROPIC\w*/g) ?? []).length === 1);
   check("T-STATIC-09 exactly one production call site to extractCoachProfessionalIntelligence", (routeSrc.match(/extractCoachProfessionalIntelligence\(/g) ?? []).length === 1);
