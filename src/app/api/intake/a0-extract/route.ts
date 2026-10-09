@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { extractCvFields } from "@/lib/intake/a0-extract";
+import { extractCvFields, extractProfessionalCandidates } from "@/lib/intake/a0-extract";
 import { isCvPathAuthorizedForInvitation } from "@/lib/intake/upload-authorization";
 
 // A0 -- CV Extractor (AUSCIS Intake Intelligence Layer, CR-CPS-34/35,
@@ -80,13 +80,28 @@ export async function POST(request: NextRequest) {
     // Upload success and A0 failure must remain technically
     // distinguishable (design §11/§7 of the implementation act): the
     // document is already safely stored; only extraction can fail here.
-    try {
-      const fields = await extractCvFields(base64, mimeType, ANTHROPIC_KEY);
-      return NextResponse.json({ fields });
-    } catch (extractErr) {
+    //
+    // Runs two independent server-side extractions against the same
+    // already-downloaded file (PI-B2B): the existing 27-field extraction
+    // and professional-candidate acquisition. Promise.allSettled (not
+    // Promise.all) so a professional-extraction failure never affects
+    // the existing 27-field success/failure contract -- the 27-field
+    // result alone determines this endpoint's success/failure shape.
+    const [fieldsResult, professionalResult] = await Promise.allSettled([
+      extractCvFields(base64, mimeType, ANTHROPIC_KEY),
+      extractProfessionalCandidates(base64, mimeType, ANTHROPIC_KEY),
+    ]);
+
+    if (fieldsResult.status === "rejected") {
+      const extractErr = fieldsResult.reason;
       const msg = extractErr instanceof Error ? extractErr.message : "A0 extraction failed";
       return NextResponse.json({ error: msg, extractionFailed: true }, { status: 502 });
     }
+
+    if (professionalResult.status === "fulfilled") {
+      return NextResponse.json({ fields: fieldsResult.value, professionalCandidates: professionalResult.value });
+    }
+    return NextResponse.json({ fields: fieldsResult.value });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";
     return NextResponse.json({ error: msg, extractionFailed: true }, { status: 500 });

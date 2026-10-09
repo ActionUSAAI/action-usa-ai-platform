@@ -11,6 +11,7 @@ import { prefillModule1 } from "@/lib/intake/prefill-engine";
 import {
   type ProfessionalIntelligenceCandidates,
   emptyProfessionalIntelligenceCandidates,
+  replaceCvExtractionCandidates,
 } from "@/lib/intake/professional-intelligence";
 import { Module0 }  from "./modules/Module0";
 import { Module1 }  from "./modules/Module1";
@@ -527,6 +528,17 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setData(nextData);
   }, [save]);
 
+  // PI-B2B: source-scoped replacement of cv_extraction-provenance
+  // candidates with this run's results (replaceCvExtractionCandidates --
+  // never dedup). Ref and state are updated synchronously, mirroring
+  // dataRef's pattern; no save() call here -- persistence rides the
+  // existing checkpoint/autosave/manual-save mechanisms.
+  const handleProfessionalCandidatesExtracted = useCallback((incoming: ProfessionalIntelligenceCandidates) => {
+    const next = replaceCvExtractionCandidates(professionalIntelligenceCandidatesRef.current, incoming);
+    professionalIntelligenceCandidatesRef.current = next;
+    setProfessionalIntelligenceCandidates(next);
+  }, []);
+
   // ── Init session ID and load draft ─────────────────────────────────────────
   useEffect(() => {
     try {
@@ -764,7 +776,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} sessionId={sessionId} errors={errors}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
             {step === 3  && <Module3  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}

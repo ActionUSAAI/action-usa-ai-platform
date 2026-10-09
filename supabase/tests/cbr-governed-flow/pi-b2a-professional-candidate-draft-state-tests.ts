@@ -212,12 +212,42 @@ check("T37 IntakeForm.tsx adds no new request to /api/intake/a0-extract", !/fetc
   try { module0Src = readFileSync(require.resolve("../../../src/app/intake/modules/Module0.tsx"), "utf8"); } catch { /* n/a */ }
   try { routeSrc = readFileSync(require.resolve("../../../src/app/api/intake/a0-extract/route.ts"), "utf8"); } catch { /* n/a */ }
   check("T38 Module0.tsx unchanged (no professionalIntelligenceCandidates reference)", !module0Src.includes("professionalIntelligenceCandidates") && !module0Src.includes("extractProfessionalCandidates"));
-  check("T39 A0 route unchanged (no professionalIntelligenceCandidates/extractProfessionalCandidates reference)", !routeSrc.includes("professionalIntelligenceCandidates") && !routeSrc.includes("extractProfessionalCandidates"));
+  // T39 reconciled post-PI-B2B (authorized historical boundary-test
+  // reconciliation gate): the original assertion proved runtime wiring
+  // was absent, which is a temporal condition PI-B2B's authorized route
+  // wiring intentionally ended. Replaced with the permanent PI-B2A
+  // invariant it was always meant to protect -- persistence/state
+  // boundary, not absence of wiring: the A0 route carries no coupling
+  // to the intake submission data shape, and never merges
+  // professionalCandidates into the `fields` payload itself.
+  check("T39 A0 route has no coupling to IntakeFormData/Module0Data and never merges professionalCandidates into the fields payload (PI-B2A persistence/state boundary)",
+    !routeSrc.includes("IntakeFormData") && !routeSrc.includes("Module0Data") &&
+    !/fields:\s*\{[^}]*professionalCandidates/.test(routeSrc));
 }
 
-// ── §52 — zero runtime producer ──────────────────────────────────────────────
-check("T40 setProfessionalIntelligenceCandidates is called only in initialization/hydration (exactly 2 call sites: useState setter definition excluded, 1 hydration call)",
-  (intakeFormSrc.match(/setProfessionalIntelligenceCandidates\(/g) ?? []).length === 1);
+// ── §52 — candidate state ownership/boundary ─────────────────────────────────
+// T40 reconciled post-PI-B2B: the original exact-call-site count was a
+// temporal "zero runtime producer" proof, invalidated the moment
+// PI-B2B's authorized callback added its own (second) state-update
+// site. Replaced with the permanent ownership/boundary invariants
+// PI-B2A actually established -- state stays IntakeForm-owned, outside
+// IntakeFormData, mirrored by a ref, and Module0 is never handed the
+// raw setter.
+{
+  check("T40a candidate state is still declared/owned inside IntakeForm.tsx",
+    /const \[professionalIntelligenceCandidates, setProfessionalIntelligenceCandidates\] =/.test(intakeFormSrc));
+  check("T40b professionalIntelligenceCandidatesRef remains the current-value mirror (useRef + mirroring useEffect)",
+    /const professionalIntelligenceCandidatesRef = useRef\(professionalIntelligenceCandidates\);/.test(intakeFormSrc) &&
+    /useEffect\(\(\) => \{ professionalIntelligenceCandidatesRef\.current = professionalIntelligenceCandidates; \}, \[professionalIntelligenceCandidates\]\);/.test(intakeFormSrc));
+  check("T40c candidate state remains outside IntakeFormData (DraftEnvelope carries it as an optional sibling to `data`, never inside it)",
+    /data: IntakeFormData;\s*step: number;\s*savedAt: string;\s*professionalIntelligenceCandidates\?: ProfessionalIntelligenceCandidates;/.test(intakeFormSrc));
+  const module0Tag = intakeFormSrc.match(/<Module0[^]*?\/>/)?.[0] ?? "";
+  check("T40d the raw setProfessionalIntelligenceCandidates setter is never passed to Module0 as a prop",
+    module0Tag.length > 0 && !module0Tag.includes("setProfessionalIntelligenceCandidates"));
+  check("T40e Module0 receives only the narrow onProfessionalCandidatesExtracted callback for this concern (not the setter, not the ref)",
+    /onProfessionalCandidatesExtracted=\{handleProfessionalCandidatesExtracted\}/.test(module0Tag) &&
+    !module0Tag.includes("professionalIntelligenceCandidatesRef"));
+}
 
 // ── §53 — no UI ───────────────────────────────────────────────────────────────
 check("T41 professionalIntelligenceCandidates is never rendered into JSX (no {professionalIntelligenceCandidates reference inside a JSX expression container near render)",

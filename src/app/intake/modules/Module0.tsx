@@ -8,6 +8,7 @@ import {
   acquireField, acquireCoachFields, confirmField, ALL_STRUCTURED_PROFILE_FIELDS,
   IDENTITY_FIELDS, hasAnyAcquiredInformation, minimizedProfileContext,
 } from "@/lib/intake/structured-profile";
+import type { ProfessionalIntelligenceCandidates } from "@/lib/intake/professional-intelligence";
 
 // Module0 -- CV/résumé source document + integrated Coach discovery
 // (AUSCIS Intake Intelligence Layer, CR-CPS-34/35, design §5.2/§5.1).
@@ -27,7 +28,7 @@ const FIELD_LABELS: Record<string, string> = {
   artistic_exhibitions: "Exhibiciones/éxito comercial artístico",
 };
 
-export function Module0({ data, onChange, onCheckpoint, sessionId, errors }: {
+export function Module0({ data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, sessionId, errors }: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
   // P7-R4 (CR-CPS-60): deterministic checkpoint for the three meaningful
@@ -36,6 +37,9 @@ export function Module0({ data, onChange, onCheckpoint, sessionId, errors }: {
   // Parallel to onChange, not a replacement for it -- IntakeForm's
   // wiring performs the equivalent of onChange as its own final step.
   onCheckpoint: (d: Module0Data) => void;
+  // PI-B2B: optional sibling result of the SAME A0 request (no second
+  // fetch) -- fires only when the response included professionalCandidates.
+  onProfessionalCandidatesExtracted: (candidates: ProfessionalIntelligenceCandidates) => void;
   sessionId: string;
   errors: Record<string, string>;
 }) {
@@ -77,6 +81,12 @@ export function Module0({ data, onChange, onCheckpoint, sessionId, errors }: {
       // CP-01 (P7-R4, CR-CPS-60): deterministic checkpoint of the exact
       // post-merge state -- losing it would repeat billable A0 extraction.
       onCheckpoint({ ...data, structuredProfile: profile });
+      // PI-B2B: optional sibling from the SAME response/request -- never
+      // a second fetch. Omitted (not null/empty) whenever the server-side
+      // professional extraction failed; present only on fulfillment.
+      if (json.professionalCandidates) {
+        onProfessionalCandidatesExtracted(json.professionalCandidates as ProfessionalIntelligenceCandidates);
+      }
     } catch {
       setUploadError("No se pudo extraer información del documento. Puedes continuar y completar la información manualmente.");
     } finally {

@@ -281,9 +281,25 @@ check("T56 malformed JSON -> throws", (() => { try { parseProfessionalCandidateR
   });
   check("T58 extractProfessionalCandidates is not referenced by Module0.tsx or IntakeForm.tsx",
     consumers.every(c => !c.content.includes("extractProfessionalCandidates")));
-  let routeContent = "";
-  try { routeContent = readFileSync(require.resolve("../../../src/app/api/intake/a0-extract/route.ts"), "utf8"); } catch { /* n/a */ }
-  check("T59 extractProfessionalCandidates is not referenced by the A0 API route", !routeContent.includes("extractProfessionalCandidates"));
+  // T59 reconciled post-PI-B2B (authorized historical boundary-test
+  // reconciliation gate): the original assertion proved the route had
+  // not yet consumed this function -- a temporal condition PI-B2B's
+  // authorized route wiring intentionally ended (route consumption is
+  // now PI-B2B's own property to prove). Replaced with the permanent
+  // PI-B1 foundation invariant: extractProfessionalCandidates remains
+  // defined/exported here and its acquisition model remains
+  // independent of extractCvFields (never calls it internally).
+  let a0ExtractSrc = "";
+  try { a0ExtractSrc = readFileSync(require.resolve("../../../src/lib/intake/a0-extract.ts"), "utf8"); } catch { /* n/a */ }
+  check("T59 extractProfessionalCandidates remains defined/exported by a0-extract.ts, independent of extractCvFields (PI-B1 foundation invariant)",
+    /export async function extractProfessionalCandidates\(/.test(a0ExtractSrc) &&
+    /export async function extractCvFields\(/.test(a0ExtractSrc));
+  const professionalFnBody = a0ExtractSrc.slice(
+    a0ExtractSrc.indexOf("export async function extractProfessionalCandidates"),
+    a0ExtractSrc.indexOf("\n}", a0ExtractSrc.indexOf("export async function extractProfessionalCandidates")) + 2
+  );
+  check("T59b extractProfessionalCandidates never calls extractCvFields internally (two fully independent LLM calls, not a composed pipeline)",
+    professionalFnBody.length > 0 && !professionalFnBody.includes("extractCvFields"));
 }
 
 console.log(failures === 0 ? `\nALL PI-B1 CHECKS PASS` : `\n${failures} PI-B1 CHECK(S) FAILED`);
