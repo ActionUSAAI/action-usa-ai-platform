@@ -13,6 +13,12 @@ import {
   emptyProfessionalIntelligenceCandidates,
   replaceCvExtractionCandidates,
   type CandidateStatus,
+  type ProfessionalIntelligenceEnrichments,
+  emptyProfessionalIntelligenceEnrichments,
+  isValidProfessionalIntelligenceEnrichmentsOverlay,
+  isCandidateEligibleForEnrichmentAnchor,
+  composeEffectiveCandidate,
+  removeOrphanedEnrichments,
 } from "@/lib/intake/professional-intelligence";
 import {
   candidateToEmploymentEntry, candidateToEducationEntry, candidateToCertificationEntry,
@@ -50,12 +56,64 @@ const TOTAL = 14;
 // submission payload (see submit() below -- it has no reference to
 // this field at all). This is the exact PI-B2 Exact Design's frozen
 // draft-ownership boundary.
+// professionalIntelligenceEnrichments (PI-D0B) is an additive, optional
+// sibling, mirroring professionalIntelligenceCandidates's own exact
+// pattern -- draft-local, never part of IntakeFormData/Module0Data, never
+// spread into the /api/intake submission payload. ActiveProfessionalContext
+// is deliberately NOT a DraftEnvelope field at all (frozen PI-D0-R1:
+// ACTIVE_CONTEXT_PERSISTENCE: NONE) -- it is transient client UI/session
+// state only, never hydrated, never saved.
 export type DraftEnvelope = {
   data: IntakeFormData;
   step: number;
   savedAt: string;
   professionalIntelligenceCandidates?: ProfessionalIntelligenceCandidates;
+  professionalIntelligenceEnrichments?: ProfessionalIntelligenceEnrichments;
 };
+
+// PI-D0B: deliberately NOT a candidate-model concept (professional-
+// intelligence.ts has zero awareness of it) -- this is transient
+// client-side conversational-steering state, structurally identical to
+// EnrichmentTarget ({domain, candidateId}) but living here, where its
+// one and only owner (IntakeForm) is. No display-name/company/title
+// snapshot belongs here -- identity display is always resolved fresh
+// from the current candidate by candidateId.
+export interface ActiveProfessionalContext {
+  domain: "employment";
+  candidateId: string;
+}
+
+// Exported pure helper (mirrors findProposedCandidate's own
+// testability convention): a non-null context is valid only while its
+// exact candidateId still resolves to a currently-eligible Employment
+// anchor (PI-D0-R1 §11). No semantic/fuzzy re-anchor -- a context whose
+// target candidate no longer exists, or exists but is no longer
+// proposed/CV-supported, is simply invalid; nothing here ever selects
+// a replacement.
+export function isActiveContextValid(
+  context: ActiveProfessionalContext | null,
+  candidates: ProfessionalIntelligenceCandidates
+): boolean {
+  if (!context) return false;
+  if (context.domain !== "employment") return false;
+  const candidate = candidates.employment.find(c => c.id === context.candidateId);
+  if (!candidate) return false;
+  return isCandidateEligibleForEnrichmentAnchor(candidate);
+}
+
+// Exported pure helper backing handleSetActiveProfessionalContext's
+// client-authoritative validation (PI-D0-R1 §R1-02/§12) -- returns the
+// new context only when candidateId resolves to a currently-eligible
+// Employment anchor, else null (caller treats null as "leave whatever
+// context currently exists untouched," never as "clear it").
+export function resolveActiveProfessionalContext(
+  candidateId: string,
+  candidates: ProfessionalIntelligenceCandidates
+): ActiveProfessionalContext | null {
+  const candidate = candidates.employment.find(c => c.id === candidateId);
+  if (!candidate || !isCandidateEligibleForEnrichmentAnchor(candidate)) return null;
+  return { domain: "employment", candidateId };
+}
 
 // P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
 // by IntakeForm itself (hydration effect, next()/back()) so tests can
@@ -130,7 +188,12 @@ export function withCandidateStatus<T extends { id: string; status: CandidateSta
 export function parseDraftEnvelope(
   raw: string,
   total: number
-): { saved: Partial<IntakeFormData>; resumeStep: number; professionalIntelligenceCandidates: ProfessionalIntelligenceCandidates } {
+): {
+  saved: Partial<IntakeFormData>;
+  resumeStep: number;
+  professionalIntelligenceCandidates: ProfessionalIntelligenceCandidates;
+  professionalIntelligenceEnrichments: ProfessionalIntelligenceEnrichments;
+} {
   const parsed = JSON.parse(raw) as Partial<DraftEnvelope> & Partial<IntakeFormData>;
   const isEnvelope = typeof parsed === "object" && parsed !== null && "data" in parsed && "step" in parsed;
   if (isEnvelope) {
@@ -138,9 +201,26 @@ export function parseDraftEnvelope(
     const candidates = isValidProfessionalIntelligenceCandidatesOverlay(envelope.professionalIntelligenceCandidates)
       ? envelope.professionalIntelligenceCandidates
       : emptyProfessionalIntelligenceCandidates();
-    return { saved: envelope.data ?? {}, resumeStep: validateResumeStep(envelope.step, total), professionalIntelligenceCandidates: candidates };
+    // Malformed/absent enrichment sibling resets only the enrichment
+    // overlay to empty -- never the candidate overlay, never the
+    // IntakeFormData draft itself (mirrors the candidate guard's own
+    // established isolation).
+    const enrichments = isValidProfessionalIntelligenceEnrichmentsOverlay(envelope.professionalIntelligenceEnrichments)
+      ? envelope.professionalIntelligenceEnrichments
+      : emptyProfessionalIntelligenceEnrichments();
+    return {
+      saved: envelope.data ?? {},
+      resumeStep: validateResumeStep(envelope.step, total),
+      professionalIntelligenceCandidates: candidates,
+      professionalIntelligenceEnrichments: enrichments,
+    };
   }
-  return { saved: parsed as Partial<IntakeFormData>, resumeStep: 0, professionalIntelligenceCandidates: emptyProfessionalIntelligenceCandidates() };
+  return {
+    saved: parsed as Partial<IntakeFormData>,
+    resumeStep: 0,
+    professionalIntelligenceCandidates: emptyProfessionalIntelligenceCandidates(),
+    professionalIntelligenceEnrichments: emptyProfessionalIntelligenceEnrichments(),
+  };
 }
 
 // The exact destination-step arithmetic next()/back() apply, extracted
@@ -495,6 +575,25 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   const professionalIntelligenceCandidatesRef = useRef(professionalIntelligenceCandidates);
   useEffect(() => { professionalIntelligenceCandidatesRef.current = professionalIntelligenceCandidates; }, [professionalIntelligenceCandidates]);
 
+  // PI-D0B: mirrors professionalIntelligenceCandidates's exact pattern.
+  // Draft-only, separate overlay (never merged into the candidate
+  // container) -- not part of IntakeFormData/Module0Data/StructuredProfile,
+  // never in the final submission payload.
+  const [professionalIntelligenceEnrichments, setProfessionalIntelligenceEnrichments] =
+    useState<ProfessionalIntelligenceEnrichments>(() => emptyProfessionalIntelligenceEnrichments());
+  const professionalIntelligenceEnrichmentsRef = useRef(professionalIntelligenceEnrichments);
+  useEffect(() => { professionalIntelligenceEnrichmentsRef.current = professionalIntelligenceEnrichments; }, [professionalIntelligenceEnrichments]);
+
+  // PI-D0B: IntakeForm is the sole, canonical owner (PI-D0-R1 correction
+  // R1-02) -- never persisted (no DraftEnvelope field, no localStorage,
+  // no final submission, no server transport in this slice), never a
+  // Module0Data/StructuredProfile concept. Mirrored by a ref for the
+  // same stale-closure reason every other stable useCallback in this
+  // file already reads a ref instead of the state variable directly.
+  const [activeProfessionalContext, setActiveProfessionalContext] = useState<ActiveProfessionalContext | null>(null);
+  const activeProfessionalContextRef = useRef(activeProfessionalContext);
+  useEffect(() => { activeProfessionalContextRef.current = activeProfessionalContext; }, [activeProfessionalContext]);
+
   // Latest navigation position, mirroring dataRef so the stable-interval
   // autosave (and manual "Guardar borrador") can serialize the current
   // step without recreating the interval (P7-R4, CR-CPS-60).
@@ -537,6 +636,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
         step: explicitStep ?? stepRef.current,
         savedAt: new Date().toISOString(),
         professionalIntelligenceCandidates: professionalIntelligenceCandidatesRef.current,
+        professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef.current,
       };
       localStorage.setItem(storageKey, JSON.stringify(envelope));
       setSavedAt(new Date());
@@ -567,11 +667,112 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // never dedup). Ref and state are updated synchronously, mirroring
   // dataRef's pattern; no save() call here -- persistence rides the
   // existing checkpoint/autosave/manual-save mechanisms.
+  //
+  // PI-D0B extension: a candidate carrying a beneficiary-accepted
+  // enrichment is protected from this replacement (PI-D0-R1 §W) --
+  // proposed/rejected enrichments never protect their target, only
+  // "accepted" ones. Any enrichment orphaned by the resulting candidate
+  // overlay (its target no longer resolves) is removed by exact
+  // candidateId existence only -- no semantic/fuzzy re-anchor. If the
+  // current Active Professional Context's target no longer resolves to
+  // an eligible candidate in the next overlay, it is cleared in this
+  // same synchronous operation -- no automatic replacement context is
+  // ever selected. No new save() call is introduced here, matching this
+  // handler's own existing, frozen deferred-persistence behavior.
   const handleProfessionalCandidatesExtracted = useCallback((incoming: ProfessionalIntelligenceCandidates) => {
-    const next = replaceCvExtractionCandidates(professionalIntelligenceCandidatesRef.current, incoming);
-    professionalIntelligenceCandidatesRef.current = next;
-    setProfessionalIntelligenceCandidates(next);
+    const currentEnrichments = professionalIntelligenceEnrichmentsRef.current;
+    const protectedCandidateIds = new Set(
+      currentEnrichments.employment
+        .filter(e => e.status === "accepted" && e.target.domain === "employment")
+        .map(e => e.target.candidateId)
+    );
+    const nextCandidates = replaceCvExtractionCandidates(professionalIntelligenceCandidatesRef.current, incoming, protectedCandidateIds);
+    const nextEnrichments = removeOrphanedEnrichments(currentEnrichments, nextCandidates);
+
+    professionalIntelligenceCandidatesRef.current = nextCandidates;
+    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+    setProfessionalIntelligenceCandidates(nextCandidates);
+    setProfessionalIntelligenceEnrichments(nextEnrichments);
+
+    if (!isActiveContextValid(activeProfessionalContextRef.current, nextCandidates)) {
+      activeProfessionalContextRef.current = null;
+      setActiveProfessionalContext(null);
+    }
   }, []);
+
+  // PI-D0B: minimum client-authoritative callback boundary (PI-D0-R1
+  // §R1-02) -- IntakeForm validates every set request against the
+  // current candidate overlay before committing it; an ineligible
+  // request is a silent no-op (the currently-set context, if any, is
+  // left untouched) rather than a server-trusted or LLM-trusted value.
+  // Not yet wired to any caller in this slice (no Coach-guided
+  // selection UI exists until PI-D3) -- defined here so that future
+  // wiring has a stable, already-validated target to call.
+  const handleSetActiveProfessionalContext = useCallback((candidateId: string) => {
+    const next = resolveActiveProfessionalContext(candidateId, professionalIntelligenceCandidatesRef.current);
+    if (!next) return;
+    activeProfessionalContextRef.current = next;
+    setActiveProfessionalContext(next);
+  }, []);
+
+  const handleClearActiveProfessionalContext = useCallback(() => {
+    activeProfessionalContextRef.current = null;
+    setActiveProfessionalContext(null);
+  }, []);
+
+  // PI-D0B — explicit beneficiary enrichment Accept (D-PI-D-R1-01/
+  // PI-D0/PI-D0-R1). Same derive-fully-before-commit discipline as
+  // PI-C3's candidate handlers: every precondition is checked before
+  // any ref/state/draft mutation; a failed precondition is a silent
+  // no-op. Reads refs, never React state, for the same stale-closure
+  // reason as every other stable handler here. Accepting an enrichment
+  // never touches the base candidate, never touches module data, and
+  // never changes Active Context by itself (D-PI-D-R1 preserved
+  // unchanged -- enrichment Accept/Reject is orthogonal to base
+  // candidate eligibility).
+  const handleAcceptEnrichment = useCallback((enrichmentId: string) => {
+    const enrichments = professionalIntelligenceEnrichmentsRef.current;
+    const enrichment = enrichments.employment.find(e => e.id === enrichmentId);
+    if (!enrichment) return;
+    if (enrichment.status !== "proposed") return;
+    if (enrichment.target.domain !== "employment") return;
+
+    const targetCandidate = professionalIntelligenceCandidatesRef.current.employment.find(c => c.id === enrichment.target.candidateId);
+    if (!targetCandidate || !isCandidateEligibleForEnrichmentAnchor(targetCandidate)) return;
+
+    const hasNonblankField = [enrichment.patch.mainFunctions, enrichment.patch.importantProjects, enrichment.patch.mainAchievements]
+      .some(v => typeof v === "string" && v.trim() !== "");
+    if (!hasNonblankField) return;
+
+    const nextEnrichments: ProfessionalIntelligenceEnrichments = {
+      employment: enrichments.employment.map(e => (e.id === enrichmentId ? { ...e, status: "accepted" } : e)),
+    };
+
+    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+    const persisted = save();
+    if (persisted) { justCheckpointedRef.current = true; }
+    setProfessionalIntelligenceEnrichments(nextEnrichments);
+  }, [save]);
+
+  // PI-D0B — explicit beneficiary enrichment Reject. No target
+  // revalidation required (rejection never touches the base candidate
+  // or module data either way); same silent no-op discipline for a
+  // missing/non-proposed enrichment.
+  const handleRejectEnrichment = useCallback((enrichmentId: string) => {
+    const enrichments = professionalIntelligenceEnrichmentsRef.current;
+    const enrichment = enrichments.employment.find(e => e.id === enrichmentId);
+    if (!enrichment) return;
+    if (enrichment.status !== "proposed") return;
+
+    const nextEnrichments: ProfessionalIntelligenceEnrichments = {
+      employment: enrichments.employment.map(e => (e.id === enrichmentId ? { ...e, status: "rejected" } : e)),
+    };
+
+    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+    const persisted = save();
+    if (persisted) { justCheckpointedRef.current = true; }
+    setProfessionalIntelligenceEnrichments(nextEnrichments);
+  }, [save]);
 
   // ── PI-C3 — explicit beneficiary Accept (D-PI-C3-01/02/03) ──────────────────
   // Candidate ≠ module data until this runs. Derivation (lookup,
@@ -589,6 +790,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // containing both the new module data and the new candidate status.
   const handleAcceptCandidate = useCallback((domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => {
     const candidates = professionalIntelligenceCandidatesRef.current;
+    const enrichments = professionalIntelligenceEnrichmentsRef.current;
     const current = dataRef.current;
     let nextData: IntakeFormData;
     let nextCandidates: ProfessionalIntelligenceCandidates;
@@ -597,7 +799,12 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       case "employment": {
         const candidate = findProposedCandidate(candidates.employment, candidateId);
         if (!candidate) return;
-        const entry = candidateToEmploymentEntry(candidate);
+        // PI-D0B: composeEffectiveCandidate already ignores proposed/
+        // rejected/wrong-target enrichments on its own -- passing the
+        // whole employment enrichment array (in its existing overlay
+        // order) is simplest and correct; no pre-filtering needed.
+        const effectiveCandidate = composeEffectiveCandidate(candidate, enrichments.employment);
+        const entry = candidateToEmploymentEntry(effectiveCandidate);
         nextData = { ...current, module7: { employment: [...current.module7.employment, entry] } };
         nextCandidates = { ...candidates, employment: withCandidateStatus(candidates.employment, candidateId, "accepted_in_module") };
         break;
@@ -662,11 +869,21 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       }
     }
 
+    // PI-D0B: base Accept is the authoritative transition point for
+    // clearing a matching Active Professional Context (PI-D0-R1 §28) --
+    // IntakeForm already owns both, so this happens synchronously in
+    // this same handler, not via a separate effect.
+    const nextActiveContext = domain === "employment" && activeProfessionalContextRef.current?.candidateId === candidateId
+      ? null
+      : activeProfessionalContextRef.current;
+
     professionalIntelligenceCandidatesRef.current = nextCandidates;
+    activeProfessionalContextRef.current = nextActiveContext;
     const persisted = save(nextData);
     if (persisted) { justCheckpointedRef.current = true; }
     setData(nextData);
     setProfessionalIntelligenceCandidates(nextCandidates);
+    setActiveProfessionalContext(nextActiveContext);
   }, [save]);
 
   // ── PI-C3 — explicit beneficiary Reject (D-PI-C3-03) ────────────────────────
@@ -678,12 +895,21 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // pre-assignment, for the same reason explained above.
   const handleRejectCandidate = useCallback((domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => {
     const candidates = professionalIntelligenceCandidatesRef.current;
+    const enrichments = professionalIntelligenceEnrichmentsRef.current;
     let nextCandidates: ProfessionalIntelligenceCandidates;
+    let nextEnrichments: ProfessionalIntelligenceEnrichments = enrichments;
 
     switch (domain) {
       case "employment": {
         if (!findProposedCandidate(candidates.employment, candidateId)) return;
         nextCandidates = { ...candidates, employment: withCandidateStatus(candidates.employment, candidateId, "rejected") };
+        // PI-D0B: a rejected A0 candidate must never remain a Coach
+        // anchor (REJECTED_A0_AS_ANCHOR: PROHIBITED) -- every exact-
+        // target enrichment (proposed, accepted, or already rejected)
+        // is removed outright rather than silently reinterpreted as a
+        // new discovery (no semantic transformation without an explicit
+        // beneficiary action on that specific enrichment).
+        nextEnrichments = { employment: enrichments.employment.filter(e => e.target.candidateId !== candidateId) };
         break;
       }
       case "education": {
@@ -718,10 +944,21 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       }
     }
 
+    // PI-D0B: same authoritative-transition reasoning as base Accept
+    // (PI-D0-R1 §28) -- base Reject clears a matching Active
+    // Professional Context synchronously in this same handler.
+    const nextActiveContext = domain === "employment" && activeProfessionalContextRef.current?.candidateId === candidateId
+      ? null
+      : activeProfessionalContextRef.current;
+
     professionalIntelligenceCandidatesRef.current = nextCandidates;
+    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+    activeProfessionalContextRef.current = nextActiveContext;
     const persisted = save();
     if (persisted) { justCheckpointedRef.current = true; }
     setProfessionalIntelligenceCandidates(nextCandidates);
+    setProfessionalIntelligenceEnrichments(nextEnrichments);
+    setActiveProfessionalContext(nextActiveContext);
   }, [save]);
 
   // ── Init session ID and load draft ─────────────────────────────────────────
@@ -735,14 +972,22 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       setSessionId(sid);
       const raw = localStorage.getItem(storageKey);
       if (raw) {
-        const { saved, resumeStep, professionalIntelligenceCandidates: hydratedCandidates } = parseDraftEnvelope(raw, TOTAL);
+        const {
+          saved, resumeStep,
+          professionalIntelligenceCandidates: hydratedCandidates,
+          professionalIntelligenceEnrichments: hydratedEnrichments,
+        } = parseDraftEnvelope(raw, TOTAL);
         justHydratedRef.current = true;
-        // Set the ref synchronously, in the same tick as the state update
-        // below, so there is never a window where state holds the
-        // hydrated overlay but the ref still holds the pre-hydration
-        // empty value (see the ref's own comment above).
+        // Set the refs synchronously, in the same tick as the state
+        // updates below, so there is never a window where state holds
+        // the hydrated overlay but the ref still holds the pre-hydration
+        // empty value (see the refs' own comments above). Active
+        // Professional Context is never hydrated -- it starts null on
+        // every load, by design (ACTIVE_CONTEXT_PERSISTENCE: NONE).
         professionalIntelligenceCandidatesRef.current = hydratedCandidates;
+        professionalIntelligenceEnrichmentsRef.current = hydratedEnrichments;
         setProfessionalIntelligenceCandidates(hydratedCandidates);
+        setProfessionalIntelligenceEnrichments(hydratedEnrichments);
         setData({
           ...INITIAL,
           ...saved,
@@ -962,7 +1207,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
             {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} sessionId={sessionId} errors={errors}/>}
-            {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate}/>}
+            {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} enrichments={professionalIntelligenceEnrichments} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate} onAcceptEnrichment={handleAcceptEnrichment} onRejectEnrichment={handleRejectEnrichment}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}
             {step === 3  && <Module3  data={data.module4}  onChange={m => setData(p => ({ ...p, module4:  m }))}/>}

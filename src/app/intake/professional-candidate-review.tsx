@@ -28,14 +28,22 @@ import type {
   BusinessCandidate, ReferenceCandidate, EvidenceCandidate, StrategicAnswerCandidate,
   CandidateProvenance, CandidateConfidence, EvidenceCandidateCategory,
   StrategicAnswerTargetField,
+  ProfessionalIntelligenceEnrichments, EmploymentEnrichment,
 } from "@/lib/intake/professional-intelligence";
 
 export type ProfessionalIntelligenceCandidateDomain = ProfessionalIntelligenceCandidate["domain"];
 
 export type ProfessionalCandidateReviewProps = {
   candidates: ProfessionalIntelligenceCandidates;
+  // PI-D0B: a separate, additive overlay -- never merged into
+  // `candidates`. Only Employment enrichments exist in V1; the base
+  // professional fact each one targets is resolved from `candidates`
+  // by target.candidateId, never duplicated/snapshotted here.
+  enrichments: ProfessionalIntelligenceEnrichments;
   onAccept: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
   onReject: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
+  onAcceptEnrichment: (enrichmentId: string) => void;
+  onRejectEnrichment: (enrichmentId: string) => void;
 };
 
 const DOMAIN_LABELS: Record<ProfessionalIntelligenceCandidateDomain, string> = {
@@ -256,7 +264,63 @@ function StrategicAnswerCard({ candidate, onAccept, onReject }: {
   );
 }
 
-export function ProfessionalCandidateReview({ candidates, onAccept, onReject }: ProfessionalCandidateReviewProps) {
+// PI-D0B — Employment enrichment proposal card. One EmploymentEnrichment
+// is one review unit: Accept/Reject applies to the entire proposal, never
+// per-field (no field-level statuses, no splitting). Shows the base
+// professional fact (company/title, resolved by id -- never duplicated
+// into the enrichment itself), the beneficiary's own current-turn
+// message (enrichment provenance rawText IS literally that message,
+// per the frozen Coach provenance semantics -- unlike A0 candidate
+// rawText, showing it here is accurate, not an exact-quote overclaim),
+// and only the populated patch fields, each with a clear label. No
+// editing, no per-field action, no module-jump shortcut, no navigation.
+function EnrichmentCard({
+  baseCandidate, enrichment, onAccept, onReject,
+}: {
+  baseCandidate: EmploymentCandidate;
+  enrichment: EmploymentEnrichment;
+  onAccept: () => void;
+  onReject: () => void;
+}) {
+  const title = baseCandidate.company || baseCandidate.title || "Experiencia laboral";
+  const rawText = enrichment.provenance[0]?.rawText ?? "";
+  return (
+    <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
+      <div className="space-y-0.5">
+        <p className="text-xs font-medium text-gray-500">Información adicional sobre</p>
+        <p className="text-sm font-semibold text-gray-800">{title}</p>
+        {baseCandidate.company && baseCandidate.title && (
+          <p className="text-xs text-gray-500">{baseCandidate.title}</p>
+        )}
+        <Meta provenance={enrichment.provenance}/>
+      </div>
+      <div className="space-y-2">
+        <Row label="Mencionaste" value={rawText}/>
+        <Row label="Funciones principales" value={enrichment.patch.mainFunctions ?? ""}/>
+        <Row label="Proyectos importantes" value={enrichment.patch.importantProjects ?? ""}/>
+        <Row label="Logros principales" value={enrichment.patch.mainAchievements ?? ""}/>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="button" onClick={onAccept}
+          aria-label="Aceptar información adicional de experiencia profesional"
+          className="flex-1 rounded-lg border-2 border-green-500 bg-green-500 py-2 text-sm font-medium text-white transition-all hover:bg-green-600"
+        >
+          Aceptar
+        </button>
+        <button
+          type="button" onClick={onReject}
+          aria-label="Descartar información adicional de experiencia profesional"
+          className="flex-1 rounded-lg border-2 border-gray-200 py-2 text-sm font-medium text-gray-600 transition-all hover:border-gray-300"
+        >
+          Descartar
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function ProfessionalCandidateReview({ candidates, enrichments, onAccept, onReject, onAcceptEnrichment, onRejectEnrichment }: ProfessionalCandidateReviewProps) {
   const employment     = candidates.employment.filter(c => c.status === "proposed");
   const education       = candidates.education.filter(c => c.status === "proposed");
   const certification   = candidates.certification.filter(c => c.status === "proposed");
@@ -265,8 +329,20 @@ export function ProfessionalCandidateReview({ candidates, onAccept, onReject }: 
   const evidence        = candidates.evidence.filter(c => c.status === "proposed");
   const strategicAnswer = candidates.strategicAnswer.filter(c => c.status === "proposed");
 
+  // PI-D0B: only "proposed" enrichments are ever actionable/rendered
+  // (mirrors the candidate sections' own established rule exactly) --
+  // accepted/rejected enrichments simply never appear here. An
+  // enrichment whose exact target candidateId cannot be resolved is
+  // never rendered as actionable (orphan cleanup is IntakeForm's
+  // responsibility, not this component's; this is a defensive filter,
+  // not the primary cleanup mechanism).
+  const proposedEnrichments = enrichments.employment
+    .filter(e => e.status === "proposed")
+    .map(e => ({ enrichment: e, base: candidates.employment.find(c => c.id === e.target.candidateId) }))
+    .filter((x): x is { enrichment: EmploymentEnrichment; base: EmploymentCandidate } => x.base !== undefined);
+
   const total = employment.length + education.length + certification.length + business.length
-    + reference.length + evidence.length + strategicAnswer.length;
+    + reference.length + evidence.length + strategicAnswer.length + proposedEnrichments.length;
 
   if (total === 0) return null;
 
@@ -356,6 +432,26 @@ export function ProfessionalCandidateReview({ candidates, onAccept, onReject }: 
           <div className="space-y-2">
             {strategicAnswer.map(c => (
               <StrategicAnswerCard key={c.id} candidate={c} onAccept={() => onAccept("strategicAnswer", c.id)} onReject={() => onReject("strategicAnswer", c.id)}/>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* PI-D0B: clearly distinct section -- never interleaved with the
+          discovery candidate sections above, never changing their
+          Accept/Reject semantics. */}
+      {proposedEnrichments.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Información adicional sobre experiencia profesional</p>
+          <div className="space-y-2">
+            {proposedEnrichments.map(({ enrichment, base }) => (
+              <EnrichmentCard
+                key={enrichment.id}
+                baseCandidate={base}
+                enrichment={enrichment}
+                onAccept={() => onAcceptEnrichment(enrichment.id)}
+                onReject={() => onRejectEnrichment(enrichment.id)}
+              />
             ))}
           </div>
         </div>

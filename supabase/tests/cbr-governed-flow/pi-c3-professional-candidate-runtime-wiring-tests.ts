@@ -91,7 +91,16 @@ const emp = (id: string, status: "proposed" | "accepted_in_module" | "rejected" 
 // §61 items 12-25 — per-domain Accept semantics (Employment/Education/Certification/Business/Reference)
 // ════════════════════════════════════════════════════════════════════════════
 {
-  check("T28 Employment uses candidateToEmploymentEntry", /candidateToEmploymentEntry\(candidate\)/.test(src));
+  // T28 reconciled post-PI-D0B (authorized historical boundary-test
+  // reconciliation): the original assertion required the adapter to
+  // receive the raw `candidate` directly -- a temporal condition
+  // PI-D0B's authorized effective-candidate composition (explicitly
+  // described and required by this very reconciliation gate's own
+  // §13) permanently ends. The adapter itself is still the exact,
+  // unmodified candidateToEmploymentEntry -- only its argument is now
+  // the transient, non-persisted effective candidate.
+  check("T28 Employment uses the unmodified candidateToEmploymentEntry, now fed the transient effective candidate",
+    /candidateToEmploymentEntry\(effectiveCandidate\)/.test(src));
   check("T29 Employment appends to module7.employment", /module7: \{ employment: \[\.\.\.current\.module7\.employment, entry\] \}/.test(src));
   check("T30 Education uses candidateToEducationEntry", /candidateToEducationEntry\(candidate\)/.test(src));
   check("T31 Education appends to module5.degrees", /module5: \{ degrees: \[\.\.\.current\.module5\.degrees, entry\] \}/.test(src));
@@ -178,10 +187,33 @@ const emp = (id: string, status: "proposed" | "accepted_in_module" | "rejected" 
 // §61 items 74-95 — immutability / firewalls / file boundary
 // ════════════════════════════════════════════════════════════════════════════
 {
-  check("T68 DraftEnvelope shape unchanged (data/step/savedAt/optional candidates sibling)",
-    /export type DraftEnvelope = \{\s*data: IntakeFormData;\s*step: number;\s*savedAt: string;\s*professionalIntelligenceCandidates\?: ProfessionalIntelligenceCandidates;\s*\};/.test(src));
+  // T68 reconciled post-PI-D0B (authorized historical boundary-test
+  // reconciliation): the original assertion required DraftEnvelope to
+  // have NO sibling beyond professionalIntelligenceCandidates? -- a
+  // temporal condition PI-D0B's authorized, additive
+  // professionalIntelligenceEnrichments? sibling permanently ends.
+  // Replaced with the permanent invariant: the three required core
+  // fields remain exactly data/step/savedAt, both PI overlays remain
+  // optional draft-local siblings, and ActiveProfessionalContext (or
+  // any field by that name) is never one of them -- it stays outside
+  // DraftEnvelope entirely (PI-D0-R1: ACTIVE_CONTEXT_PERSISTENCE: NONE).
+  check("T68 DraftEnvelope retains exactly data/step/savedAt as required core fields, plus optional professionalIntelligenceCandidates?/professionalIntelligenceEnrichments? siblings, and nothing named ActiveProfessionalContext",
+    (() => {
+      const block = src.match(/export type DraftEnvelope = \{([^}]*)\};/)?.[1] ?? "";
+      return /data: IntakeFormData;/.test(block) &&
+        /step: number;/.test(block) &&
+        /savedAt: string;/.test(block) &&
+        /professionalIntelligenceCandidates\?: ProfessionalIntelligenceCandidates;/.test(block) &&
+        /professionalIntelligenceEnrichments\?: ProfessionalIntelligenceEnrichments;/.test(block) &&
+        !block.includes("ActiveProfessionalContext") &&
+        !block.includes("activeProfessionalContext");
+    })());
   const submitBody = src.match(/async function submit\(\)[\s\S]*?\n  \}/)?.[0] ?? "";
-  check("T69 submit() still has zero reference to professionalIntelligenceCandidates", !!submitBody && !submitBody.includes("professionalIntelligenceCandidates"));
+  // T69 extended post-PI-D0B: the SAME re-proof now additionally covers
+  // the new enrichment overlay sibling -- both remain draft-only,
+  // neither enters final submission.
+  check("T69 submit() still has zero reference to professionalIntelligenceCandidates or professionalIntelligenceEnrichments",
+    !!submitBody && !submitBody.includes("professionalIntelligenceCandidates") && !submitBody.includes("professionalIntelligenceEnrichments"));
   check("T70 no StructuredProfile reference introduced by PI-C3 (structuredProfile references are all pre-existing Module0/submit lines, not new PI-C3 code)",
     !/StructuredProfileField|acquireField\(.*candidate|confirmField\(.*candidate/.test(src));
   check("T71 no CBR reference anywhere in the file", !/\bCBR\b|\bcbr\b/.test(src));

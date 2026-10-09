@@ -104,12 +104,29 @@ const intakeFormSrc = readFileSync(require.resolve(INTAKEFORM_FILE), "utf8");
   const handlerMatch = intakeFormSrc.match(/const handleProfessionalCandidatesExtracted = useCallback\(\(incoming: ProfessionalIntelligenceCandidates\) => \{[\s\S]*?\}, \[\]\);/);
   check("T25 handleProfessionalCandidatesExtracted exists with empty dependency array", !!handlerMatch);
   const handlerBody = handlerMatch?.[0] ?? "";
-  check("T26 handler uses replaceCvExtractionCandidates (never *SameIdentity/*MaterialEquals, never reimplemented inline)",
-    /replaceCvExtractionCandidates\(professionalIntelligenceCandidatesRef\.current, incoming\)/.test(handlerBody) &&
+  // T26 reconciled post-PI-D0B (authorized historical boundary-test
+  // reconciliation): the original assertion required an exact
+  // TWO-argument call -- a temporal condition PI-D0B's authorized
+  // protected-candidate-ID extension permanently ends (a beneficiary-
+  // accepted Employment enrichment must protect its exact base
+  // candidate from CV replacement). Replaced with the permanent
+  // invariant: the REAL helper is still called (never a comparator
+  // reimplemented inline), over the current candidate overlay and the
+  // incoming CV overlay, now with an explicit third argument.
+  check("T26 handler uses the REAL replaceCvExtractionCandidates helper over the current overlay + incoming, now with a protected-ID third argument (never *SameIdentity/*MaterialEquals, never reimplemented inline)",
+    /replaceCvExtractionCandidates\(professionalIntelligenceCandidatesRef\.current, incoming, protectedCandidateIds\)/.test(handlerBody) &&
     !/SameIdentity/.test(handlerBody) && !/MaterialEquals/.test(handlerBody));
-  check("T27 handler synchronously updates BOTH the ref and the state setter",
-    /professionalIntelligenceCandidatesRef\.current = next;/.test(handlerBody) &&
-    /setProfessionalIntelligenceCandidates\(next\);/.test(handlerBody));
+  check("T26b protectedCandidateIds is derived ONLY from status === \"accepted\" Employment enrichments (proposed/rejected never protect)",
+    /\.filter\(e => e\.status === "accepted" && e\.target\.domain === "employment"\)/.test(handlerBody) &&
+    !/status === "proposed"[\s\S]{0,80}protectedCandidateIds|status === "rejected"[\s\S]{0,80}protectedCandidateIds/.test(handlerBody));
+  // T27 reconciled post-PI-D0B: the original assertion hard-coded the
+  // variable name `next` -- a naming detail, not the actual invariant.
+  // The permanent invariant (ref assigned synchronously alongside the
+  // state setter, for the SAME candidate overlay result) is unchanged
+  // and still verified here, under the current variable name.
+  check("T27 handler synchronously updates BOTH the candidate ref and the candidate state setter with the SAME replacement result",
+    /professionalIntelligenceCandidatesRef\.current = nextCandidates;/.test(handlerBody) &&
+    /setProfessionalIntelligenceCandidates\(nextCandidates\);/.test(handlerBody));
   check("T28 handler never calls save() or localStorage.setItem (persistence rides existing checkpoint/autosave/manual-save)",
     !/save\(/.test(handlerBody) && !/localStorage\.setItem/.test(handlerBody));
 }
