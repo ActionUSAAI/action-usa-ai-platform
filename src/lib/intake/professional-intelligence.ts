@@ -318,21 +318,195 @@ function isCvExtractionOnly(provenance: readonly CandidateProvenance[]): boolean
   return provenance.length > 0 && provenance.every(p => p.source === "cv_extraction");
 }
 
-function replaceDomain<T extends { provenance: CandidateProvenance[] }>(current: T[], incoming: T[]): T[] {
-  return [...current.filter(c => !isCvExtractionOnly(c.provenance)), ...incoming];
+// protectedIds (PI-D0A): optional, additive. A CV-only candidate whose id
+// is in this set survives replacement even though it would otherwise
+// qualify for removal -- added so a future caller (PI-D0B) can protect a
+// candidate that already carries a beneficiary-accepted enrichment from
+// being silently discarded on CV re-extraction. Omitted/undefined (every
+// existing call site) reduces this condition to exactly the original,
+// unextended behavior -- `protectedIds?.has(c.id) ?? false` is always
+// `false`, so the OR has no effect. This function has no awareness of
+// EmploymentEnrichment or any enrichment concept -- it knows only ids.
+function replaceDomain<T extends { id: string; provenance: CandidateProvenance[] }>(
+  current: T[], incoming: T[], protectedIds?: ReadonlySet<string>
+): T[] {
+  return [
+    ...current.filter(c => !isCvExtractionOnly(c.provenance) || (protectedIds?.has(c.id) ?? false)),
+    ...incoming,
+  ];
 }
 
 export function replaceCvExtractionCandidates(
   current: ProfessionalIntelligenceCandidates,
-  incoming: ProfessionalIntelligenceCandidates
+  incoming: ProfessionalIntelligenceCandidates,
+  protectedCandidateIds?: ReadonlySet<string>
 ): ProfessionalIntelligenceCandidates {
   return {
-    employment: replaceDomain(current.employment, incoming.employment),
-    education: replaceDomain(current.education, incoming.education),
-    certification: replaceDomain(current.certification, incoming.certification),
-    business: replaceDomain(current.business, incoming.business),
-    reference: replaceDomain(current.reference, incoming.reference),
-    evidence: replaceDomain(current.evidence, incoming.evidence),
-    strategicAnswer: replaceDomain(current.strategicAnswer, incoming.strategicAnswer),
+    employment: replaceDomain(current.employment, incoming.employment, protectedCandidateIds),
+    education: replaceDomain(current.education, incoming.education, protectedCandidateIds),
+    certification: replaceDomain(current.certification, incoming.certification, protectedCandidateIds),
+    business: replaceDomain(current.business, incoming.business, protectedCandidateIds),
+    reference: replaceDomain(current.reference, incoming.reference, protectedCandidateIds),
+    evidence: replaceDomain(current.evidence, incoming.evidence, protectedCandidateIds),
+    strategicAnswer: replaceDomain(current.strategicAnswer, incoming.strategicAnswer, protectedCandidateIds),
   };
+}
+
+// ── Professional Enrichment Model (PI-D0, corrected by PI-D0-R1) ────────────
+// Enrichment represents newly asserted material ABOUT an already-known
+// Employment candidate -- never a duplicated full candidate, never a
+// mutation of the original. A standalone model, deliberately NOT a member
+// of ProfessionalIntelligenceCandidate/Candidates -- merging it there would
+// force every existing exhaustive 7-domain switch (PI-C1 adapters, PI-C2
+// review, PI-C3 handlers) to handle an 8th, structurally different,
+// patch-shaped member, regressing those three closed slices. V1 is
+// Employment-only (D-PI-D0-01, frozen): Education/Certification/Business
+// each resolve to zero safely-enrichable fields once identity/correction-
+// style fields are excluded (graduationYear/year are date-correction
+// facts, not professional depth; Business.role is already frozen
+// non-mappable from Coach); Reference/Evidence/StrategicAnswer have no A0
+// base to enrich at all. Future domain expansion is deferred, not
+// prohibited (D-PI-D0-01) -- nothing here forecloses it.
+//
+// NO timestamp fields (acceptedAt/createdAt/updatedAt) and NO linkage
+// field back to any resulting module entry -- composition order is
+// OVERLAY_ACQUISITION_ORDER (PI-D0-R1 correction):
+// candidate Accept/Reject has never reordered an array anywhere in this
+// codebase (see withCandidateStatus's own position-preserving .map()),
+// and an enrichment's array position already IS a stable, deterministic
+// fold order -- a timestamp field would duplicate that guarantee for no
+// benefit while adding a new hydration-validity question.
+export type EnrichmentStatus = "proposed" | "accepted" | "rejected";
+
+// V1: Employment-only (frozen). Not generalized to other domains merely
+// for typing convenience -- an impossible target must never type-check.
+export interface EnrichmentTarget {
+  domain: "employment";
+  candidateId: string;
+}
+
+// Only the three narrative depth fields Coach's own prompt already
+// probes (impacto/responsabilidad/complejidad) -- never identity fields
+// (company/title/startDate/endDate). An enrichment proposal carries only
+// what was newly asserted, never a restatement of context the
+// beneficiary did not say that turn (frozen context/provenance firewall).
+export interface EmploymentEnrichmentPatch {
+  mainFunctions?: string;
+  importantProjects?: string;
+  mainAchievements?: string;
+}
+
+export interface EmploymentEnrichment {
+  id: string;
+  target: EnrichmentTarget;
+  status: EnrichmentStatus;
+  provenance: CandidateProvenance[];
+  patch: EmploymentEnrichmentPatch;
+}
+
+// V1: a single-domain union of one -- kept as its own named export rather
+// than a discriminated union of several, since adding Education/
+// Certification/Business members today would be permanently dead code
+// per the domain analysis above.
+export type ProfessionalIntelligenceEnrichment = EmploymentEnrichment;
+
+export interface ProfessionalIntelligenceEnrichments {
+  employment: EmploymentEnrichment[];
+}
+
+export function emptyProfessionalIntelligenceEnrichments(): ProfessionalIntelligenceEnrichments {
+  return { employment: [] };
+}
+
+// Eligibility (PI-D0-R1 correction): HAS_CV_EXTRACTION_PROVENANCE, not
+// CV-EXCLUSIVE. provenance.some(...), never .every(...) -- a legitimate
+// multi-source candidate (CV + Coach, materially-equal payload, per this
+// file's own provenance[] documentation above) still has real documentary
+// CV support and must remain a valid anchor. A Coach-only discovery
+// candidate (zero cv_extraction entries) correctly fails this check,
+// keeping NEW DISCOVERY candidates ineligible as V1 enrichment anchors
+// (DISCOVERY_CANDIDATE_ENRICHMENT_V1: DEFERRED) without needing any
+// separate "is this a discovery" flag -- provenance already decides it.
+// A rejected or already-accepted_in_module candidate is excluded by the
+// plain status check alone (REJECTED_A0_AS_ANCHOR: PROHIBITED).
+export function isCandidateEligibleForEnrichmentAnchor(candidate: EmploymentCandidate): boolean {
+  return candidate.status === "proposed" && candidate.provenance.some(p => p.source === "cv_extraction");
+}
+
+// APPEND_PRESERVE_EXISTING (frozen Owner decision D-PI-D-R1-01). Operates
+// on raw text only -- normalizedEquals (trim+lowercase+collapse-
+// whitespace) governs ONLY the exact-duplicate comparison, never the
+// stored value itself, so the beneficiary's/Coach's original casing and
+// wording is always preserved verbatim in what is actually saved.
+// Exact-normalized-equality no-op is a mechanical idempotency guard
+// within one field's own accumulated text -- it is not the frozen
+// no-automatic-dedup policy, which governs whether separate overlay
+// items may coexist, a different and unrelated concern.
+export function appendPreserveExisting(existing: string, incoming: string): string {
+  if (incoming.trim() === "") return existing.trim() === "" ? "" : existing;
+  if (existing.trim() === "") return incoming;
+  if (normalizedEquals(existing, incoming)) return existing;
+  return `${existing}\n\n${incoming}`;
+}
+
+// Transient, pure composition -- never persisted, never itself a stored
+// overlay object. Feeds the existing, unmodified candidateToEmploymentEntry
+// adapter (professional-intelligence-adapters.ts) at base-candidate Accept
+// time without requiring any adapter change. Never mutates `base` or any
+// enrichment; defensively ignores enrichments targeting a different
+// candidate/domain or not yet "accepted" rather than throwing. Folds in
+// the input array's own existing order (OVERLAY_ACQUISITION_ORDER) --
+// never sorts, never reads a timestamp.
+export function composeEffectiveCandidate(
+  base: EmploymentCandidate,
+  enrichments: readonly EmploymentEnrichment[]
+): EmploymentCandidate {
+  let mainFunctions = base.mainFunctions;
+  let importantProjects = base.importantProjects;
+  let mainAchievements = base.mainAchievements;
+
+  for (const enrichment of enrichments) {
+    if (enrichment.status !== "accepted") continue;
+    if (enrichment.target.domain !== "employment") continue;
+    if (enrichment.target.candidateId !== base.id) continue;
+
+    if (enrichment.patch.mainFunctions !== undefined) {
+      mainFunctions = appendPreserveExisting(mainFunctions, enrichment.patch.mainFunctions);
+    }
+    if (enrichment.patch.importantProjects !== undefined) {
+      importantProjects = appendPreserveExisting(importantProjects, enrichment.patch.importantProjects);
+    }
+    if (enrichment.patch.mainAchievements !== undefined) {
+      mainAchievements = appendPreserveExisting(mainAchievements, enrichment.patch.mainAchievements);
+    }
+  }
+
+  return { ...base, mainFunctions, importantProjects, mainAchievements };
+}
+
+// Answers only "does the exact target still exist?" -- existence, not
+// eligibility (a rejected/accepted_in_module target still counts as
+// existing here; that is a separate, already-handled concern elsewhere).
+// Exact candidateId resolution only -- no company/title matching, no
+// semantic/fuzzy re-anchoring. Never mutates either input.
+export function removeOrphanedEnrichments(
+  enrichments: ProfessionalIntelligenceEnrichments,
+  candidates: ProfessionalIntelligenceCandidates
+): ProfessionalIntelligenceEnrichments {
+  const existingIds = new Set(candidates.employment.map(c => c.id));
+  return {
+    employment: enrichments.employment.filter(e => existingIds.has(e.target.candidateId)),
+  };
+}
+
+// Coarse hydration guard, mirroring isValidProfessionalIntelligenceCandidatesOverlay's
+// own established philosophy exactly: a non-null object with an
+// `employment` array is acceptable for hydration; anything else resets
+// the whole overlay to empty. Per-item content (id/status/target/patch/
+// provenance) is deliberately not deep-validated, matching the existing
+// candidate-overlay guard's own precedent.
+export function isValidProfessionalIntelligenceEnrichmentsOverlay(value: unknown): value is ProfessionalIntelligenceEnrichments {
+  if (typeof value !== "object" || value === null) return false;
+  const v = value as Record<string, unknown>;
+  return Array.isArray(v.employment);
 }
