@@ -19,7 +19,10 @@ import {
   isCandidateEligibleForEnrichmentAnchor,
   composeEffectiveCandidate,
   removeOrphanedEnrichments,
+  type EmploymentCandidate,
 } from "@/lib/intake/professional-intelligence";
+import type { BoundedEmploymentContext, NextProfessionalTopic } from "@/lib/intake/coach";
+import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
 import {
   candidateToEmploymentEntry, candidateToEducationEntry, candidateToCertificationEntry,
   candidateToBusinessEntry, candidateToReferenceEntry, candidateToEvidenceStatusPatch,
@@ -59,10 +62,13 @@ const TOTAL = 14;
 // professionalIntelligenceEnrichments (PI-D0B) is an additive, optional
 // sibling, mirroring professionalIntelligenceCandidates's own exact
 // pattern -- draft-local, never part of IntakeFormData/Module0Data, never
-// spread into the /api/intake submission payload. ActiveProfessionalContext
-// is deliberately NOT a DraftEnvelope field at all (frozen PI-D0-R1:
-// ACTIVE_CONTEXT_PERSISTENCE: NONE) -- it is transient client UI/session
-// state only, never hydrated, never saved.
+// spread into the /api/intake submission payload. QuestionProfessionalContext
+// (PI-D1D, superseding D0B's ActiveProfessionalContext) is deliberately NOT
+// a DraftEnvelope field at all (frozen PI-D0-R1/R2/R3:
+// QUESTION_CONTEXT_PERSISTED: NO) -- it is transient client runtime state
+// only, never hydrated, never saved. The same holds for the rotation
+// pointer and the bounded Coach-guidance snapshot -- neither is ever a
+// DraftEnvelope field.
 export type DraftEnvelope = {
   data: IntakeFormData;
   step: number;
@@ -71,48 +77,187 @@ export type DraftEnvelope = {
   professionalIntelligenceEnrichments?: ProfessionalIntelligenceEnrichments;
 };
 
-// PI-D0B: deliberately NOT a candidate-model concept (professional-
-// intelligence.ts has zero awareness of it) -- this is transient
-// client-side conversational-steering state, structurally identical to
-// EnrichmentTarget ({domain, candidateId}) but living here, where its
-// one and only owner (IntakeForm) is. No display-name/company/title
-// snapshot belongs here -- identity display is always resolved fresh
-// from the current candidate by candidateId.
-export interface ActiveProfessionalContext {
-  domain: "employment";
+// PI-D1D — supersedes PI-D0B's ActiveProfessionalContext (manual/global
+// beneficiary-selected target) with the PI-D1-R2/R3 Coach-led,
+// turn-scoped, alias-based architecture: this context represents what
+// the IMMEDIATELY PRECEDING Coach question was about, applicable to the
+// beneficiary's CURRENT answer -- never the reverse (PI-D1-R2 off-by-one
+// firewall). Deliberately NOT a candidate-model concept (professional-
+// intelligence.ts has zero awareness of it). No alias field -- an alias
+// is request-snapshot-local only and is resolved to a candidateId before
+// this context is ever constructed (PI-D1-R2 §9/§23).
+export type QuestionProfessionalContext =
+  | {
+      mode: "known_employment";
+      candidateId: string;
+      identity: { company: string; title: string; startDate: string; endDate: string };
+    }
+  | { mode: "open_discovery" }
+  | { mode: "none" };
+
+// PI-D1-R3-R1's selected rotation state shape -- the exact candidateId
+// that should start the next rotating slice, or null. Identity-anchored
+// (not a numeric index) specifically so a removal elsewhere in the pool
+// never silently redirects the pointer to an unintended candidate
+// (PI-D1-R3-R1 §13/§H).
+export type RotationPointer = string | null;
+
+// PI-D1D — application-only internal snapshot (never sent to any
+// server/model as-is; only the alias+identity portion, stripped of
+// candidateId, becomes the wire-visible boundedEmploymentContexts).
+// `proposedNextRotationState` is computed at snapshot-BUILD time but
+// must not become authoritative until a successful Coach checkpoint
+// commits it (PI-D1-R3-R1 two-phase build/commit invariant).
+export interface BoundedProfessionalSnapshotEntry {
+  alias: "P1" | "P2" | "P3";
   candidateId: string;
+  identity: { company: string; title: string; startDate: string; endDate: string };
+}
+export interface BoundedProfessionalSnapshot {
+  entries: BoundedProfessionalSnapshotEntry[];
+  proposedNextRotationState: RotationPointer;
 }
 
-// Exported pure helper (mirrors findProposedCandidate's own
-// testability convention): a non-null context is valid only while its
-// exact candidateId still resolves to a currently-eligible Employment
-// anchor (PI-D0-R1 §11). No semantic/fuzzy re-anchor -- a context whose
-// target candidate no longer exists, or exists but is no longer
-// proposed/CV-supported, is simply invalid; nothing here ever selects
-// a replacement.
-export function isActiveContextValid(
-  context: ActiveProfessionalContext | null,
-  candidates: ProfessionalIntelligenceCandidates
+// Exported pure helper -- the single, narrow revalidation predicate used
+// both for pin-derivation and for enrichment-target/next-context
+// revalidation (PI-D1-R3 §47/§S: one predicate, every call site, no
+// duplicated business logic). Deliberately does NOT require
+// cv_extraction provenance -- a safely-bound Coach-discovered Candidate
+// is a valid context-authorized target even though it is NOT generally
+// eligible for the rotating pool (isCandidateEligibleForEnrichmentAnchor,
+// unchanged, stays the stricter general-pool gate). Authorization comes
+// entirely from the caller already knowing this exact candidateId was
+// legitimately established as context -- never from inspecting
+// provenance here.
+export function isContextAuthorizedTarget(
+  candidate: EmploymentCandidate | undefined,
+  candidateId: string
 ): boolean {
-  if (!context) return false;
-  if (context.domain !== "employment") return false;
-  const candidate = candidates.employment.find(c => c.id === context.candidateId);
-  if (!candidate) return false;
-  return isCandidateEligibleForEnrichmentAnchor(candidate);
+  return !!candidate && candidate.id === candidateId && candidate.status === "proposed";
 }
 
-// Exported pure helper backing handleSetActiveProfessionalContext's
-// client-authoritative validation (PI-D0-R1 §R1-02/§12) -- returns the
-// new context only when candidateId resolves to a currently-eligible
-// Employment anchor, else null (caller treats null as "leave whatever
-// context currently exists untouched," never as "clear it").
-export function resolveActiveProfessionalContext(
-  candidateId: string,
+// Exported pure helper -- derives the pinned P1 entry (if any) from the
+// current question context, re-reading the live Candidate's own
+// identity fields fresh rather than trusting a possibly-stale stored
+// copy (identity fields are never mutated by enrichment, so this is
+// always safe and strictly more current). Returns null whenever there
+// is no known_employment context or its target is no longer a valid
+// context-authorized Employment Candidate -- never a fuzzy/company-title
+// fallback (PI-D1-R3 §16).
+export function derivePinnedEntry(
+  questionContext: QuestionProfessionalContext,
   candidates: ProfessionalIntelligenceCandidates
-): ActiveProfessionalContext | null {
-  const candidate = candidates.employment.find(c => c.id === candidateId);
-  if (!candidate || !isCandidateEligibleForEnrichmentAnchor(candidate)) return null;
-  return { domain: "employment", candidateId };
+): { candidateId: string; identity: BoundedProfessionalSnapshotEntry["identity"] } | null {
+  if (questionContext.mode !== "known_employment") return null;
+  const candidate = candidates.employment.find(c => c.id === questionContext.candidateId);
+  if (!candidate || !isContextAuthorizedTarget(candidate, questionContext.candidateId)) return null;
+  return {
+    candidateId: candidate.id,
+    identity: { company: candidate.company, title: candidate.title, startDate: candidate.startDate, endDate: candidate.endDate },
+  };
+}
+
+// Exported pure helper -- the general ROTATING pool. Reuses the
+// byte-unchanged PI-D0A helper exactly (PI-D1-R3 §12/§49) -- a
+// Coach-discovered Candidate with only coach_discovery provenance never
+// enters this pool, bound/pinned or not.
+export function deriveGeneralEligiblePool(candidates: ProfessionalIntelligenceCandidates): EmploymentCandidate[] {
+  return candidates.employment.filter(isCandidateEligibleForEnrichmentAnchor);
+}
+
+// Exported pure helper -- PI-D1-R3-R1's selected candidateId-anchored
+// cyclic pointer algorithm, verified against its own worked example
+// during that design gate. `pool` must already be eligibility-filtered
+// and pin-excluded by the caller. A pointer that no longer resolves in
+// the current pool falls back to pool[0] (safety over perfect fairness,
+// PI-D1-R3-R1 §15) -- never a semantic/company-title replacement search.
+export function selectRotatingSlice(
+  pool: readonly EmploymentCandidate[],
+  capacity: number,
+  pointer: RotationPointer
+): { selected: EmploymentCandidate[]; newNextId: RotationPointer } {
+  if (pool.length === 0) return { selected: [], newNextId: null };
+  let start = 0;
+  if (pointer !== null) {
+    const idx = pool.findIndex(c => c.id === pointer);
+    if (idx !== -1) start = idx;
+  }
+  const n = Math.min(capacity, pool.length);
+  const selected = Array.from({ length: n }, (_, i) => pool[(start + i) % pool.length]);
+  const newNextId = pool[(start + n) % pool.length].id;
+  return { selected, newNextId };
+}
+
+// Exported pure helper -- composes pin + rotation into the exact bounded
+// snapshot used both to build the next Coach request (alias+identity
+// only, candidateId stripped before serialization -- see
+// Module0's own wire-safe prop) and to resolve a returned alias back to
+// an exact candidateId at checkpoint time (PI-D1-R2/R3 alias
+// architecture). Pin consumes no rotation capacity (PI-D1-R3 §17) and is
+// excluded from the rotating pool by exact id.
+export function buildBoundedProfessionalSnapshot(
+  questionContext: QuestionProfessionalContext,
+  candidates: ProfessionalIntelligenceCandidates,
+  rotationPointer: RotationPointer
+): BoundedProfessionalSnapshot {
+  const pinned = derivePinnedEntry(questionContext, candidates);
+  const generalPool = deriveGeneralEligiblePool(candidates).filter(c => !pinned || c.id !== pinned.candidateId);
+  const capacity = pinned ? 2 : 3;
+  const { selected, newNextId } = selectRotatingSlice(generalPool, capacity, rotationPointer);
+
+  const rotatingEntries = selected.map(c => ({
+    candidateId: c.id,
+    identity: { company: c.company, title: c.title, startDate: c.startDate, endDate: c.endDate },
+  }));
+  const slots = pinned ? [pinned, ...rotatingEntries] : rotatingEntries;
+
+  const entries: BoundedProfessionalSnapshotEntry[] = slots.map((e, i) => ({
+    alias: (`P${i + 1}` as "P1" | "P2" | "P3"),
+    candidateId: e.candidateId,
+    identity: e.identity,
+  }));
+
+  return { entries, proposedNextRotationState: newNextId };
+}
+
+// Exported pure helper -- resolves Coach's raw next-topic signal into
+// the authoritative QuestionProfessionalContext for the NEXT beneficiary
+// message, per PI-D1-R2 (alias/open_discovery/none) and PI-D1-R3
+// (continue_new_employment same-turn single-discovery cardinality
+// binding). `candidatesForValidation` must be the FINAL post-discovery-
+// append candidate state for this turn -- known_employment additionally
+// re-validates the resolved target is still a context-authorized
+// Employment Candidate at THIS exact moment (PI-D1-R2 §86 no-reanchor:
+// a snapshot-valid alias whose Candidate was rejected/removed before
+// checkpoint still downgrades to none, never an alternate target).
+export function resolveNextQuestionContext(
+  rawTopic: NextProfessionalTopic,
+  snapshot: BoundedProfessionalSnapshot,
+  candidatesForValidation: ProfessionalIntelligenceCandidates,
+  newEmploymentDiscoveries: readonly EmploymentCandidate[]
+): QuestionProfessionalContext {
+  if (rawTopic.mode === "known_employment") {
+    const entry = snapshot.entries.find(e => e.alias === rawTopic.alias);
+    if (!entry) return { mode: "none" };
+    const candidate = candidatesForValidation.employment.find(c => c.id === entry.candidateId);
+    if (!isContextAuthorizedTarget(candidate, entry.candidateId)) return { mode: "none" };
+    return { mode: "known_employment", candidateId: entry.candidateId, identity: entry.identity };
+  }
+  if (rawTopic.mode === "continue_new_employment") {
+    // PI-D1-R3 §26/§27: cardinality-safe, zero-agreement binding --
+    // never guess, never choose first, never semantic/company-title match.
+    if (newEmploymentDiscoveries.length === 1) {
+      const c = newEmploymentDiscoveries[0];
+      return {
+        mode: "known_employment",
+        candidateId: c.id,
+        identity: { company: c.company, title: c.title, startDate: c.startDate, endDate: c.endDate },
+      };
+    }
+    return { mode: "open_discovery" };
+  }
+  if (rawTopic.mode === "open_discovery") return { mode: "open_discovery" };
+  return { mode: "none" };
 }
 
 // P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
@@ -584,15 +729,49 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   const professionalIntelligenceEnrichmentsRef = useRef(professionalIntelligenceEnrichments);
   useEffect(() => { professionalIntelligenceEnrichmentsRef.current = professionalIntelligenceEnrichments; }, [professionalIntelligenceEnrichments]);
 
-  // PI-D0B: IntakeForm is the sole, canonical owner (PI-D0-R1 correction
-  // R1-02) -- never persisted (no DraftEnvelope field, no localStorage,
-  // no final submission, no server transport in this slice), never a
-  // Module0Data/StructuredProfile concept. Mirrored by a ref for the
-  // same stale-closure reason every other stable useCallback in this
-  // file already reads a ref instead of the state variable directly.
-  const [activeProfessionalContext, setActiveProfessionalContext] = useState<ActiveProfessionalContext | null>(null);
-  const activeProfessionalContextRef = useRef(activeProfessionalContext);
-  useEffect(() => { activeProfessionalContextRef.current = activeProfessionalContext; }, [activeProfessionalContext]);
+  // PI-D1D: IntakeForm is the sole, canonical owner (PI-D1-R2/R3) --
+  // never persisted (no DraftEnvelope field, no localStorage, no final
+  // submission, no server transport), never a Module0Data/
+  // StructuredProfile concept. Mirrored by a ref for the same
+  // stale-closure reason every other stable useCallback in this file
+  // already reads a ref instead of the state variable directly.
+  // Supersedes PI-D0B's ActiveProfessionalContext (manual/global
+  // selection, never wired to any UI) outright -- no data migration was
+  // ever needed since that state was always transient/never persisted.
+  const [questionContext, setQuestionContext] = useState<QuestionProfessionalContext>({ mode: "none" });
+  const questionContextRef = useRef(questionContext);
+  useEffect(() => { questionContextRef.current = questionContext; }, [questionContext]);
+
+  // PI-D1-R3-R1: candidateId-anchored cyclic rotation pointer. Plain ref
+  // only (no paired useState) -- nothing ever renders from this value
+  // directly; it is consumed solely by the snapshot-building effect
+  // below, which already re-fires on every questionContext commit (the
+  // same synchronous checkpoint that updates the pointer also always
+  // calls setQuestionContext). Never persisted, never model-visible.
+  const rotationNextCandidateIdRef = useRef<RotationPointer>(null);
+
+  // PI-D1D: the exact bounded snapshot used for the IN-FLIGHT/most-recent
+  // Coach request -- holds the full alias->candidateId->identity mapping
+  // (application-only authority) that only IntakeForm ever sees. Built
+  // fresh by the effect below whenever the inputs that determine it
+  // change, and read again, unchanged, at checkpoint time to resolve a
+  // returned alias -- never recomputed between send and checkpoint, so
+  // alias resolution is always against the EXACT snapshot Coach was
+  // shown (PI-D1-R2 §85 request-exact snapshot invariant).
+  const boundedSnapshotRef = useRef<BoundedProfessionalSnapshot>({ entries: [], proposedNextRotationState: null });
+  // Wire-safe mirror (candidateId stripped) handed to Module0 as a
+  // plain prop -- Module0 never sees boundedSnapshotRef itself.
+  const [boundedEmploymentContexts, setBoundedEmploymentContexts] = useState<BoundedEmploymentContext[]>([]);
+
+  useEffect(() => {
+    const snapshot = buildBoundedProfessionalSnapshot(
+      questionContext,
+      professionalIntelligenceCandidatesRef.current,
+      rotationNextCandidateIdRef.current
+    );
+    boundedSnapshotRef.current = snapshot;
+    setBoundedEmploymentContexts(snapshot.entries.map(e => ({ alias: e.alias, identity: e.identity })));
+  }, [questionContext, professionalIntelligenceCandidates]);
 
   // Latest navigation position, mirroring dataRef so the stable-interval
   // autosave (and manual "Guardar borrador") can serialize the current
@@ -662,6 +841,80 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setData(nextData);
   }, [save]);
 
+  // PI-D1D — the frozen R1 unified Coach-turn checkpoint. Used ONLY by
+  // Module0's sendCoachMessage success path (onModule0Checkpoint above
+  // remains fully unchanged and still serves A0 completion/Confirmar).
+  // Exact order (PI-D1-R2/R3, proven off-by-one-safe): (1) snapshot
+  // current candidates/enrichments refs; (2) append this turn's
+  // discoveries (all seven domains, additive, no dedup); (3) revalidate
+  // incoming enrichment targets against the PRE-discovery candidate set
+  // (PI-D1-R1 frozen invariant -- a Candidate discovered THIS message
+  // can never simultaneously be this same message's own enrichment
+  // target); (4) resolve the next question context from Coach's raw
+  // topic signal, validated against THIS turn's own exact bounded
+  // snapshot and the FINAL (post-discovery) candidate state; (5) assign
+  // candidate/enrichment refs; (6) ONE save(); (7) mirror React state;
+  // (8) only now, after the save, commit questionContext + rotation --
+  // never before, so a failed/never-attempted checkpoint can never make
+  // either authoritative (PI-D1-R3-R1 two-phase build/commit invariant).
+  const onCoachTurnCheckpoint = useCallback((turn: {
+    nextModule0: IntakeFormData["module0"];
+    professionalIntelligence?: ProfessionalIntelligenceCoachResult;
+    nextProfessionalTopic: NextProfessionalTopic;
+  }) => {
+    const currentCandidates = professionalIntelligenceCandidatesRef.current;
+    const currentEnrichments = professionalIntelligenceEnrichmentsRef.current;
+    let nextCandidates = currentCandidates;
+    let nextEnrichments = currentEnrichments;
+    let newEmploymentDiscoveries: EmploymentCandidate[] = [];
+
+    if (turn.professionalIntelligence) {
+      const { enrichments: incomingEnrichments, discoveries } = turn.professionalIntelligence;
+      newEmploymentDiscoveries = discoveries.employment;
+
+      nextCandidates = {
+        employment: [...currentCandidates.employment, ...discoveries.employment],
+        education: [...currentCandidates.education, ...discoveries.education],
+        certification: [...currentCandidates.certification, ...discoveries.certification],
+        business: [...currentCandidates.business, ...discoveries.business],
+        reference: [...currentCandidates.reference, ...discoveries.reference],
+        evidence: [...currentCandidates.evidence, ...discoveries.evidence],
+        strategicAnswer: [...currentCandidates.strategicAnswer, ...discoveries.strategicAnswer],
+      };
+
+      const validEnrichments = incomingEnrichments.employment.filter(e => {
+        const candidate = currentCandidates.employment.find(c => c.id === e.target.candidateId);
+        return isContextAuthorizedTarget(candidate, e.target.candidateId);
+      });
+      nextEnrichments = { employment: [...currentEnrichments.employment, ...validEnrichments] };
+    }
+
+    const nextQuestionContext = resolveNextQuestionContext(
+      turn.nextProfessionalTopic,
+      boundedSnapshotRef.current,
+      nextCandidates,
+      newEmploymentDiscoveries
+    );
+
+    const nextData: IntakeFormData = { ...dataRef.current, module0: turn.nextModule0 };
+
+    professionalIntelligenceCandidatesRef.current = nextCandidates;
+    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+
+    const persisted = save(nextData);
+    if (persisted) { justCheckpointedRef.current = true; }
+
+    setData(nextData);
+    setProfessionalIntelligenceCandidates(nextCandidates);
+    setProfessionalIntelligenceEnrichments(nextEnrichments);
+
+    // Commit question context + rotation ONLY after the save above --
+    // never before (PI-D1-R3-R1 two-phase invariant).
+    questionContextRef.current = nextQuestionContext;
+    setQuestionContext(nextQuestionContext);
+    rotationNextCandidateIdRef.current = boundedSnapshotRef.current.proposedNextRotationState;
+  }, [save]);
+
   // PI-B2B: source-scoped replacement of cv_extraction-provenance
   // candidates with this run's results (replaceCvExtractionCandidates --
   // never dedup). Ref and state are updated synchronously, mirroring
@@ -694,30 +947,20 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setProfessionalIntelligenceCandidates(nextCandidates);
     setProfessionalIntelligenceEnrichments(nextEnrichments);
 
-    if (!isActiveContextValid(activeProfessionalContextRef.current, nextCandidates)) {
-      activeProfessionalContextRef.current = null;
-      setActiveProfessionalContext(null);
+    // PI-D1D: supersedes the old ActiveProfessionalContext cleanup with
+    // the narrower R3 context-authorized check (status===proposed, exact
+    // id match -- no cv_extraction requirement, since a safely-bound
+    // Coach-discovered pin must survive this check too if it still
+    // exists after replacement; it simply never could have been CV-only
+    // to begin with, so replaceCvExtractionCandidates never touches it).
+    const current = questionContextRef.current;
+    if (current.mode === "known_employment") {
+      const candidate = nextCandidates.employment.find(c => c.id === current.candidateId);
+      if (!isContextAuthorizedTarget(candidate, current.candidateId)) {
+        questionContextRef.current = { mode: "none" };
+        setQuestionContext({ mode: "none" });
+      }
     }
-  }, []);
-
-  // PI-D0B: minimum client-authoritative callback boundary (PI-D0-R1
-  // §R1-02) -- IntakeForm validates every set request against the
-  // current candidate overlay before committing it; an ineligible
-  // request is a silent no-op (the currently-set context, if any, is
-  // left untouched) rather than a server-trusted or LLM-trusted value.
-  // Not yet wired to any caller in this slice (no Coach-guided
-  // selection UI exists until PI-D3) -- defined here so that future
-  // wiring has a stable, already-validated target to call.
-  const handleSetActiveProfessionalContext = useCallback((candidateId: string) => {
-    const next = resolveActiveProfessionalContext(candidateId, professionalIntelligenceCandidatesRef.current);
-    if (!next) return;
-    activeProfessionalContextRef.current = next;
-    setActiveProfessionalContext(next);
-  }, []);
-
-  const handleClearActiveProfessionalContext = useCallback(() => {
-    activeProfessionalContextRef.current = null;
-    setActiveProfessionalContext(null);
   }, []);
 
   // PI-D0B — explicit beneficiary enrichment Accept (D-PI-D-R1-01/
@@ -869,21 +1112,24 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       }
     }
 
-    // PI-D0B: base Accept is the authoritative transition point for
-    // clearing a matching Active Professional Context (PI-D0-R1 §28) --
-    // IntakeForm already owns both, so this happens synchronously in
-    // this same handler, not via a separate effect.
-    const nextActiveContext = domain === "employment" && activeProfessionalContextRef.current?.candidateId === candidateId
-      ? null
-      : activeProfessionalContextRef.current;
+    // PI-D1D: base Accept is the authoritative transition point for
+    // clearing a matching question context (PI-D1-R3 §47 — pin validity
+    // requires status===proposed, which Accept's own "accepted_in_module"
+    // transition always violates) -- IntakeForm already owns both, so
+    // this happens synchronously in this same handler, not via a
+    // separate effect.
+    const nextQuestionContext: QuestionProfessionalContext =
+      domain === "employment" && questionContextRef.current.mode === "known_employment" && questionContextRef.current.candidateId === candidateId
+        ? { mode: "none" }
+        : questionContextRef.current;
 
     professionalIntelligenceCandidatesRef.current = nextCandidates;
-    activeProfessionalContextRef.current = nextActiveContext;
+    questionContextRef.current = nextQuestionContext;
     const persisted = save(nextData);
     if (persisted) { justCheckpointedRef.current = true; }
     setData(nextData);
     setProfessionalIntelligenceCandidates(nextCandidates);
-    setActiveProfessionalContext(nextActiveContext);
+    setQuestionContext(nextQuestionContext);
   }, [save]);
 
   // ── PI-C3 — explicit beneficiary Reject (D-PI-C3-03) ────────────────────────
@@ -944,21 +1190,22 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       }
     }
 
-    // PI-D0B: same authoritative-transition reasoning as base Accept
-    // (PI-D0-R1 §28) -- base Reject clears a matching Active
-    // Professional Context synchronously in this same handler.
-    const nextActiveContext = domain === "employment" && activeProfessionalContextRef.current?.candidateId === candidateId
-      ? null
-      : activeProfessionalContextRef.current;
+    // PI-D1D: same authoritative-transition reasoning as base Accept --
+    // base Reject clears a matching question context synchronously in
+    // this same handler.
+    const nextQuestionContext: QuestionProfessionalContext =
+      domain === "employment" && questionContextRef.current.mode === "known_employment" && questionContextRef.current.candidateId === candidateId
+        ? { mode: "none" }
+        : questionContextRef.current;
 
     professionalIntelligenceCandidatesRef.current = nextCandidates;
     professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
-    activeProfessionalContextRef.current = nextActiveContext;
+    questionContextRef.current = nextQuestionContext;
     const persisted = save();
     if (persisted) { justCheckpointedRef.current = true; }
     setProfessionalIntelligenceCandidates(nextCandidates);
     setProfessionalIntelligenceEnrichments(nextEnrichments);
-    setActiveProfessionalContext(nextActiveContext);
+    setQuestionContext(nextQuestionContext);
   }, [save]);
 
   // ── Init session ID and load draft ─────────────────────────────────────────
@@ -981,9 +1228,12 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
         // Set the refs synchronously, in the same tick as the state
         // updates below, so there is never a window where state holds
         // the hydrated overlay but the ref still holds the pre-hydration
-        // empty value (see the refs' own comments above). Active
-        // Professional Context is never hydrated -- it starts null on
-        // every load, by design (ACTIVE_CONTEXT_PERSISTENCE: NONE).
+        // empty value (see the refs' own comments above). Question
+        // context and the rotation pointer are never hydrated -- both
+        // start at their fresh defaults ({mode:"none"}/null) on every
+        // load, by design (PI-D1-R2/R3-R1: transient, never persisted) --
+        // a safe presentation-order reset, never a reconstruction
+        // attempt from coachConversation history.
         professionalIntelligenceCandidatesRef.current = hydratedCandidates;
         professionalIntelligenceEnrichmentsRef.current = hydratedEnrichments;
         setProfessionalIntelligenceCandidates(hydratedCandidates);
@@ -1206,7 +1456,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} sessionId={sessionId} errors={errors}/>}
             {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} enrichments={professionalIntelligenceEnrichments} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate} onAcceptEnrichment={handleAcceptEnrichment} onRejectEnrichment={handleRejectEnrichment}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}

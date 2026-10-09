@@ -12,9 +12,8 @@
 import { readFileSync } from "fs";
 import {
   parseDraftEnvelope,
-  isActiveContextValid,
-  resolveActiveProfessionalContext,
-  type ActiveProfessionalContext,
+  isContextAuthorizedTarget,
+  deriveGeneralEligiblePool,
 } from "../../../src/app/intake/IntakeForm";
 import {
   emptyProfessionalIntelligenceCandidates,
@@ -54,8 +53,12 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 // §36 — DraftEnvelope / hydration tests
 // ════════════════════════════════════════════════════════════════════════════
 {
-  check("T01 DraftEnvelope type does NOT include ActiveProfessionalContext",
-    !/export type DraftEnvelope = \{[^}]*ActiveProfessionalContext[^}]*\};/.test(src));
+  // T01 reconciled (PI-D1D-R1): ActiveProfessionalContext (D0B) is
+  // superseded by QuestionProfessionalContext (D1D) -- the permanent
+  // invariant this test protects (no context-of-any-kind lives in the
+  // persisted envelope) now also covers rotation/bounded-snapshot state.
+  check("T01 DraftEnvelope type does NOT include any question-context/rotation/alias sibling (ActiveProfessionalContext, then QuestionProfessionalContext, now both superseded)",
+    !/export type DraftEnvelope = \{[^}]*(ActiveProfessionalContext|QuestionProfessionalContext|RotationPointer|BoundedProfessionalSnapshot)[^}]*\};/.test(src));
   check("T02 DraftEnvelope includes optional professionalIntelligenceEnrichments sibling",
     /export type DraftEnvelope = \{[\s\S]*?professionalIntelligenceEnrichments\?: ProfessionalIntelligenceEnrichments;[\s\S]*?\};/.test(src));
 
@@ -87,68 +90,103 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 
   const submitBody = src.match(/async function submit\(\)[\s\S]*?\n  \}/)?.[0] ?? "";
   check("T10 final submission (submit()) still has zero reference to professionalIntelligenceEnrichments", !!submitBody && !submitBody.includes("professionalIntelligenceEnrichments"));
-  check("T11 final submission still has zero reference to activeProfessionalContext", !!submitBody && !submitBody.includes("activeProfessionalContext"));
+  // T11 reconciled: activeProfessionalContext (D0B) -> questionContext/
+  // rotationNextCandidateIdRef/boundedSnapshotRef (D1D) -- same permanent
+  // invariant (no transient professional-context runtime of any kind
+  // ever reaches final submission), updated vocabulary.
+  check("T11 final submission still has zero reference to questionContext/rotationNextCandidateIdRef/boundedSnapshotRef",
+    !!submitBody && !submitBody.includes("questionContext") && !submitBody.includes("rotationNextCandidateIdRef") && !submitBody.includes("boundedSnapshotRef"));
   check("T12 final submission still has zero reference to professionalIntelligenceCandidates (re-proof)", !!submitBody && !submitBody.includes("professionalIntelligenceCandidates"));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// §42 — Active Professional Context: pure helper behavior (directly executable)
+// §42 reconciled (PI-D1D-R1): isContextAuthorizedTarget (pin validity) vs.
+// deriveGeneralEligiblePool/isCandidateEligibleForEnrichmentAnchor (general
+// rotation-pool eligibility) are two DELIBERATELY DIFFERENT, separately
+// governed predicates after D1D -- never conflated. Pin validity requires
+// ONLY exact candidateId match + status==="proposed" (PI-D1-R3 §16: no
+// cv_extraction requirement, because a safely-bound Coach-discovered
+// Candidate must remain pinnable). General-pool eligibility reuses the
+// byte-unchanged PI-D0A helper, which DOES still require cv_extraction
+// provenance -- that stricter boundary is explicitly re-proven below,
+// never broadened.
 // ════════════════════════════════════════════════════════════════════════════
 {
-  const cvOnly = candidatesWith([emp("c1", { provenance: [prov("cv_extraction")] })]);
-  const cvAndCoach = candidatesWith([emp("c2", { provenance: [prov("cv_extraction"), prov("coach_discovery")] })]);
-  const coachOnly = candidatesWith([emp("c3", { provenance: [prov("coach_discovery")] })]);
-  const rejected = candidatesWith([emp("c4", { provenance: [prov("cv_extraction")], status: "rejected" })]);
-  const accepted = candidatesWith([emp("c5", { provenance: [prov("cv_extraction")], status: "accepted_in_module" })]);
+  const cvOnly = emp("c1", { provenance: [prov("cv_extraction")] });
+  const cvAndCoach = emp("c2", { provenance: [prov("cv_extraction"), prov("coach_discovery")] });
+  const coachOnly = emp("c3", { provenance: [prov("coach_discovery")] });
+  const rejected = emp("c4", { provenance: [prov("cv_extraction")], status: "rejected" });
+  const accepted = emp("c5", { provenance: [prov("cv_extraction")], status: "accepted_in_module" });
 
-  check("T13 eligible CV-only proposed Employment can be set", resolveActiveProfessionalContext("c1", cvOnly) !== null);
-  check("T14 eligible CV+Coach proposed Employment can be set", resolveActiveProfessionalContext("c2", cvAndCoach) !== null);
-  check("T15 Coach-only proposed Employment cannot be set", resolveActiveProfessionalContext("c3", coachOnly) === null);
-  check("T16 rejected candidate cannot be set", resolveActiveProfessionalContext("c4", rejected) === null);
-  check("T17 accepted_in_module candidate cannot be set", resolveActiveProfessionalContext("c5", accepted) === null);
-  check("T18 unknown candidateId cannot be set", resolveActiveProfessionalContext("nope", cvOnly) === null);
+  // Pin validity (isContextAuthorizedTarget) -- status + exact id ONLY.
+  check("T13 context-authorized pin valid: CV-only proposed Employment", isContextAuthorizedTarget(cvOnly, "c1") === true);
+  check("T14 context-authorized pin valid: CV+Coach proposed Employment", isContextAuthorizedTarget(cvAndCoach, "c2") === true);
+  check("T15 context-authorized pin ALSO valid for Coach-ONLY proposed Employment (PI-D1-R3 correction -- no cv_extraction requirement for a safely-bound pin; this is the one genuine architectural change D1D makes to this file's pre-existing boundary)",
+    isContextAuthorizedTarget(coachOnly, "c3") === true);
+  check("T16 context-authorized pin invalid: rejected candidate", isContextAuthorizedTarget(rejected, "c4") === false);
+  check("T17 context-authorized pin invalid: accepted_in_module candidate", isContextAuthorizedTarget(accepted, "c5") === false);
+  check("T18 context-authorized pin invalid: mismatched candidateId", isContextAuthorizedTarget(cvOnly, "nope") === false);
+  check("T20b context-authorized pin invalid: candidate undefined (target no longer resolves)", isContextAuthorizedTarget(undefined, "c1") === false);
 
-  const ctx1: ActiveProfessionalContext = { domain: "employment", candidateId: "c1" };
-  check("T19 isActiveContextValid true for an eligible target", isActiveContextValid(ctx1, cvOnly) === true);
-  check("T20 isActiveContextValid false when target no longer resolves", isActiveContextValid(ctx1, candidatesWith([])) === false);
-  check("T21 isActiveContextValid false for null context", isActiveContextValid(null, cvOnly) === false);
-  check("T22 isActiveContextValid false when target is rejected", isActiveContextValid({ domain: "employment", candidateId: "c4" }, rejected) === false);
-  check("T23 isActiveContextValid false when target is accepted_in_module", isActiveContextValid({ domain: "employment", candidateId: "c5" }, accepted) === false);
+  // General rotation-pool eligibility -- STRICTER, unchanged D0A boundary.
+  const pool = deriveGeneralEligiblePool(candidatesWith([cvOnly, cvAndCoach, coachOnly, rejected, accepted]));
+  check("T19 general pool includes CV-only AND CV+Coach proposed Employment", pool.some(c => c.id === "c1") && pool.some(c => c.id === "c2"));
+  check("T21 general pool still EXCLUDES Coach-only Employment (unchanged D0A boundary, never broadened by D1D)", !pool.some(c => c.id === "c3"));
+  check("T22 general pool excludes rejected", !pool.some(c => c.id === "c4"));
+  check("T23 general pool excludes accepted_in_module", !pool.some(c => c.id === "c5"));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
-// §42 — Active Context ownership / orchestration (structural)
+// §42 reconciled (PI-D1D-R1): QuestionProfessionalContext ownership/
+// orchestration. D1D removed the manual-selection handlers
+// (handleSetActiveProfessionalContext/handleClearActiveProfessionalContext)
+// entirely -- the Owner's R2/R3 clarification supersedes beneficiary/
+// manual/global context selection outright, so there is no successor
+// handler to test directly; the permanent invariant those two handlers
+// protected ("exactly one context authoritative at a time, correctly
+// established/cleared") is now proven against the actual sole
+// authority: onCoachTurnCheckpoint (establishes, via
+// resolveNextQuestionContext) and the base Accept/Reject handlers
+// (clear, to the canonical {mode:"none"} representation).
 // ════════════════════════════════════════════════════════════════════════════
 {
-  check("T24 ActiveProfessionalContext state/ref declared in IntakeForm (ownership)",
-    /const \[activeProfessionalContext, setActiveProfessionalContext\] = useState<ActiveProfessionalContext \| null>\(null\);/.test(src));
-  check("T25 only one context exists at a time (state type is ActiveProfessionalContext | null, never an array)",
-    /useState<ActiveProfessionalContext \| null>/.test(src) && !/ActiveProfessionalContext\[\]/.test(src));
-  check("T26 handleSetActiveProfessionalContext uses resolveActiveProfessionalContext (new valid set replaces previous)",
-    /const next = resolveActiveProfessionalContext\(candidateId, professionalIntelligenceCandidatesRef\.current\);\s*if \(!next\) return;/.test(code));
-  check("T27 handleClearActiveProfessionalContext sets null explicitly",
-    /const handleClearActiveProfessionalContext = useCallback\(\(\) => \{\s*activeProfessionalContextRef\.current = null;\s*setActiveProfessionalContext\(null\);/.test(code));
+  check("T24 QuestionProfessionalContext state/ref declared in IntakeForm (ownership)",
+    /const \[questionContext, setQuestionContext\] = useState<QuestionProfessionalContext>\(\{ mode: "none" \}\);/.test(src));
+  check("T25 only one context exists at a time (state type is QuestionProfessionalContext, a discriminated union value, never an array)",
+    /useState<QuestionProfessionalContext>/.test(src) && !/QuestionProfessionalContext\[\]/.test(src));
+  // T26 reconciled: the manual-set handler is gone by design (Owner's
+  // R2/R3 clarification) -- the sole production path that establishes a
+  // NEW questionContext is onCoachTurnCheckpoint, via
+  // resolveNextQuestionContext (replacing resolveActiveProfessionalContext).
+  const checkpointBody = src.slice(src.indexOf("const onCoachTurnCheckpoint = useCallback"), src.indexOf("const handleProfessionalCandidatesExtracted = useCallback"));
+  check("T26 onCoachTurnCheckpoint establishes the next context via resolveNextQuestionContext (sole production authority, no manual-set handler exists anymore)",
+    /const nextQuestionContext = resolveNextQuestionContext\(/.test(checkpointBody));
+  // T27 reconciled: the manual-clear handler is gone by design -- {mode:
+  // "none"} (never a bare null) is now the canonical cleared
+  // representation, explicit at every clearing call site.
+  check("T27 {mode:\"none\"} is the canonical cleared representation (no bare null anywhere in the context type)",
+    !/QuestionProfessionalContext[\s\S]{0,300}null/.test(src.slice(src.indexOf("export type QuestionProfessionalContext"), src.indexOf("export type QuestionProfessionalContext") + 400)));
 
   const acceptBody = src.slice(src.indexOf("const handleAcceptCandidate"), src.indexOf("const handleRejectCandidate"));
   const rejectBody = src.slice(src.indexOf("const handleRejectCandidate ="), src.indexOf("// ── Init session ID"));
-  check("T28 base Accept clears matching Active Context (checks activeProfessionalContextRef.current?.candidateId === candidateId)",
-    /domain === "employment" && activeProfessionalContextRef\.current\?\.candidateId === candidateId\s*\? null/.test(acceptBody));
-  check("T29 base Reject clears matching Active Context (same pattern)",
-    /domain === "employment" && activeProfessionalContextRef\.current\?\.candidateId === candidateId\s*\? null/.test(rejectBody));
-  check("T30 CV re-extraction clears Active Context when target no longer resolves to an eligible candidate",
-    /if \(!isActiveContextValid\(activeProfessionalContextRef\.current, nextCandidates\)\) \{\s*activeProfessionalContextRef\.current = null;\s*setActiveProfessionalContext\(null\);/.test(code));
+  check("T28 base Accept clears matching question context (checks questionContextRef.current.candidateId === candidateId, mode known_employment)",
+    /questionContextRef\.current\.mode === "known_employment" && questionContextRef\.current\.candidateId === candidateId\s*\?\s*\{ mode: "none" \}/.test(acceptBody));
+  check("T29 base Reject clears matching question context (same pattern)",
+    /questionContextRef\.current\.mode === "known_employment" && questionContextRef\.current\.candidateId === candidateId\s*\?\s*\{ mode: "none" \}/.test(rejectBody));
+  check("T30 CV re-extraction clears question context when target no longer resolves to a context-authorized candidate",
+    /if \(!isContextAuthorizedTarget\(candidate, current\.candidateId\)\) \{\s*questionContextRef\.current = \{ mode: "none" \};\s*setQuestionContext\(\{ mode: "none" \}\);/.test(code));
   check("T31 no semantic/fuzzy re-anchor anywhere (no company/title-based context lookup)",
-    !/activeProfessionalContext[\s\S]{0,200}\.company ===|activeProfessionalContext[\s\S]{0,200}\.title ===/.test(src));
+    !/questionContext[\s\S]{0,200}\.company ===|questionContext[\s\S]{0,200}\.title ===/.test(src));
 
-  check("T32 Active Context is never written into save()'s envelope (not part of DraftEnvelope construction)",
-    !/const envelope: DraftEnvelope = \{[^}]*activeProfessionalContext[^}]*\};/.test(src));
-  check("T33 Active Context never sent to any fetch/API call in this file (no server transport in PI-D0B)",
-    !/fetch\([^)]*activeProfessionalContext/.test(src));
+  check("T32 question context is never written into save()'s envelope (not part of DraftEnvelope construction)",
+    !/const envelope: DraftEnvelope = \{[^}]*questionContext[^}]*\};/.test(src));
+  check("T33 the questionContext ref/state is never sent to any fetch/API call in this file (candidateId reaches the wire ONLY via the already-authorized D1B professionalContext field, never the raw ref/state itself)",
+    !/fetch\([^)]*questionContextRef/.test(src) && !/fetch\([^)]*\bquestionContext\b/.test(src));
 
   const enrichAcceptBody = src.slice(src.indexOf("const handleAcceptEnrichment"), src.indexOf("const handleRejectEnrichment"));
   const enrichRejectBody = src.slice(src.indexOf("const handleRejectEnrichment"), src.indexOf("const handleAcceptCandidate"));
-  check("T34 enrichment Accept does not touch Active Context at all (orthogonal, per D-PI-D-R1)", !enrichAcceptBody.includes("ActiveContext"));
-  check("T35 enrichment Reject does not touch Active Context at all", !enrichRejectBody.includes("ActiveContext"));
+  check("T34 enrichment Accept does not touch question context at all (orthogonal, unchanged D0B/D-PI-D-R1 behavior)", !enrichAcceptBody.includes("questionContext") && !enrichAcceptBody.includes("QuestionContext"));
+  check("T35 enrichment Reject does not touch question context at all", !enrichRejectBody.includes("questionContext") && !enrichRejectBody.includes("QuestionContext"));
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -213,7 +251,10 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 // §41 — CV re-extraction protected-ids / orphan cleanup (structural)
 // ════════════════════════════════════════════════════════════════════════════
 {
-  const body = src.slice(src.indexOf("const handleProfessionalCandidatesExtracted"), src.indexOf("const handleSetActiveProfessionalContext"));
+  // End-anchor reconciled: handleSetActiveProfessionalContext no longer
+  // exists (removed by D1D) -- handleProfessionalCandidatesExtracted is
+  // now immediately followed by handleAcceptEnrichment.
+  const body = src.slice(src.indexOf("const handleProfessionalCandidatesExtracted"), src.indexOf("const handleAcceptEnrichment"));
   check("T59 protected set derived ONLY from status === \"accepted\" employment enrichments (proposed/rejected excluded)",
     /\.filter\(e => e\.status === "accepted" && e\.target\.domain === "employment"\)/.test(body));
   check("T60 protected set passed as the third, optional argument to replaceCvExtractionCandidates (backwards-compatible extension)",

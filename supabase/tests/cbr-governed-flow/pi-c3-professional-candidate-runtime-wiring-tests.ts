@@ -249,8 +249,26 @@ const emp = (id: string, status: "proposed" | "accepted_in_module" | "rejected" 
 {
   check("T80 onModule0Checkpoint still present, unchanged shape", /const onModule0Checkpoint = useCallback\(\(nextModule0: IntakeFormData\["module0"\]\) => \{/.test(src));
   check("T81 handleProfessionalCandidatesExtracted still present, unchanged shape (PI-B2B)", /const handleProfessionalCandidatesExtracted = useCallback\(\(incoming: ProfessionalIntelligenceCandidates\) => \{/.test(src));
-  check("T82 Module0 render line's existing props remain byte-identical aside from being followed by the new sibling line",
-    /\{step === 0  && <Module0  data=\{data\.module0\}  onChange=\{m => setData\(p => \(\{ \.\.\.p, module0:  m \}\)\)\} onCheckpoint=\{onModule0Checkpoint\} onProfessionalCandidatesExtracted=\{handleProfessionalCandidatesExtracted\} sessionId=\{sessionId\} errors=\{errors\}\/>\}/.test(src));
+  // T82 reconciled (PI-D1D-R1): the OLD exact-string literal is stale by
+  // design -- D1D intentionally adds onCoachTurnCheckpoint/
+  // professionalContext/boundedEmploymentContexts to this exact render
+  // line. Replaced with structural assertions proving the PERMANENT
+  // boundary: exactly one Module0 render, gated at step 0, every
+  // pre-D1D required prop still present, the new D1D props now also
+  // present, ProfessionalCandidateReview still separately rendered at
+  // step 0, and base Candidate Accept/Reject authority still routed
+  // through IntakeForm's own handlers (never delegated to Module0).
+  const module0RenderLines = src.match(/\{step === 0\s+&& <Module0\s[\s\S]*?\/>\}/g) ?? [];
+  check("T82a exactly one Module0 render line", module0RenderLines.length === 1);
+  const module0Render = module0RenderLines[0] ?? "";
+  check("T82b Module0 render gated at step === 0", module0Render.startsWith("{step === 0"));
+  check("T82c pre-D1D required props all still present", ["data={data.module0}", "onChange={m => setData(p => ({ ...p, module0:  m }))}", "onCheckpoint={onModule0Checkpoint}", "onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted}", "sessionId={sessionId}", "errors={errors}"].every(p => module0Render.includes(p)));
+  check("T82d D1D props now present: onCoachTurnCheckpoint", module0Render.includes("onCoachTurnCheckpoint={onCoachTurnCheckpoint}"));
+  check("T82e D1D props now present: professionalContext", module0Render.includes("professionalContext={questionContext.mode === \"known_employment\""));
+  check("T82f D1D props now present: boundedEmploymentContexts", module0Render.includes("boundedEmploymentContexts={boundedEmploymentContexts}"));
+  check("T82g ProfessionalCandidateReview still separately rendered at step 0, unchanged", /\{step === 0\s+&& <ProfessionalCandidateReview candidates=\{professionalIntelligenceCandidates\} enrichments=\{professionalIntelligenceEnrichments\} onAccept=\{handleAcceptCandidate\} onReject=\{handleRejectCandidate\} onAcceptEnrichment=\{handleAcceptEnrichment\} onRejectEnrichment=\{handleRejectEnrichment\}\/>\}/.test(src));
+  check("T82h base Candidate Accept/Reject authority remains IntakeForm-owned (handleAcceptCandidate/handleRejectCandidate are defined in this file itself, Module0 is imported only as the presentational component)",
+    /const handleAcceptCandidate = useCallback/.test(src) && /const handleRejectCandidate = useCallback/.test(src) && /import \{ Module0 \}\s+from "\.\/modules\/Module0";/.test(src));
 }
 
 console.log(failures === 0 ? "\nALL PI-C3 CHECKS PASS" : `\n${failures} PI-C3 CHECK(S) FAILED`);

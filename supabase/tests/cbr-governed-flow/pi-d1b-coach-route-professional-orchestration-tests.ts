@@ -330,21 +330,37 @@ async function run() {
   check("T-STATIC-12 no retry/second-attempt vocabulary", !/retry|attempt2|secondCall/i.test(routeSrc));
   check("T-STATIC-13 professionalContext extraction uses parseProfessionalContext, not ad hoc inline validation duplicated elsewhere", (routeSrc.match(/function parseProfessionalContext/g) ?? []).length === 1);
 
-  // ── §49 — D1A untouched, §54 — exactly one production consumer ─────────────
+  // ── §49 — D1A untouched, §54 — exactly one RUNTIME production consumer
+  // (PI-D1D-R1 reconciliation: redefined from a module-path textual grep,
+  // now stale because D1D legitimately type-imports
+  // ProfessionalIntelligenceCoachResult into IntakeForm.tsx/Module0.tsx,
+  // to an actual CALL-SITE grep -- a type-only import is not a runtime
+  // consumer) ─────────────────────────────────────────────────────────────
   const d1aSrcAfter = readFileSync(require.resolve("../../../src/lib/intake/coach-professional-extraction.ts"), "utf8");
   check("T-D1A-UNCHANGED-01 D1A file still exports extractCoachProfessionalIntelligence unmodified in signature", /export async function extractCoachProfessionalIntelligence\(/.test(d1aSrcAfter));
   {
-    const consumers = execSync(`grep -rl "coach-professional-extraction" ../../../src/ 2>/dev/null || true`, { cwd: __dirname, encoding: "utf8" }).trim().split("\n").filter(l => l && !l.endsWith("coach-professional-extraction.ts"));
-    check("T-D1A-CONSUMERS-01 exactly one production consumer (route.ts)", consumers.length === 1 && consumers[0].endsWith("coach/route.ts"));
+    const callSiteFiles = execSync(`grep -rl "extractCoachProfessionalIntelligence(" ../../../src/ 2>/dev/null || true`, { cwd: __dirname, encoding: "utf8" }).trim().split("\n").filter(l => l && !l.endsWith("coach-professional-extraction.ts"));
+    check("T-D1A-CONSUMERS-01 exactly one runtime call-site file for extractCoachProfessionalIntelligence(", callSiteFiles.length === 1 && callSiteFiles[0].endsWith("coach/route.ts"));
   }
 
-  // ── §48 — no client file touched (diff-boundary cross-check) ────────────────
+  // ── §48/§9 reconciled (PI-D1D-R1): the pre-D1D "client files must be
+  // unmodified" boundary is intentionally superseded by D1D's own
+  // authorized purpose. Replaced with the stronger, more durable
+  // permanent boundary: the client MAY transport/consume the D1B/D1C
+  // wire contract, but MUST NOT execute D1A extraction directly -- the
+  // route remains the sole runtime caller. ───────────────────────────────
   {
-    const changed = execSync("git diff --name-only", { cwd: process.cwd(), encoding: "utf8" }).trim().split("\n").filter(Boolean);
-    const stagedNew = execSync("git status --short", { cwd: process.cwd(), encoding: "utf8" }).trim();
-    check("T-NOCLIENT-01 Module0.tsx not in modified-tracked diff", !changed.some(f => f.includes("Module0.tsx")));
-    check("T-NOCLIENT-02 IntakeForm.tsx not in modified-tracked diff", !changed.some(f => f.includes("IntakeForm.tsx")));
-    check("T-NOCLIENT-03 professional-candidate-review.tsx not touched", !changed.some(f => f.includes("professional-candidate-review.tsx")) && !stagedNew.includes("professional-candidate-review.tsx"));
+    const intakeFormSrc = readFileSync(require.resolve("../../../src/app/intake/IntakeForm.tsx"), "utf8");
+    const module0Src = readFileSync(require.resolve("../../../src/app/intake/modules/Module0.tsx"), "utf8");
+    check("T-NOCLIENT-01 Module0 sends professionalContext in its Coach request body", /\.\.\.\(professionalContext \? \{ professionalContext \} : \{\}\)/.test(module0Src));
+    check("T-NOCLIENT-02 Module0 sends boundedEmploymentContexts in its Coach request body", /boundedEmploymentContexts,/.test(module0Src));
+    check("T-NOCLIENT-03 Module0 consumes professionalIntelligence from the response (forwarded, not inspected)", /json\.professionalIntelligence/.test(module0Src));
+    check("T-NOCLIENT-04 Module0 consumes nextProfessionalTopic from the response", /json\.nextProfessionalTopic/.test(module0Src));
+    check("T-NOCLIENT-05 Module0 calls the unified onCoachTurnCheckpoint (not the old two-callback shape)", /onCoachTurnCheckpoint\(\{/.test(module0Src));
+    check("T-NOCLIENT-06 Module0.tsx contains no call to extractCoachProfessionalIntelligence( -- client transports/consumes the contract, never executes D1A extraction directly", !module0Src.includes("extractCoachProfessionalIntelligence("));
+    check("T-NOCLIENT-07 IntakeForm owns Candidate/Enrichment runtime reconciliation (onCoachTurnCheckpoint defined here, appends discoveries/enrichments)", /const onCoachTurnCheckpoint = useCallback/.test(intakeFormSrc) && intakeFormSrc.includes("nextCandidates ="));
+    check("T-NOCLIENT-08 IntakeForm.tsx contains no call to extractCoachProfessionalIntelligence( either", !intakeFormSrc.includes("extractCoachProfessionalIntelligence("));
+    check("T-NOCLIENT-09 professional-candidate-review.tsx remains presentational-only (no extraction call, no fetch)", !readFileSync(require.resolve("../../../src/app/intake/professional-candidate-review.tsx"), "utf8").includes("extractCoachProfessionalIntelligence(") && !readFileSync(require.resolve("../../../src/app/intake/professional-candidate-review.tsx"), "utf8").includes("fetch("));
   }
 
   globalThis.fetch = realFetch;

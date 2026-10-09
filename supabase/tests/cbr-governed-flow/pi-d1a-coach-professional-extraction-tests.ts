@@ -338,19 +338,28 @@ async function run() {
     check("T65 candidateId is never interpolated inside buildActiveContextBlock specifically", !buildActiveContextBlockBody.includes("candidateId"));
   }
 
-  // ── Production consumer boundary (PI-D1B-R1 reconciliation) ────────────────
-  // D1A extractor has exactly one authorized production consumer: Coach
-  // route. Pre-D1B this was correctly zero; PI-D1B's own authorized
-  // purpose is to wire the first and only production consumer
-  // (src/app/api/intake/coach/route.ts) into this extractor -- that is
-  // the permanent post-D1B boundary this file now protects, not merely
-  // "count === 1" (which alone would not catch a wrong or an additional
-  // consumer).
+  // ── Production consumer boundary (PI-D1D-R1 reconciliation) ────────────────
+  // D1A extractor has exactly one authorized RUNTIME production
+  // consumer: the Coach route. PI-D1B-R1's own grep-based "textual
+  // module-path reference" detector is now stale -- PI-D1D legitimately
+  // imports ProfessionalIntelligenceCoachResult as a TYPE (zero runtime
+  // cost, compile-time only) into IntakeForm.tsx/Module0.tsx for the
+  // unified checkpoint callback's own signature. A type-only import is
+  // not a runtime consumer. The permanent invariant is therefore
+  // redefined precisely: exactly one actual CALL SITE to
+  // extractCoachProfessionalIntelligence(...) anywhere in production
+  // source, and it must be the Coach route -- explicitly proven absent
+  // from both client files, not merely uncounted by a blunter grep.
   {
-    const grepResult = require("child_process").execSync(`grep -rl "coach-professional-extraction" src/ 2>/dev/null || true`, { cwd: process.cwd(), encoding: "utf8" }).trim();
-    const consumers = grepResult.split("\n").filter((l: string) => l && !l.includes("coach-professional-extraction.ts"));
-    check("T66 exactly one production consumer of the new extractor", consumers.length === 1);
-    check("T66b the sole production consumer is the Coach route", consumers.length === 1 && consumers[0].endsWith("src/app/api/intake/coach/route.ts"));
+    const grepResult = require("child_process").execSync(`grep -rl "extractCoachProfessionalIntelligence(" src/ 2>/dev/null || true`, { cwd: process.cwd(), encoding: "utf8" }).trim();
+    const callSiteFiles = grepResult.split("\n").filter((l: string) => l && !l.endsWith("coach-professional-extraction.ts"));
+    check("T66 exactly one production file contains a runtime call site to extractCoachProfessionalIntelligence(", callSiteFiles.length === 1);
+    check("T66b the sole runtime call-site file is the Coach route", callSiteFiles.length === 1 && callSiteFiles[0].endsWith("src/app/api/intake/coach/route.ts"));
+
+    const intakeFormSrc = readFileSync(require.resolve("../../../src/app/intake/IntakeForm.tsx"), "utf8");
+    const module0Src = readFileSync(require.resolve("../../../src/app/intake/modules/Module0.tsx"), "utf8");
+    check("T66c IntakeForm.tsx contains no call to extractCoachProfessionalIntelligence( (type-only import of ProfessionalIntelligenceCoachResult does not count)", !intakeFormSrc.includes("extractCoachProfessionalIntelligence("));
+    check("T66d Module0.tsx contains no call to extractCoachProfessionalIntelligence( (same type-only distinction)", !module0Src.includes("extractCoachProfessionalIntelligence("));
   }
 
   console.log(failures === 0 ? `\nALL PI-D1A CHECKS PASS` : `\n${failures} PI-D1A CHECK(S) FAILED`);

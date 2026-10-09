@@ -133,8 +133,21 @@ const intakeFormSrc = readFileSync(require.resolve(INTAKEFORM_FILE), "utf8");
 
 // ── §73 — IntakeForm.tsx: single wiring point, zero collateral change ──────
 {
-  check("T29 exactly one Module0 render line, now carrying onProfessionalCandidatesExtracted, with every other prop byte-identical",
-    /\{step === 0  && <Module0  data=\{data\.module0\}  onChange=\{m => setData\(p => \(\{ \.\.\.p, module0:  m \}\)\)\} onCheckpoint=\{onModule0Checkpoint\} onProfessionalCandidatesExtracted=\{handleProfessionalCandidatesExtracted\} sessionId=\{sessionId\} errors=\{errors\}\/>\}/.test(intakeFormSrc));
+  // T29 reconciled (PI-D1D-R1): the OLD exact-string literal is stale by
+  // design -- D1D additively extends this same render line with
+  // onCoachTurnCheckpoint/professionalContext/boundedEmploymentContexts.
+  // Replaced with structural assertions proving the permanent B2B
+  // boundary survives: exactly one Module0 render, gated at step 0,
+  // still carrying onProfessionalCandidatesExtracted (the A0 callback
+  // this gate itself wired), with the D1D additions coexisting rather
+  // than replacing anything.
+  const module0RenderLines = intakeFormSrc.match(/\{step === 0\s+&& <Module0\s[\s\S]*?\/>\}/g) ?? [];
+  check("T29a exactly one Module0 render line", module0RenderLines.length === 1);
+  const module0Render = module0RenderLines[0] ?? "";
+  check("T29b Module0 render gated at step === 0", module0Render.startsWith("{step === 0"));
+  check("T29c onProfessionalCandidatesExtracted (A0 professional Candidate callback, B2B) still wired", module0Render.includes("onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted}"));
+  check("T29d D1D additive props coexist without displacing the B2B wiring", module0Render.includes("onCoachTurnCheckpoint={onCoachTurnCheckpoint}") && module0Render.includes("boundedEmploymentContexts={boundedEmploymentContexts}"));
+  check("T29e no second A0 fetch call introduced in IntakeForm.tsx (the one A0 request remains exclusively Module0's own runA0, unchanged)", !intakeFormSrc.includes("/api/intake/a0-extract"));
   check("T30 handleProfessionalCandidatesExtracted is referenced exactly twice (definition + the one Module0 wiring site)",
     (intakeFormSrc.match(/handleProfessionalCandidatesExtracted/g) ?? []).length === 2);
   check("T31 replaceCvExtractionCandidates is called exactly once in IntakeForm.tsx (no duplicate/alternate call site)",

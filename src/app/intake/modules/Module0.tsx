@@ -9,6 +9,8 @@ import {
   IDENTITY_FIELDS, hasAnyAcquiredInformation, minimizedProfileContext,
 } from "@/lib/intake/structured-profile";
 import type { ProfessionalIntelligenceCandidates } from "@/lib/intake/professional-intelligence";
+import type { BoundedEmploymentContext, NextProfessionalTopic } from "@/lib/intake/coach";
+import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
 
 // Module0 -- CV/résumé source document + integrated Coach discovery
 // (AUSCIS Intake Intelligence Layer, CR-CPS-34/35, design §5.2/§5.1).
@@ -28,18 +30,43 @@ const FIELD_LABELS: Record<string, string> = {
   artistic_exhibitions: "Exhibiciones/éxito comercial artístico",
 };
 
-export function Module0({ data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, sessionId, errors }: {
+export function Module0({
+  data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, onCoachTurnCheckpoint,
+  professionalContext, boundedEmploymentContexts, sessionId, errors,
+}: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
-  // P7-R4 (CR-CPS-60): deterministic checkpoint for the three meaningful
-  // events (A0 completion, Confirmar, complete Coach turn) whose loss
-  // would repeat billable work or lose an explicit beneficiary decision.
-  // Parallel to onChange, not a replacement for it -- IntakeForm's
-  // wiring performs the equivalent of onChange as its own final step.
+  // P7-R4 (CR-CPS-60): deterministic checkpoint for the two remaining
+  // meaningful events (A0 completion, Confirmar) whose loss would repeat
+  // billable work or lose an explicit beneficiary decision. A complete
+  // Coach turn now uses onCoachTurnCheckpoint below instead (PI-D1D) --
+  // this prop itself, and its A0/Confirmar call sites, are unchanged.
   onCheckpoint: (d: Module0Data) => void;
   // PI-B2B: optional sibling result of the SAME A0 request (no second
   // fetch) -- fires only when the response included professionalCandidates.
   onProfessionalCandidatesExtracted: (candidates: ProfessionalIntelligenceCandidates) => void;
+  // PI-D1D — the frozen R1 unified Coach-turn checkpoint (replaces the
+  // old onCheckpoint(...) call inside sendCoachMessage's success branch
+  // only). Module0 owns no Candidate/Enrichment/question-context state
+  // itself -- it only forwards the raw successful-turn fields it
+  // received from the HTTP response; IntakeForm performs every
+  // reconciliation decision.
+  onCoachTurnCheckpoint: (turn: {
+    nextModule0: Module0Data;
+    professionalIntelligence?: ProfessionalIntelligenceCoachResult;
+    nextProfessionalTopic: NextProfessionalTopic;
+  }) => void;
+  // PI-D1D — IntakeForm-derived, read-only. Carries candidateId because
+  // D1A's extraction call legitimately needs it server-side -- this is
+  // NOT a firewall violation: candidateId is never placed into the
+  // boundedEmploymentContexts array below, and the route (D1B/D1C,
+  // frozen) never forwards this field to the normal Coach prompt.
+  professionalContext?: { domain: "employment"; candidateId: string; identity: { company: string; title: string; startDate: string; endDate: string } };
+  // PI-D1D — IntakeForm-derived, read-only, wire-safe (no candidateId by
+  // construction -- BoundedEmploymentContext has no such field at all).
+  // Module0 never decides eligibility/pinning/rotation; it only
+  // transports whatever bounded snapshot IntakeForm already computed.
+  boundedEmploymentContexts: BoundedEmploymentContext[];
   sessionId: string;
   errors: Record<string, string>;
 }) {
@@ -136,7 +163,17 @@ export function Module0({ data, onChange, onCheckpoint, onProfessionalCandidates
         // CR-CPS-57 §7: minimized Structured Profile context (value/status
         // only, computed client-side) so Coach can avoid redundant
         // acquisition and prioritize criterion-relevant follow-up.
-        body: JSON.stringify({ token, history: historyForApi, message, profileContext: minimizedProfileContext(data.structuredProfile) }),
+        // PI-D1D: professionalContext (D1A extraction target for THIS
+        // message, derived from the PREVIOUS question context) and
+        // boundedEmploymentContexts (normal-Coach guidance for the NEXT
+        // question) are both read-only props IntakeForm already computed
+        // -- Module0 forwards them verbatim, deciding nothing itself.
+        body: JSON.stringify({
+          token, history: historyForApi, message,
+          profileContext: minimizedProfileContext(data.structuredProfile),
+          ...(professionalContext ? { professionalContext } : {}),
+          boundedEmploymentContexts,
+        }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error");
@@ -144,11 +181,17 @@ export function Module0({ data, onChange, onCheckpoint, onProfessionalCandidates
       // CR-CPS-57 D-03: acquireCoachFields() structurally protects any
       // beneficiary-confirmed Class A1 fact from this automated merge.
       const profile = acquireCoachFields(data.structuredProfile, (json.fields ?? {}) as Record<string, { value: string; confidence: "high" | "medium" | "low" }>);
-      // CP-03 (P7-R4, CR-CPS-60): deterministic checkpoint of the
-      // complete successful turn -- losing it would repeat a billable
-      // Coach/Anthropic call. An errored/incomplete turn (catch branch
-      // below) does not receive this checkpoint.
-      onCheckpoint({ ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile });
+      // PI-D1D: replaces the old single onCheckpoint(...) call with the
+      // unified Coach-turn checkpoint -- losing it would repeat a
+      // billable Coach/Anthropic call. An errored/incomplete turn (catch
+      // branch below) does not receive this checkpoint, and therefore
+      // never mutates Candidate/Enrichment/question-context state either.
+      const nextModule0: Module0Data = { ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile };
+      onCoachTurnCheckpoint({
+        nextModule0,
+        ...(json.professionalIntelligence ? { professionalIntelligence: json.professionalIntelligence } : {}),
+        nextProfessionalTopic: json.nextProfessionalTopic,
+      });
     } catch {
       const errTurn: CoachTurn = { role: "assistant", content: "No pude procesar tu respuesta. Intenta de nuevo.", at: new Date().toISOString() };
       onChange({ ...data, coachConversation: [...data.coachConversation, userTurn, errTurn] });
