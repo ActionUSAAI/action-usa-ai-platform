@@ -48,6 +48,16 @@ function freshEntryId(): string {
 }
 
 // ── Employment (candidate -> canonical Module6 / legacy module7.employment[]) ───
+// PI-D2-R1: isCurrent maps candidate.currentEmployment === true verbatim --
+// the one durable fact PI-D2 completion can establish that Module6's own
+// isCurrent checkbox already models. A candidate with no explicit
+// current-employment confirmation (UNKNOWN, including a plain incomplete
+// candidate that was never completed at all) maps to isCurrent: false --
+// not a new semantic claim, but the exact same conservative value
+// Module6 itself already produces for a freshly-added, not-yet-filled-in
+// row (Module6.tsx's own emptyEmployment() literal). This is the frozen,
+// bounded UNKNOWN-at-Accept information-loss point (PI-D2-R1 §O) --
+// EmploymentEntry has no tri-state equivalent, and none is introduced here.
 export function candidateToEmploymentEntry(candidate: EmploymentCandidate): EmploymentEntry {
   return {
     id: freshEntryId(),
@@ -57,7 +67,7 @@ export function candidateToEmploymentEntry(candidate: EmploymentCandidate): Empl
     title: candidate.title,
     startDate: candidate.startDate,
     endDate: candidate.endDate,
-    isCurrent: false,
+    isCurrent: candidate.currentEmployment === true,
     mainFunctions: candidate.mainFunctions,
     importantProjects: candidate.importantProjects,
     mainAchievements: candidate.mainAchievements,

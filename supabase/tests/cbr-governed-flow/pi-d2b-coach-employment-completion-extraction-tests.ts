@@ -391,12 +391,61 @@ check("T49 Module0.tsx still forwards professionalIntelligence opaquely into the
 check("T50a route.ts contains no PI-D2B-specific plumbing (no EmploymentCandidateCompletion reference)", !/EmploymentCandidateCompletion|employmentCompletion/.test(routeSrc));
 check("T50b Module0.tsx contains no PI-D2B-specific plumbing (no EmploymentCandidateCompletion reference, no '.completion' property access)", !/EmploymentCandidateCompletion|employmentCompletion/.test(module0Src) && !/\.completion\b/.test(module0Src));
 
-console.log("── O. no consumer ──");
+console.log("── O. no consumer / authorized consumer boundary ──");
 
-check("T51 applyEmploymentCompletion has zero production call sites outside professional-intelligence.ts", !/applyEmploymentCompletion\(/.test(intakeFormSrc) && !/applyEmploymentCompletion\(/.test(routeSrc) && !/applyEmploymentCompletion\(/.test(module0Src));
+// PI-D2C-R1 RECONCILIATION (T51): PI-D2B closed with zero
+// applyEmploymentCompletion consumers anywhere. PI-D2C intentionally and
+// explicitly makes IntakeForm.onCoachTurnCheckpoint the FIRST authorized
+// production runtime consumer (frozen PI-D2/PI-D2-R1/PI-D2C design) --
+// the stale zero-consumer assertion is replaced with a stronger
+// boundary proving the ONE consumer is the authorized one, in the
+// authorized location, and every other file remains at zero.
+{
+  const intakeFormCallSites = (intakeFormSrc.match(/applyEmploymentCompletion\(/g) ?? []).length;
+  check("T51a IntakeForm.tsx contains exactly ONE applyEmploymentCompletion( call site", intakeFormCallSites === 1);
+
+  const checkpointStart = intakeFormSrc.indexOf("const onCoachTurnCheckpoint = useCallback((turn: {");
+  const checkpointEnd = intakeFormSrc.indexOf("\n  }, [save]);", checkpointStart);
+  const checkpointSlice = intakeFormSrc.slice(checkpointStart, checkpointEnd);
+  check("T51b the one call site is inside onCoachTurnCheckpoint", /applyEmploymentCompletion\(/.test(checkpointSlice));
+
+  check("T51c route.ts has zero applyEmploymentCompletion( call sites", !/applyEmploymentCompletion\(/.test(routeSrc));
+  check("T51d Module0.tsx has zero applyEmploymentCompletion( call sites", !/applyEmploymentCompletion\(/.test(module0Src));
+  check("T51e coach-professional-extraction.ts has zero applyEmploymentCompletion( call sites", !/applyEmploymentCompletion\(/.test(extractionSrc));
+  check("T51f professional-candidate-review.tsx has zero applyEmploymentCompletion( call sites", !/applyEmploymentCompletion\(/.test(reviewSrc));
+  check("T51g professional-intelligence-adapters.ts has zero applyEmploymentCompletion( call sites", !/applyEmploymentCompletion\(/.test(adaptersSrc));
+}
+
 check("T52 IntakeForm.tsx contains no completion consumption (no '.completion' property access)", !/professionalIntelligence\.completion|turn\.completion|result\.completion/.test(intakeFormSrc));
-check("T53 professional-candidate-review.tsx contains no PI-D2B change (no 'completion' reference)", !/completion/i.test(reviewSrc));
-check("T54 professional-intelligence-adapters.ts contains no PI-D2B change (no 'completion'/'currentEmployment' reference)", !/completion/i.test(adaptersSrc) && !/currentEmployment/.test(adaptersSrc));
+check("T53 professional-candidate-review.tsx contains no PI-D2B-specific plumbing (no EmploymentCandidateCompletion reference)", !/EmploymentCandidateCompletion|employmentCompletion/.test(reviewSrc));
+
+// PI-D2C-R1 RECONCILIATION (T54): PI-D2B closed with professional-
+// intelligence-adapters.ts having zero currentEmployment/completion
+// references. PI-D2C intentionally and explicitly adds the one
+// authorized isCurrent mapping (frozen PI-D2-R1 §16/§18 design) -- the
+// stale zero-reference assertion is replaced with a stronger boundary
+// proving the adapter remains a pure EmploymentCandidate -> EmploymentEntry
+// mapping: exactly one currentEmployment reference, used only for
+// isCurrent, never folded into startDate/endDate, no Completion
+// helper/object consumed, no auto-accept behavior.
+{
+  const m = adaptersSrc.match(/export function candidateToEmploymentEntry\(candidate: EmploymentCandidate\): EmploymentEntry \{[\s\S]*?\n\}/);
+  const block = m ? m[0] : "";
+  check("T54a candidateToEmploymentEntry block found", block.length > 0);
+  check("T54b exact mapping: isCurrent: candidate.currentEmployment === true", /isCurrent:\s*candidate\.currentEmployment === true,/.test(block));
+  // Note: both "currentEmployment" and "candidate.currentEmployment"
+  // also legitimately appear in this file's own explanatory PI-D2-R1
+  // doc comment above the mapping -- scoped to the CODE block only
+  // (the already-extracted function body, which excludes the leading
+  // comment) rather than the whole file.
+  check("T54c candidate.currentEmployment is read exactly once within candidateToEmploymentEntry's body", (block.match(/candidate\.currentEmployment/g) ?? []).length === 1);
+  check("T54d currentEmployment is never used to derive startDate", !/startDate:\s*[^,]*currentEmployment/.test(block));
+  check("T54e currentEmployment is never used to derive endDate", !/endDate:\s*[^,]*currentEmployment/.test(block));
+  check("T54f no Completion helper is called from the adapter", !/applyEmploymentCompletion\(|isCoachDiscoveryOnly\(/.test(adaptersSrc));
+  check("T54g no Completion result/patch type is imported or consumed by the adapter", !/EmploymentCandidateCompletion/.test(adaptersSrc));
+  check("T54h no auto-accept behavior introduced (no status-transition literal anywhere in the file)", !/status:\s*["']accepted/.test(adaptersSrc));
+  check("T54i adapter remains side-effect-free (no React hooks/storage/network)", !/useState|useRef|localStorage|fetch\(/.test(adaptersSrc));
+}
 
 console.log(`\n${failures === 0 ? "ALL PI-D2B CHECKS PASS" : `${failures} FAILURE(S)`}`);
 process.exit(failures === 0 ? 0 : 1);

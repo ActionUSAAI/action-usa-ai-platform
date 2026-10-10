@@ -178,7 +178,14 @@ function EmploymentCard({ candidate, onAccept, onReject }: {
       <Row label="Empresa" value={candidate.company}/>
       <Row label="Cargo" value={candidate.title}/>
       <Row label="Fecha de inicio" value={candidate.startDate}/>
-      <Row label="Fecha de finalización" value={candidate.endDate}/>
+      {/* PI-D2-R1: explicit current-employment confirmation renders
+          "Actual" regardless of the (always-blank) endDate string --
+          never inferred from a blank endDate alone. Unknown (blank
+          endDate, no explicit confirmation) continues to render no row
+          at all via Row's own existing blank-value behavior. */}
+      {candidate.currentEmployment === true
+        ? <Row label="Fecha de finalización" value="Actual"/>
+        : <Row label="Fecha de finalización" value={candidate.endDate}/>}
       <Row label="Funciones principales" value={candidate.mainFunctions}/>
       <Row label="Proyectos importantes" value={candidate.importantProjects}/>
       <Row label="Logros principales" value={candidate.mainAchievements}/>

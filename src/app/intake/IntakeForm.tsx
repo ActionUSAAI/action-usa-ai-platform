@@ -20,6 +20,8 @@ import {
   composeEffectiveCandidate,
   removeOrphanedEnrichments,
   type EmploymentCandidate,
+  isCoachDiscoveryOnly,
+  applyEmploymentCompletion,
 } from "@/lib/intake/professional-intelligence";
 import type { BoundedEmploymentContext, NextProfessionalTopic } from "@/lib/intake/coach";
 import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
@@ -844,19 +846,34 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // PI-D1D — the frozen R1 unified Coach-turn checkpoint. Used ONLY by
   // Module0's sendCoachMessage success path (onModule0Checkpoint above
   // remains fully unchanged and still serves A0 completion/Confirmar).
-  // Exact order (PI-D1-R2/R3, proven off-by-one-safe): (1) snapshot
-  // current candidates/enrichments refs; (2) append this turn's
-  // discoveries (all seven domains, additive, no dedup); (3) revalidate
-  // incoming enrichment targets against the PRE-discovery candidate set
-  // (PI-D1-R1 frozen invariant -- a Candidate discovered THIS message
-  // can never simultaneously be this same message's own enrichment
-  // target); (4) resolve the next question context from Coach's raw
-  // topic signal, validated against THIS turn's own exact bounded
-  // snapshot and the FINAL (post-discovery) candidate state; (5) assign
-  // candidate/enrichment refs; (6) ONE save(); (7) mirror React state;
-  // (8) only now, after the save, commit questionContext + rotation --
+  // Exact order (PI-D1-R2/R3, proven off-by-one-safe, extended by
+  // PI-D2C): (1) snapshot current candidates/enrichments refs; (2)
+  // append this turn's discoveries (all seven domains, additive, no
+  // dedup); (3) apply structural Employment completion (PI-D2C) to the
+  // PRE-EXISTING, PRE-discovery authorized candidate only -- never a
+  // candidate discovered THIS same message (same-turn discovery
+  // firewall, identical in kind to (4) below); (4) revalidate incoming
+  // enrichment targets against the PRE-discovery candidate set (PI-D1-R1
+  // frozen invariant -- a Candidate discovered THIS message can never
+  // simultaneously be this same message's own enrichment target); (5)
+  // resolve the next question context from Coach's raw topic signal,
+  // validated against THIS turn's own exact bounded snapshot and the
+  // FINAL (post-discovery, post-completion) candidate state; (6) assign
+  // candidate/enrichment refs; (7) ONE save(); (8) mirror React state;
+  // (9) only now, after the save, commit questionContext + rotation --
   // never before, so a failed/never-attempted checkpoint can never make
   // either authoritative (PI-D1-R3-R1 two-phase build/commit invariant).
+  //
+  // PI-D2C closes PI-D2B's own documented deferral
+  // (PI_D2B_CURRENT_STATE_REVALIDATION) here: completion target
+  // authorization is revalidated against the LIVE, current candidate
+  // (never D2B's possibly-stale activeContext snapshot) via
+  // isContextAuthorizedTarget (exact id + status==="proposed") AND
+  // isCoachDiscoveryOnly (PI-D2-R1 frozen eligibility -- CV-only/mixed-
+  // provenance candidates are never completion targets). No fuzzy/
+  // company/title/semantic reanchor. applyEmploymentCompletion (PI-D2A,
+  // unmodified) owns every fill-once/conflict/idempotency/provenance
+  // rule; this checkpoint invokes it, never reimplements it.
   const onCoachTurnCheckpoint = useCallback((turn: {
     nextModule0: IntakeFormData["module0"];
     professionalIntelligence?: ProfessionalIntelligenceCoachResult;
@@ -869,7 +886,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     let newEmploymentDiscoveries: EmploymentCandidate[] = [];
 
     if (turn.professionalIntelligence) {
-      const { enrichments: incomingEnrichments, discoveries } = turn.professionalIntelligence;
+      const { enrichments: incomingEnrichments, discoveries, completion } = turn.professionalIntelligence;
       newEmploymentDiscoveries = discoveries.employment;
 
       nextCandidates = {
@@ -881,6 +898,30 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
         evidence: [...currentCandidates.evidence, ...discoveries.evidence],
         strategicAnswer: [...currentCandidates.strategicAnswer, ...discoveries.strategicAnswer],
       };
+
+      // PI-D2C -- structural Employment completion. Target is resolved
+      // and authorized against currentCandidates (PRE-discovery) so a
+      // candidate discovered THIS same message can never satisfy
+      // completion.candidateId (same-turn discovery firewall). The
+      // fold is then applied onto nextCandidates.employment, where the
+      // pre-existing, authorized entry (untouched by the pure append
+      // above) is still the exact live object -- never a stale D2B
+      // snapshot. applyEmploymentCompletion is idempotent: a no-op
+      // (e.g. an already-contradictory target, or every field already
+      // settled) returns the SAME object reference, so no clone/
+      // provenance/save is ever manufactured solely because a
+      // completion result existed this turn.
+      if (completion) {
+        const targetCandidate = currentCandidates.employment.find(c => c.id === completion.candidateId);
+        if (isContextAuthorizedTarget(targetCandidate, completion.candidateId) && isCoachDiscoveryOnly(targetCandidate!.provenance)) {
+          nextCandidates = {
+            ...nextCandidates,
+            employment: nextCandidates.employment.map(c =>
+              c.id === completion.candidateId ? applyEmploymentCompletion(c, completion.patch, completion.provenance) : c
+            ),
+          };
+        }
+      }
 
       const validEnrichments = incomingEnrichments.employment.filter(e => {
         const candidate = currentCandidates.employment.find(c => c.id === e.target.candidateId);
