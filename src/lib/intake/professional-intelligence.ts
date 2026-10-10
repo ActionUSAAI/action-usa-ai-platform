@@ -18,10 +18,14 @@ export type CandidateConfidence = "high" | "medium" | "low";
 export type CandidateStatus = "proposed" | "accepted_in_module" | "rejected";
 
 // Per-candidate (never per-field) source attribution. A candidate's
-// provenance[] holds more than one entry only when >=2 sources
+// provenance[] holds more than one entry when EITHER (a) >=2 sources
 // independently asserted a materially-equal payload (see the
-// *MaterialEquals functions below) -- never attributing different
-// fields of one candidate to different sources.
+// *MaterialEquals functions below), OR (b) >=2 acquisition turns from
+// the SAME source incrementally supplied different, non-overlapping
+// structural facts for the same candidate (PI-D2/PI-D2-R1 Employment
+// structural completion -- see applyEmploymentCompletion below) --
+// never attributing different fields of one candidate to different
+// sources within a single entry.
 export interface CandidateProvenance {
   source: CandidateSource;
   // rawText is the acquisition mechanism's OWN returned representation
@@ -52,6 +56,13 @@ export interface EmploymentCandidate extends CandidateBase {
   title: string;
   startDate: string;
   endDate: string;
+  // PI-D2-R1: durable current-employment state. Absent means UNKNOWN
+  // (end date not yet acquired) -- never inferred from a blank endDate
+  // alone. true means the beneficiary explicitly confirmed ongoing
+  // employment. No `false` variant exists: non-current is already
+  // carried by a non-empty endDate elsewhere, and a bare false would
+  // have no legitimate producer (see applyEmploymentCompletion below).
+  currentEmployment?: true;
   mainFunctions: string;
   importantProjects: string;
   mainAchievements: string;
@@ -509,4 +520,108 @@ export function isValidProfessionalIntelligenceEnrichmentsOverlay(value: unknown
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   return Array.isArray(v.employment);
+}
+
+// ── Professional Completion Model (PI-D2, corrected by PI-D2-R1) ───────────
+// Structural completion represents a beneficiary-supplied fact that fills
+// an originally-EMPTY structural field (startDate/endDate) or the durable
+// current-employment state of an already-discovered, still-"proposed"
+// EmploymentCandidate -- never a correction (nonempty -> different),
+// never enrichment (narrative depth fields, see EmploymentEnrichmentPatch
+// above), never acceptance (Module Data is never touched here).
+// Completion and enrichment are deliberately separate types --
+// company/title/mainFunctions/importantProjects/mainAchievements/
+// candidateId/status/source/provenance/confidence are structurally
+// absent from this patch; the application assigns every authority
+// field, exactly mirroring EmploymentEnrichmentPatch's own precedent.
+//
+// PI-D2A boundary: this section has ZERO production consumers by design
+// (mirrors PI-A's/PI-D0A's own foundation-before-wiring precedent) --
+// target-eligibility revalidation (status==="proposed", pin binding) and
+// Coach-facing wiring are PI-D2B/PI-D2C, not authorized here.
+export interface EmploymentCandidateCompletionPatch {
+  startDate?: string;
+  endDate?: string;
+  currentEmployment?: true;
+}
+
+// Eligibility (PI-D2-R1, frozen Owner decision: COACH_DISCOVERY_EXCLUSIVE).
+// Deliberately the mirror-opposite TECHNIQUE of isCvExtractionOnly above,
+// never its negation -- an empty provenance array is never eligible
+// (Array.every's vacuous truth on [] is explicitly guarded against via
+// the length check), matching this predicate's actual architectural
+// meaning ("every entry IS coach_discovery"), not "no entry is
+// something else". A mixed-provenance or CV-only candidate is excluded,
+// same as a candidate with zero provenance entries.
+export function isCoachDiscoveryOnly(provenance: readonly CandidateProvenance[]): boolean {
+  return provenance.length > 0 && provenance.every(p => p.source === "coach_discovery");
+}
+
+// Pure, non-mutating application of one completion-turn's worth of
+// structural facts onto an existing EmploymentCandidate. Trusts its
+// caller already established target eligibility (isCoachDiscoveryOnly,
+// status==="proposed", exact pin match) -- this helper performs no
+// eligibility check of its own beyond the terminal-state invariant below.
+//
+// Terminal-state invariant (PI-D2-R1 §8.6, mandatory, enforced HERE, not
+// merely by a future caller): the returned candidate can never hold both
+// a non-empty endDate AND currentEmployment===true. endDate-completion
+// and currentEmployment-completion are mutually exclusive within a
+// single call -- each requires the OTHER terminal field to still be in
+// its unknown state (candidate.endDate==="" / candidate.currentEmployment
+// !== true) before either may apply. If a single patch proposes BOTH a
+// non-blank endDate AND currentEmployment:true against an unknown
+// candidate, that is a same-patch terminal-state contradiction: NEITHER
+// terminal fact is applied (fail-closed, never an arbitrary preference
+// for one over the other) -- startDate may still complete independently
+// in the same call, since it is not part of this contradiction.
+//
+// An already-contradictory PRE-EXISTING candidate (currentEmployment===
+// true AND endDate!=="" -- never produced by this helper, but not
+// defended against by any other code either) is never repaired here: no
+// correction architecture exists (PI-D2/PI-D2-R1, frozen DEFERRED).
+// Terminal-state completion against such a candidate is always a no-op
+// (both terminal proposal conditions require the OTHER field to still be
+// unknown, which is already false for a contradictory candidate); an
+// independent empty startDate may still safely fill.
+//
+// Idempotent by construction: if the resulting candidate would be
+// field-for-field identical to the input, the ORIGINAL object reference
+// is returned (no clone, no provenance append) -- never a new object
+// carrying identical content. Exactly one provenance entry (the one
+// supplied by the caller) is appended when, and only when, at least one
+// field genuinely changed -- never one entry per field, never
+// synthesized here (PI-D2-R1 §12/§16). Never mutates candidate/patch/
+// provenance.
+export function applyEmploymentCompletion(
+  candidate: EmploymentCandidate,
+  patch: EmploymentCandidateCompletionPatch,
+  provenance: CandidateProvenance
+): EmploymentCandidate {
+  const startDateFillable = candidate.startDate === "" && !!patch.startDate;
+  const nextStartDate = startDateFillable ? patch.startDate! : candidate.startDate;
+
+  const endDateProposed = candidate.endDate === "" && candidate.currentEmployment !== true && !!patch.endDate;
+  const currentEmploymentProposed =
+    candidate.endDate === "" && candidate.currentEmployment !== true && patch.currentEmployment === true;
+  const terminalContradiction = endDateProposed && currentEmploymentProposed;
+
+  const nextEndDate = endDateProposed && !terminalContradiction ? patch.endDate! : candidate.endDate;
+  const nextCurrentEmployment: true | undefined =
+    currentEmploymentProposed && !terminalContradiction ? true : candidate.currentEmployment;
+
+  const changed =
+    nextStartDate !== candidate.startDate ||
+    nextEndDate !== candidate.endDate ||
+    nextCurrentEmployment !== candidate.currentEmployment;
+
+  if (!changed) return candidate;
+
+  return {
+    ...candidate,
+    startDate: nextStartDate,
+    endDate: nextEndDate,
+    ...(nextCurrentEmployment !== undefined ? { currentEmployment: nextCurrentEmployment } : {}),
+    provenance: [...candidate.provenance, provenance],
+  };
 }
