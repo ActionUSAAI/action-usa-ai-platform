@@ -39,6 +39,8 @@ import {
   type StrategicAnswerTargetField,
   type EmploymentEnrichment,
   type EmploymentEnrichmentPatch,
+  type EmploymentCandidateCompletionPatch,
+  type CandidateProvenance,
   type CandidateConfidence,
   emptyProfessionalIntelligenceCandidates,
 } from "./professional-intelligence";
@@ -61,9 +63,28 @@ export interface CoachProfessionalExtractionInput {
   };
 }
 
+// PI-D2B — application-facing structural completion result. Singular
+// (at most one authorized Employment pin exists per turn, PI-D1-R2/R3,
+// unchanged) and optional (absent whenever no safe completion fact
+// exists this turn). candidateId is assigned exclusively from
+// input.activeContext.candidateId -- never from parsed JSON, never from
+// company/title/semantic/fuzzy matching (PI-D2-R1 §4.4/§4.9 firewall,
+// identical in kind to EmploymentEnrichment's own target assignment
+// above). NO status field -- completion is not acceptance; NO module
+// target -- completion never implies Module Data (PI-D2/PI-D2-R1,
+// frozen). Zero production consumers by design (PI-D2B boundary) --
+// PI-D2C owns applying this result to Candidate state via PI-D2A's
+// already-closed applyEmploymentCompletion, not this file.
+export interface EmploymentCandidateCompletionResult {
+  candidateId: string;
+  patch: EmploymentCandidateCompletionPatch;
+  provenance: CandidateProvenance;
+}
+
 export interface ProfessionalIntelligenceCoachResult {
   enrichments: { employment: EmploymentEnrichment[] };
   discoveries: ProfessionalIntelligenceCandidates;
+  completion?: EmploymentCandidateCompletionResult;
 }
 
 export function emptyProfessionalIntelligenceCoachResult(): ProfessionalIntelligenceCoachResult {
@@ -85,6 +106,22 @@ interface RawEnrichmentOutput {
   patch?: RawEnrichmentPatch;
   confidence?: string;
 }
+// PI-D2B — structural Employment completion, a sibling DTO of
+// RawEnrichmentOutput, never nested inside it. Structurally incapable of
+// carrying candidateId/status/source/provenance/domain/company/title/
+// narrative fields -- the model supplies only the three structural
+// facts plus confidence; every authority field is assigned by the
+// application materializer below, never read from here. currentEmployment
+// is `true`-only (PI-D2-R1): there is no legitimate `false` producer, so
+// the raw shape never offers one -- a model that emits a literal
+// `false` anyway is defensively treated identically to absent by the
+// parser (never `=== true`, never materialized).
+interface RawEmploymentCompletion {
+  startDate?: string;
+  endDate?: string;
+  currentEmployment?: true;
+  confidence?: string;
+}
 interface RawEmploymentDiscoveryItem {
   company?: string; title?: string; startDate?: string; endDate?: string;
   mainFunctions?: string; importantProjects?: string; mainAchievements?: string;
@@ -99,6 +136,7 @@ interface RawStrategicAnswerDiscoveryItem { targetField?: string; answer?: strin
 
 interface RawCoachProfessionalExtractionOutput {
   enrichment?: RawEnrichmentOutput | null;
+  completion?: RawEmploymentCompletion | null;
   discoveries?: {
     employment?: RawEmploymentDiscoveryItem[];
     education?: RawEducationDiscoveryItem[];
@@ -209,6 +247,7 @@ Respuesta estratégica (StrategicAnswerCandidate): el targetField debe ser exact
 Responde ÚNICAMENTE con JSON válido de la forma:
 {
   "enrichment": null,
+  "completion": null,
   "discoveries": {
     "employment": [{"company":"...","title":"...","startDate":"...","endDate":"...","mainFunctions":"...","importantProjects":"...","mainAchievements":"...","confidence":"high|medium|low"}],
     "education": [{"institution":"...","degreeName":"...","graduationYear":"...","confidence":"high|medium|low"}],
@@ -220,7 +259,11 @@ Responde ÚNICAMENTE con JSON válido de la forma:
   }
 }
 
-Usa "enrichment": {"patch": {"mainFunctions":"...","importantProjects":"...","mainAchievements":"..."}, "confidence":"high|medium|low"} SOLO si el contexto de empleo conocido (ver abajo) existe y el mensaje aporta información nueva sobre funciones, proyectos o logros de ESE rol específico -- de otro modo usa null. Omite cualquier arreglo de "discoveries" que no tenga elementos válidos (devuélvelo vacío).`;
+Usa "enrichment": {"patch": {"mainFunctions":"...","importantProjects":"...","mainAchievements":"..."}, "confidence":"high|medium|low"} SOLO si el contexto de empleo conocido (ver abajo) existe y el mensaje aporta información nueva sobre funciones, proyectos o logros de ESE rol específico -- de otro modo usa null.
+
+Usa "completion": {"startDate":"...","endDate":"...","currentEmployment":true,"confidence":"high|medium|low"} SOLO si el contexto de empleo conocido (ver abajo) existe y el mensaje completa explícitamente un dato ESTRUCTURAL que falta en ese contexto (fecha de inicio, fecha de finalización, o si el empleo es actual) -- incluye únicamente los campos que el mensaje realmente aporta; de otro modo usa null. Nunca incluyas "candidateId" en ningún campo.
+
+Omite cualquier arreglo de "discoveries" que no tenga elementos válidos (devuélvelo vacío).`;
 
 // Model-visible context block -- company/title/startDate/endDate ONLY.
 // candidateId is deliberately never a parameter of this function and
@@ -231,7 +274,22 @@ function buildActiveContextBlock(identity: CoachProfessionalExtractionIdentity):
   const dates = identity.startDate || identity.endDate
     ? ` (${identity.startDate || "?"} - ${identity.endDate || "Presente"})`
     : "";
-  return `\n\nCONTEXTO DE EMPLEO YA CONOCIDO (dato ya registrado por el sistema, NO una afirmación nueva del beneficiario en este mensaje): ${title} en ${company}${dates}. Si el mensaje aporta información NUEVA sobre funciones, proyectos o logros de ESTE rol específico, propón "enrichment". Si el mensaje contradice la identidad de este contexto (empresa, puesto o fechas), NO generes "enrichment" para él -- cualquier hecho nuevo genuinamente independiente que el mensaje también contenga sigue siendo elegible como "discoveries".`;
+  // PI-D2B — completion rules reference the identity's OWN startDate/
+  // endDate emptiness explicitly, so the model never has to infer
+  // "missing" vs "known" -- it is told directly. The parser never
+  // trusts this compliance regardless (defense in depth, see the
+  // completion materialization block below).
+  const startDateState = identity.startDate === "" ? "FALTA (el beneficiario aún no la ha indicado)" : `YA CONOCIDA (${identity.startDate})`;
+  const endDateState = identity.endDate === "" ? "FALTA (el beneficiario aún no la ha indicado, lo cual NO significa que el empleo sea actual)" : `YA CONOCIDA (${identity.endDate})`;
+  return `\n\nCONTEXTO DE EMPLEO YA CONOCIDO (dato ya registrado por el sistema, NO una afirmación nueva del beneficiario en este mensaje): ${title} en ${company}${dates}. Si el mensaje aporta información NUEVA sobre funciones, proyectos o logros de ESTE rol específico, propón "enrichment". Si el mensaje contradice la identidad de este contexto (empresa, puesto o fechas), NO generes "enrichment" para él -- cualquier hecho nuevo genuinamente independiente que el mensaje también contenga sigue siendo elegible como "discoveries".
+
+Para este mismo contexto, el estado estructural actual es: fecha de inicio ${startDateState}; fecha de finalización ${endDateState}. Si el mensaje completa explícitamente un dato que FALTA arriba, propón "completion" con SOLO ese dato:
+- "startDate": únicamente si la fecha de inicio arriba FALTA y el mensaje la indica explícitamente (mes y año -> "YYYY-MM"; solo año -> año tal cual, nunca inventes un mes).
+- "endDate": únicamente si la fecha de finalización arriba FALTA y el mensaje indica explícitamente una fecha de finalización concreta.
+- "currentEmployment": usa EXACTAMENTE true, y SOLO cuando el mensaje indica explícitamente que el beneficiario trabaja/trabajó actualmente, todavía, o presente en este rol -- NUNCA uses false, y NUNCA lo infieras solo porque la fecha de finalización falte.
+- NUNCA incluyas "endDate" y "currentEmployment":true al mismo tiempo en la misma respuesta.
+- NUNCA propongas "completion" para un dato que arriba ya está marcado como YA CONOCIDA -- eso sería una corrección, no una compleción, y no está permitido aquí.
+- Extrae solo lo que el beneficiario afirme explícitamente en ESTE mensaje, nunca el historial de la conversación. Si ningún dato faltante fue completado, usa "completion": null.`;
 }
 
 export function buildCoachProfessionalExtractionSystemPrompt(
@@ -288,6 +346,60 @@ export function parseCoachProfessionalExtractionResponse(
         };
         result.enrichments.employment.push(enrichment);
       }
+    }
+  }
+
+  // ── Completion -- Employment structural facts only, only when activeContext
+  // exists (PI-D2/PI-D2-R1 V1 scope). Parser-level defense in depth (PI-D2B
+  // §17/§19): never trusts prompt compliance -- a field is materialized
+  // only when the context identity ITSELF already reports it empty; a
+  // non-empty context field means the model is attempting a correction,
+  // which is never materialized here (no correction architecture exists).
+  //
+  // CURRENT_STATE_REVALIDATION (PI-D2B §20, deliberate, documented
+  // deferral): CoachProfessionalExtractionIdentity carries no
+  // currentEmployment field today, so this parser cannot yet confirm the
+  // underlying Candidate is NOT already explicitly current before
+  // materializing an endDate completion. This is safe ONLY because this
+  // file has zero production consumers of the resulting `completion`
+  // value (PI-D2B boundary -- applyEmploymentCompletion, which DOES
+  // enforce this exact invariant, is not called from anywhere yet).
+  // PI-D2C, the first slice authorized to consume this result, MUST
+  // revalidate against the live Candidate (via isContextAuthorizedTarget
+  // + the candidate's own current currentEmployment field) before any
+  // application -- this parser-level check alone is not sufficient once
+  // a real consumer exists.
+  //
+  // Same-raw terminal contradiction (mirrors PI-D2A's own
+  // applyEmploymentCompletion firewall at this layer -- this file MUST
+  // NOT call that helper, PI-D2C's exclusive boundary): if the raw
+  // response proposes BOTH a non-blank endDate AND currentEmployment:true
+  // against the same (unknown) context, NEITHER terminal fact is
+  // materialized. An independent empty startDate may still be.
+  if (input.activeContext && parsed.completion && typeof parsed.completion === "object") {
+    const rawCompletion = parsed.completion;
+    const identity = input.activeContext.identity;
+
+    const rawStartDate = nonBlank(rawCompletion.startDate);
+    const rawEndDate = nonBlank(rawCompletion.endDate);
+    const rawCurrentEmployment = rawCompletion.currentEmployment === true;
+
+    const startDateProposed = identity.startDate === "" && rawStartDate !== null;
+    const endDateProposed = identity.endDate === "" && rawEndDate !== null;
+    const currentEmploymentProposed = identity.endDate === "" && rawCurrentEmployment;
+    const terminalContradiction = endDateProposed && currentEmploymentProposed;
+
+    const patch: EmploymentCandidateCompletionPatch = {};
+    if (startDateProposed) patch.startDate = rawStartDate!;
+    if (endDateProposed && !terminalContradiction) patch.endDate = rawEndDate!;
+    if (currentEmploymentProposed && !terminalContradiction) patch.currentEmployment = true;
+
+    if (Object.keys(patch).length > 0) {
+      result.completion = {
+        candidateId: input.activeContext.candidateId,
+        patch,
+        provenance: { source: "coach_discovery", rawText: input.currentMessage, confidence: validateConfidence(rawCompletion.confidence) },
+      };
     }
   }
 
