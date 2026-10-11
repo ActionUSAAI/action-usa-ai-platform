@@ -379,6 +379,26 @@ export function resolveNextIdentityQuestionContext(
   };
 }
 
+// Exported pure helper -- Slice B save-success authority gate
+// (corrective gate, R1 §save-gating). "After save()" is not the same
+// as "after SUCCESSFUL save": the NEXT IdentityQuestionContext is
+// authority-bearing (it can make a later beneficiary response eligible
+// to produce beneficiary_confirmed), so it must never become active
+// for a Coach turn whose checkpoint save() call (src/app/intake/
+// IntakeForm.tsx's own `save`, synchronous, returns boolean, internal
+// try/catch -- never throws, never a Promise) returned false. On a
+// failed save the PREVIOUS context has still been consumed for the
+// attempted answer (it is never restored/left reusable -- that would
+// let an unrelated later "yes" accidentally confirm it); the terminal
+// representation is simply {mode:"none"}, the only other member of
+// IdentityQuestionContext's own type.
+export function resolveCommittedIdentityContext(
+  saveSucceeded: boolean,
+  nextIdentityQuestionContext: IdentityQuestionContext
+): IdentityQuestionContext {
+  return saveSucceeded ? nextIdentityQuestionContext : { mode: "none" };
+}
+
 // P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
 // by IntakeForm itself (hydration effect, next()/back()) so tests can
 // exercise the actual implementation, not a reimplementation of it.
@@ -1132,15 +1152,25 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setProfessionalIntelligenceEnrichments(nextEnrichments);
 
     // Commit question context + rotation ONLY after the save above --
-    // never before (PI-D1-R3-R1 two-phase invariant). Slice B's identity
-    // context commit follows the exact same sequencing, for the exact
-    // same reason -- a failed/never-attempted checkpoint can never make
-    // either authoritative.
+    // never before (PI-D1-R3-R1 two-phase invariant). This corrective
+    // gate governs ONLY the Slice B identity-context commit below
+    // (questionContextRef/rotation's own existing, adjacent,
+    // already-accepted "unconditional after save" behavior is
+    // deliberately left unmodified -- out of scope here, reported
+    // separately if ever revisited). The identity context is
+    // authority-bearing (an active confirm_field context can make a
+    // later beneficiary response eligible to produce
+    // beneficiary_confirmed), so it is gated on the real `persisted`
+    // success signal already captured above -- a failed save commits
+    // {mode:"none"} (previous context consumed, never left reusable;
+    // next context never activated), never the newly eligible next
+    // context.
     questionContextRef.current = nextQuestionContext;
     setQuestionContext(nextQuestionContext);
     rotationNextCandidateIdRef.current = boundedSnapshotRef.current.proposedNextRotationState;
-    identityQuestionContextRef.current = nextIdentityQuestionContext;
-    setIdentityQuestionContext(nextIdentityQuestionContext);
+    const committedIdentityContext = resolveCommittedIdentityContext(persisted, nextIdentityQuestionContext);
+    identityQuestionContextRef.current = committedIdentityContext;
+    setIdentityQuestionContext(committedIdentityContext);
   }, [save]);
 
   // PI-B2B: source-scoped replacement of cv_extraction-provenance
