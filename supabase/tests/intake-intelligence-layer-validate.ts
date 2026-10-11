@@ -328,9 +328,14 @@ async function main() {
       promptNoContext.includes("determinar si un criterio USCIS está satisfecho") && promptWithContext.includes("determinar si un criterio USCIS está satisfecho") ? "PASS" : "FAIL",
       ""
     );
+    // R1 Slice A (GOVERNED_VALUE_AWARENESS): Class A2 (profession) now
+    // gets its own actual-value "Información profesional de base ya
+    // registrada" bucket, distinct from the criterion-narrative-only
+    // "Ya existe información profesional de base adicional" bucket --
+    // this input (profession only) exercises the former.
     record(
       "CR57-09b (context-aware enrichment guidance only appended when context has data)",
-      !promptNoContext.includes("Ya existe información profesional de base") && promptWithContext.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
+      !promptNoContext.includes("Información profesional de base ya registrada") && promptWithContext.includes("Información profesional de base ya registrada") ? "PASS" : "FAIL",
       ""
     );
 
@@ -352,6 +357,23 @@ async function main() {
   // correction. Exercises buildSystemPrompt() directly, asserting exactly
   // which fields land in the protected-Class-A1 vs. enrichable text, closing
   // the F-01/F-02/F-03 MR findings against the actual integration point. ══
+  //
+  // GOVERNED_VALUE_AWARENESS Slice A note: describeProfileContext()'s
+  // confirmed-Class-A1 bucket no longer ends with a bare period
+  // immediately after its field list (it now renders a "key = value"
+  // block, R1), so a single shared regex spanning "NUNCA los vuelvas a
+  // preguntar...:" to the next literal "." no longer reliably isolates
+  // just that bucket (the next "." can now land inside an unrelated
+  // later bucket's own prose). extractBlock() isolates the exact bucket
+  // by its own unique leading sentence instead, bounded by the "\n\n"
+  // separator describeProfileContext() always joins buckets with.
+  const extractBlock = (text: string, startMarker: string): string => {
+    const start = text.indexOf(startMarker);
+    if (start === -1) return "";
+    const next = text.indexOf("\n\n", start + 1);
+    return next === -1 ? text.slice(start) : text.slice(start, next);
+  };
+  const CONFIRMED_BLOCK_MARKER = "Estos valores YA fueron confirmados por el beneficiario";
   {
     // R1-T1 — confirmed Class A1 (givenName): identified as protected,
     // instructed never to re-ask/re-emit.
@@ -363,22 +385,27 @@ async function main() {
     );
 
     // R1-T2 — confirmed Class A2 (profession): MUST NOT appear in the
-    // protected list; enrichment guidance MUST be present.
+    // protected list; its OWN actual-value enrichable guidance MUST be
+    // present (R1 Slice A: Class A2 now gets a value, distinct bucket
+    // from the criterion-narrative key-only bucket exercised by T3).
     const promptT2 = buildSystemPrompt({ profession: { value: "Professional Rodeo Cowboy", status: "beneficiary_confirmed" } });
-    const protectedLineT2 = (promptT2.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    const protectedBlockT2 = extractBlock(promptT2, CONFIRMED_BLOCK_MARKER);
     record(
       "R1-T2 (confirmed Class A2 NOT placed in protected list; enrichment preserved)",
-      !protectedLineT2.includes("profession") && promptT2.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
-      protectedLineT2
+      !protectedBlockT2.includes("profession") && promptT2.includes("Información profesional de base ya registrada") ? "PASS" : "FAIL",
+      protectedBlockT2
     );
 
-    // R1-T3 — confirmed Class B (awards): same requirement as T2.
+    // R1-T3 — confirmed Class B (awards, a criterion narrative field):
+    // same requirement as T2, but exercising the key-only narrative
+    // bucket (OD-04 firewall: its narrative value is never exposed).
     const promptT3 = buildSystemPrompt({ awards: { value: "11 Mexican National Championships", status: "beneficiary_confirmed" } });
-    const protectedLineT3 = (promptT3.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    const protectedBlockT3 = extractBlock(promptT3, CONFIRMED_BLOCK_MARKER);
     record(
       "R1-T3 (confirmed Class B NOT placed in protected list; enrichment preserved)",
-      !protectedLineT3.includes("awards") && promptT3.includes("Ya existe información profesional de base") ? "PASS" : "FAIL",
-      protectedLineT3
+      !protectedBlockT3.includes("awards") && promptT3.includes("Ya existe información profesional de base adicional") && promptT3.includes("awards") &&
+      !promptT3.includes("11 Mexican National Championships") ? "PASS" : "FAIL",
+      protectedBlockT3
     );
 
     // R1-T4 — PATH B partial profile / multi-turn: TURN 1 acquired only
@@ -394,9 +421,14 @@ async function main() {
     );
     const promptT4 = buildSystemPrompt(turn2Context);
     record(
+      // R1 Slice A: "missing" (genuinely no value) and "unconfirmed"
+      // (has a value, not yet confirmed) are now two distinct buckets
+      // with distinct wording -- this turn has zero Class A1 values at
+      // all, so it exercises the MISSING bucket's new wording, not the
+      // old merged "missing/unconfirmed" phrase.
       "R1-T4 (PATH B partial profile: missing Class A1 acquisition explicitly preserved alongside enrichment)",
-      promptT4.includes("Ya existe información profesional de base") &&
-      promptT4.includes("AÚN no han sido confirmados") &&
+      promptT4.includes("Información profesional de base ya registrada") &&
+      promptT4.includes("AÚN no tienen información registrada") &&
       promptT4.includes("familyName") && promptT4.includes("givenName") && promptT4.includes("dateOfBirth") &&
       promptT4.includes("nationalities") && promptT4.includes("countryOfResidence")
         ? "PASS" : "FAIL",
@@ -411,14 +443,15 @@ async function main() {
       profession:    { value: "Professional Rodeo Cowboy", status: "beneficiary_confirmed" },
       awards:        { value: "11 Mexican National Championships", status: "beneficiary_confirmed" },
     });
-    const protectedLineT5 = (promptT5.match(/NUNCA los vuelvas a preguntar[^:]*: ([^.]*)\./) ?? [])[1] ?? "";
+    const protectedBlockT5 = extractBlock(promptT5, CONFIRMED_BLOCK_MARKER);
     record(
       "R1-T5 (mixed profile: only Class A1 fields protected, Class A2/B remain enrichable)",
-      protectedLineT5.includes("givenName") && protectedLineT5.includes("nationalities") &&
-      !protectedLineT5.includes("profession") && !protectedLineT5.includes("awards") &&
-      promptT5.includes("Ya existe información profesional de base")
+      protectedBlockT5.includes("givenName") && protectedBlockT5.includes("nationalities") &&
+      !protectedBlockT5.includes("profession") && !protectedBlockT5.includes("awards") &&
+      promptT5.includes("Información profesional de base ya registrada") &&
+      promptT5.includes("Ya existe información profesional de base adicional")
         ? "PASS" : "FAIL",
-      protectedLineT5
+      protectedBlockT5
     );
 
     // R1-T6 — no context / empty context: broad acquisition remains
