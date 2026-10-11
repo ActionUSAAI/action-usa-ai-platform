@@ -6,7 +6,10 @@ import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 
 import type { IntakeForm as IntakeFormData, ModuleStatus } from "./types";
 import { IntakeTokenProvider } from "./primitives";
-import { emptyStructuredProfile, emptyField, acquireField } from "@/lib/intake/structured-profile";
+import {
+  emptyStructuredProfile, emptyField, acquireField, confirmField,
+  CLASS_A1_FIELDS, type StructuredProfile,
+} from "@/lib/intake/structured-profile";
 import { prefillModule1 } from "@/lib/intake/prefill-engine";
 import {
   type ProfessionalIntelligenceCandidates,
@@ -23,7 +26,10 @@ import {
   isCoachDiscoveryOnly,
   applyEmploymentCompletion,
 } from "@/lib/intake/professional-intelligence";
-import type { BoundedEmploymentContext, NextProfessionalTopic } from "@/lib/intake/coach";
+import type {
+  BoundedEmploymentContext, NextProfessionalTopic, CoachFields,
+  IdentityTopicField, IdentityAnswerClassification,
+} from "@/lib/intake/coach";
 import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
 import {
   candidateToEmploymentEntry, candidateToEducationEntry, candidateToCertificationEntry,
@@ -260,6 +266,117 @@ export function resolveNextQuestionContext(
   }
   if (rawTopic.mode === "open_discovery") return { mode: "open_discovery" };
   return { mode: "none" };
+}
+
+// GOVERNED_VALUE_AWARENESS Slice B — application-owned, transient,
+// turn-scoped previous-question context for StructuredProfile identity
+// confirmation (R1 §6). A SEPARATE authority channel from
+// QuestionProfessionalContext above -- never merged, never shares a
+// candidateId-style identity, never reused for Employment Candidates
+// (R1 §36). No alias field -- `field` IS the exact StructuredProfile
+// key, application-assigned, never model-supplied (R1 §29). Never a
+// DraftEnvelope field, never persisted (mirrors questionContext's own
+// QUESTION_CONTEXT_PERSISTED: NO precedent exactly) -- resets to
+// {mode:"none"} on every page load/remount.
+export type IdentityQuestionContext =
+  | {
+      mode: "confirm_field";
+      field: string;
+      expectedValue: string;
+      expectedStatus: "acquired_unconfirmed" | "conflicting";
+      intent: "confirm" | "resolve_conflict";
+    }
+  | { mode: "none" };
+
+// Exported pure helper -- the bounded Class A1 eligibility set for
+// Slice B confirmation binding (R1 §9). Deliberately NOT Class A2
+// (profession/industry/yearsExperience remain enrichable-only, never
+// confirmation-bound) and NOT any criterion narrative field (never
+// exposed as a value at all, OD-04). Reuses CLASS_A1_FIELDS verbatim --
+// no second field-classification vocabulary is introduced.
+export function isIdentityConfirmableField(field: string): boolean {
+  return (CLASS_A1_FIELDS as readonly string[]).includes(field);
+}
+
+// Exported pure helper -- the three-way governed answer classification
+// (R1 §5/§16/§17/§18/§19), evaluated against the LIVE StructuredProfile
+// snapshot the caller supplies (never a stale value trusted from the
+// context itself). Returns "none" (NO_GOVERNED_TRANSITION) unless EVERY
+// gate passes:
+//   1. a confirm_field context is actually pending;
+//   2. the live field still exists and still carries a value;
+//   3. the live status still exactly equals the context's own
+//      expectedStatus snapshot (stale-context firewall, R1 §27);
+//   4. the live value still exactly equals the context's own
+//      expectedValue snapshot (same firewall);
+//   5a. classification === "correct" AND the SAME exact field has a
+//       genuine, non-blank, differing replacement value in `facts`
+//       (R1 §17/§18 -- "correct" alone, without actual FACTS evidence,
+//       is never sufficient; a same-value "correction" is a no-op, not
+//       a transition) -- outcome "correct";
+//   5b. else classification === "affirm" -- outcome "confirm";
+//   5c. else (classification === "other", or "correct" without valid
+//       FACTS evidence) -- outcome "none".
+// "correct" is checked BEFORE "affirm" so an explicit same-field
+// replacement always takes precedence over a merely-affirmative label
+// (R1 §19 precedence rule) -- but only when the model itself classified
+// the message as "correct"; a bare "affirm" never self-promotes into a
+// correction merely because FACTS happens to contain something for
+// that field (the model's own classification remains the required,
+// not merely advisory, gate for which branch applies -- R1 §16 item 7/
+// §17 item 4).
+export type IdentityAnswerOutcome =
+  | { outcome: "confirm" }
+  | { outcome: "correct"; value: string }
+  | { outcome: "none" };
+
+export function resolveIdentityAnswerOutcome(
+  context: IdentityQuestionContext,
+  liveProfile: StructuredProfile,
+  classification: IdentityAnswerClassification,
+  facts: CoachFields
+): IdentityAnswerOutcome {
+  if (context.mode !== "confirm_field") return { outcome: "none" };
+  const live = liveProfile[context.field];
+  if (!live || !live.value) return { outcome: "none" };
+  if (live.status !== context.expectedStatus) return { outcome: "none" };
+  if (live.value !== context.expectedValue) return { outcome: "none" };
+
+  if (classification === "correct") {
+    const replacement = facts[context.field];
+    const y = replacement && typeof replacement.value === "string" ? replacement.value.trim() : "";
+    if (!y || y === context.expectedValue) return { outcome: "none" };
+    return { outcome: "correct", value: y };
+  }
+  if (classification === "affirm") return { outcome: "confirm" };
+  return { outcome: "none" };
+}
+
+// Exported pure helper -- constructs the NEXT turn's authoritative
+// IdentityQuestionContext from Coach's own proposed field (already
+// vocabulary-validated by coach.ts's parser) and the FINAL, post-this-
+// turn-mutation live StructuredProfile (R1 §8/§10: the application
+// reads the live value/status itself and constructs the context
+// itself -- the model's field proposal is never trusted as the value/
+// status/intent authority). A confirmed field is never reopened merely
+// because the model proposes it again (R1 §10/§27) -- eligibility
+// requires status to still be exactly "acquired_unconfirmed" or
+// "conflicting" with a non-blank value.
+export function resolveNextIdentityQuestionContext(
+  proposedField: IdentityTopicField,
+  liveProfile: StructuredProfile
+): IdentityQuestionContext {
+  if (!proposedField || !isIdentityConfirmableField(proposedField)) return { mode: "none" };
+  const f = liveProfile[proposedField];
+  if (!f || !f.value) return { mode: "none" };
+  if (f.status !== "acquired_unconfirmed" && f.status !== "conflicting") return { mode: "none" };
+  return {
+    mode: "confirm_field",
+    field: proposedField,
+    expectedValue: f.value,
+    expectedStatus: f.status,
+    intent: f.status === "conflicting" ? "resolve_conflict" : "confirm",
+  };
 }
 
 // P7-R4 (CR-CPS-60) — pure, exported, framework-agnostic helpers. Used
@@ -744,6 +861,15 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   const questionContextRef = useRef(questionContext);
   useEffect(() => { questionContextRef.current = questionContext; }, [questionContext]);
 
+  // GOVERNED_VALUE_AWARENESS Slice B — identical transient/never-
+  // persisted pattern as questionContext above, but a SEPARATE authority
+  // channel (StructuredProfile identity confirmation, never Employment
+  // Candidates). Resets to {mode:"none"} on every page load/remount --
+  // no hydration path exists for it, by design.
+  const [identityQuestionContext, setIdentityQuestionContext] = useState<IdentityQuestionContext>({ mode: "none" });
+  const identityQuestionContextRef = useRef(identityQuestionContext);
+  useEffect(() => { identityQuestionContextRef.current = identityQuestionContext; }, [identityQuestionContext]);
+
   // PI-D1-R3-R1: candidateId-anchored cyclic rotation pointer. Plain ref
   // only (no paired useState) -- nothing ever renders from this value
   // directly; it is consumed solely by the snapshot-building effect
@@ -876,14 +1002,60 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // rule; this checkpoint invokes it, never reimplements it.
   const onCoachTurnCheckpoint = useCallback((turn: {
     nextModule0: IntakeFormData["module0"];
+    facts: CoachFields;
     professionalIntelligence?: ProfessionalIntelligenceCoachResult;
     nextProfessionalTopic: NextProfessionalTopic;
+    nextIdentityTopicField: IdentityTopicField;
+    identityAnswerClassification: IdentityAnswerClassification;
   }) => {
     const currentCandidates = professionalIntelligenceCandidatesRef.current;
     const currentEnrichments = professionalIntelligenceEnrichmentsRef.current;
     let nextCandidates = currentCandidates;
     let nextEnrichments = currentEnrichments;
     let newEmploymentDiscoveries: EmploymentCandidate[] = [];
+
+    // GOVERNED_VALUE_AWARENESS Slice B -- the PREVIOUS turn's committed
+    // identity confirmation context (captured before any mutation this
+    // turn) governs the CURRENT beneficiary answer (R1 §12 off-by-one
+    // firewall) -- never the NEXT context this same turn's Coach reply
+    // is about to propose (resolved separately, below, after the save).
+    // The staleness baseline is dataRef.current.module0.structuredProfile
+    // -- the live profile exactly as it existed at the START of this
+    // turn, before even the ordinary FACTS->acquireCoachFields merge
+    // Module0 already applied into turn.nextModule0 -- so a confirmation/
+    // correction decided here always overrides whatever that unrelated,
+    // independent merge path did to the SAME bound field (e.g. a
+    // same-field FACTS mention that would otherwise have been silently
+    // downgraded to "conflicting" by acquireField's own conflict-
+    // preserve-old-value rule, discarding the very replacement value
+    // this evaluator needs -- turn.facts carries it RAW, pre-merge,
+    // exactly so it is never lost before this evaluation runs).
+    const previousIdentityContext = identityQuestionContextRef.current;
+    const preTurnProfile = dataRef.current.module0.structuredProfile;
+    const identityOutcome = resolveIdentityAnswerOutcome(
+      previousIdentityContext,
+      preTurnProfile,
+      turn.identityAnswerClassification,
+      turn.facts
+    );
+
+    let finalStructuredProfile = turn.nextModule0.structuredProfile;
+    if (previousIdentityContext.mode === "confirm_field" && identityOutcome.outcome !== "none") {
+      const field = previousIdentityContext.field;
+      const confirmed = confirmField(
+        preTurnProfile[field],
+        "beneficiary",
+        identityOutcome.outcome === "correct" ? identityOutcome.value : undefined
+      );
+      // Overwrites whatever the ordinary, unrelated FACTS merge above
+      // already wrote for this exact field -- Slice B's deterministic,
+      // app-revalidated governed transition is strictly more
+      // authoritative than that independent, model-FACTS-only path for
+      // the one field it is bound to (R1 §16/§17: existing confirmField
+      // mechanism, never a parallel/manual confirmation construction).
+      finalStructuredProfile = { ...turn.nextModule0.structuredProfile, [field]: confirmed };
+    }
+    const finalModule0: IntakeFormData["module0"] = { ...turn.nextModule0, structuredProfile: finalStructuredProfile };
 
     if (turn.professionalIntelligence) {
       const { enrichments: incomingEnrichments, discoveries, completion } = turn.professionalIntelligence;
@@ -936,8 +1108,18 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       nextCandidates,
       newEmploymentDiscoveries
     );
+    // Slice B -- next context derived from the FINAL (post-FACTS-merge,
+    // post-Slice-B-transition) live profile, so a field confirmed/
+    // corrected THIS same turn is correctly seen as ineligible
+    // (status !== acquired_unconfirmed/conflicting) if Coach's own next
+    // question happens to name it again (R1 §10/§27 confirmed-field
+    // protection).
+    const nextIdentityQuestionContext = resolveNextIdentityQuestionContext(
+      turn.nextIdentityTopicField,
+      finalStructuredProfile
+    );
 
-    const nextData: IntakeFormData = { ...dataRef.current, module0: turn.nextModule0 };
+    const nextData: IntakeFormData = { ...dataRef.current, module0: finalModule0 };
 
     professionalIntelligenceCandidatesRef.current = nextCandidates;
     professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
@@ -950,10 +1132,15 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     setProfessionalIntelligenceEnrichments(nextEnrichments);
 
     // Commit question context + rotation ONLY after the save above --
-    // never before (PI-D1-R3-R1 two-phase invariant).
+    // never before (PI-D1-R3-R1 two-phase invariant). Slice B's identity
+    // context commit follows the exact same sequencing, for the exact
+    // same reason -- a failed/never-attempted checkpoint can never make
+    // either authoritative.
     questionContextRef.current = nextQuestionContext;
     setQuestionContext(nextQuestionContext);
     rotationNextCandidateIdRef.current = boundedSnapshotRef.current.proposedNextRotationState;
+    identityQuestionContextRef.current = nextIdentityQuestionContext;
+    setIdentityQuestionContext(nextIdentityQuestionContext);
   }, [save]);
 
   // PI-B2B: source-scoped replacement of cv_extraction-provenance
@@ -1497,7 +1684,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} identityConfirmationContext={identityQuestionContext.mode === "confirm_field" ? { field: identityQuestionContext.field, expectedValue: identityQuestionContext.expectedValue } : undefined} sessionId={sessionId} errors={errors}/>}
             {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} enrichments={professionalIntelligenceEnrichments} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate} onAcceptEnrichment={handleAcceptEnrichment} onRejectEnrichment={handleRejectEnrichment}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}

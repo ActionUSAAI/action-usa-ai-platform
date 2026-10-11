@@ -51,6 +51,29 @@ export type NextProfessionalTopic =
   | { mode: "continue_new_employment" }
   | { mode: "none" };
 
+// Slice B (GOVERNED_VALUE_AWARENESS, Exact Design R1) -- a bounded
+// observation about the beneficiary's CURRENT message relative to the
+// PREVIOUS turn's application-owned identity confirmation question.
+// This is evidence only, never authority: the application (IntakeForm's
+// onCoachTurnCheckpoint, R1 §16/§17/§29) independently revalidates
+// field/value/status before treating either value as meaningful, and
+// "correct" alone is never sufficient without an actual same-field
+// FACTS replacement value. Malformed/missing/unknown always downgrades
+// to "other" (parseIdentityAnswerClassification below), mirroring
+// parseNextProfessionalTopic's own established fail-safe discipline.
+export type IdentityAnswerClassification = "affirm" | "correct" | "other";
+
+// Slice B -- the model's OWN proposed topic for its NEXT question
+// (mirrors NextProfessionalTopic's off-by-one framing exactly: this
+// describes the question Coach just asked in THIS turn's reply, never
+// the beneficiary message it just received). Vocabulary-validated here
+// (CLASS_A1_FIELDS membership) -- eligibility (status/value) is a
+// LIVE-StructuredProfile concern the application alone can resolve
+// (IntakeForm.resolveNextIdentityQuestionContext), exactly mirroring
+// NextProfessionalTopic/BoundedEmploymentContext's own two-layer split
+// (vocabulary here, application authority there).
+export type IdentityTopicField = string | null;
+
 const BASE_SYSTEM_PROMPT = `Eres Coach, la capacidad de descubrimiento conversacional integrada de AUSCIS (Stage 1 -- Acquire, Discover, Structure, Complete). Tu misión: ayudar al beneficiario a revelar la representación más fuerte y verdadera posible de su trayectoria profesional real.
 
 PRINCIPIO RECTOR: no te limites a registrar lo que el beneficiario dice de forma casual o minimizada. Investiga con preguntas de seguimiento: alcance, impacto, responsabilidad, complejidad, influencia, resultados cuantificables, corroboración. Si el beneficiario dice algo como "solo ayudé con..." o "no creo que cuente", profundiza -- pero SIN fabricar, exagerar, ni convertir incertidumbre en hecho.
@@ -83,13 +106,26 @@ Además de FACTS, después de cada respuesta reporta en una sección final ---NE
 - "none": si tu próxima pregunta no tiene un enrutamiento profesional/de empleo aplicable -- identidad, contacto, administrativo, cierre o resumen sin pregunta, u otro tema no profesional.
 Nunca incluyas ningún identificador que no sea el alias exacto indicado por la aplicación. Nunca inventes un alias. Nunca menciones "P1", "P2", "P3", "known_employment", "open_discovery", "continue_new_employment", "none" ni "NEXT_TOPIC" en tu respuesta al beneficiario -- son mecánica interna de enrutamiento, nunca terminología de cara al beneficiario.
 
+Además, reporta en una sección final ---IDENTITY_TOPIC--- un objeto JSON indicando si tu PRÓXIMA pregunta (la que acabas de redactar en tu respuesta de este mismo turno) es una pregunta de confirmación/corrección sobre uno de los campos de identidad/contacto ya registrados (ver la sección de contexto más abajo, si existe). Usa exactamente:
+{"field": "<nombre_exacto_del_campo>"} si tu próxima pregunta pide confirmar o corregir ESE campo exacto, o {"field": null} en cualquier otro caso (pregunta nueva, tema no relacionado, o cierre). Nunca incluyas un valor, solo el nombre del campo. Nunca inventes un nombre de campo que no exista.
+
+Si -- y solo si -- la sección de contexto más abajo indica que tu pregunta ANTERIOR pedía confirmar o corregir un campo específico, reporta también una sección final ---IDENTITY_ANSWER--- clasificando el mensaje ACTUAL del beneficiario (nunca tu propia pregunta) en exactamente uno de estos valores:
+{"classification": "affirm"} -- el beneficiario confirma explícita e inequívocamente que el valor registrado es correcto, sin aportar un valor diferente para ese mismo campo.
+{"classification": "correct"} -- el beneficiario indica explícita e inequívocamente un valor DIFERENTE para ESE MISMO campo (incluye ese nuevo valor en FACTS para ese campo, siguiendo las reglas normales de FACTS). Si el mensaje afirma Y TAMBIÉN aporta un valor diferente para el mismo campo ("Sí, pero en realidad es X"), clasifica como "correct", nunca "affirm" -- la corrección siempre tiene precedencia sobre la afirmación.
+{"classification": "other"} -- cualquier otro caso: incertidumbre ("creo que sí", "tal vez", "no estoy seguro"), negación sin un valor de reemplazo ("no", sin más), una respuesta no relacionada, o cualquier ambigüedad. NUNCA clasifiques como "affirm" la mera ausencia de una corrección -- la incertidumbre y las respuestas no relacionadas son "other", no "affirm". Si no hay contexto de confirmación pendiente, omite esta sección o usa {"classification": "other"}.
+Nunca menciones "IDENTITY_TOPIC", "IDENTITY_ANSWER", "affirm", "correct" ni "other" en tu respuesta al beneficiario -- son mecánica interna, nunca terminología de cara al beneficiario.
+
 Responde EXACTAMENTE en este formato:
 ---REPLY---
 <tu siguiente pregunta o comentario para el beneficiario, en español>
 ---FACTS---
 {"fields": {"<campo>": {"value": "...", "confidence": "high|medium|low"}, ...}}
 ---NEXT_TOPIC---
-{"mode": "known_employment|open_discovery|continue_new_employment|none"}`;
+{"mode": "known_employment|open_discovery|continue_new_employment|none"}
+---IDENTITY_TOPIC---
+{"field": "<nombre_de_campo>|null"}
+---IDENTITY_ANSWER---
+{"classification": "affirm|correct|other"}`;
 
 // R1 Slice A (Exact Design R1 §T/§Z, Owner-approved OD-01/OD-02/OD-04) --
 // Class A2 (profession/industry/yearsExperience): the exact IDENTITY_FIELDS
@@ -250,11 +286,33 @@ function describeBoundedEmploymentContexts(contexts: readonly BoundedEmploymentC
   return `\n\nCONTEXTOS PROFESIONALES CONOCIDOS DISPONIBLES PARA ESTE TURNO (datos ya registrados por la aplicación -- NO son afirmaciones nuevas del beneficiario; las etiquetas son mecánica interna de enrutamiento que nunca debes mencionar al beneficiario):\n${lines}\n\nPuedes usar esta información para guiar preguntas de seguimiento naturales cuando sea útil -- no asumas que está completa, no inventes hechos que no se muestren aquí, y no afirmes que esto es evidencia verificada. Si tu próxima pregunta profundiza uno de estos contextos, usa su alias exacto en NEXT_TOPIC.`;
 }
 
+// Slice B -- appended only when a valid pending identity confirmation
+// context exists (the common no-pending-context case leaves the prompt
+// byte-identical to its pre-Slice-B shape, mirroring
+// describeBoundedEmploymentContexts's own established convention
+// exactly). Exposes only `field` + the already-governed `expectedValue`
+// -- both ALREADY fully exposed to the model via describeProfileContext
+// itself (Slice A) when this same field is in the UNCONFIRMED/
+// CONFLICTING bucket; nothing new is disclosed here beyond "this is the
+// specific field/value your own immediately preceding reply just asked
+// the beneficiary about". No status/intent/authority metadata is ever
+// included -- the model never needs those to classify the CURRENT
+// message, and per the model authority firewall (R1 §29) it could not
+// use them as authority even if it saw them.
+function describeIdentityConfirmationContext(ctx?: { field: string; expectedValue: string }): string {
+  if (!ctx) return "";
+  return `\n\nCONTEXTO DE CONFIRMACIÓN DE IDENTIDAD PENDIENTE (tu pregunta ANTERIOR, en el turno previo, pidió confirmar o corregir este campo exacto -- clasifica el mensaje ACTUAL del beneficiario en ---IDENTITY_ANSWER--- en relación con esto, nunca con tu propia pregunta de este turno):\ncampo: ${JSON.stringify(ctx.field)}\nvalor que preguntaste: ${JSON.stringify(ctx.expectedValue)}`;
+}
+
 export function buildSystemPrompt(
   profileContext?: CoachProfileContext,
-  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[],
+  identityConfirmationContext?: { field: string; expectedValue: string }
 ): string {
-  return BASE_SYSTEM_PROMPT + describeProfileContext(profileContext) + describeBoundedEmploymentContexts(boundedEmploymentContexts ?? []);
+  return BASE_SYSTEM_PROMPT
+    + describeProfileContext(profileContext)
+    + describeBoundedEmploymentContexts(boundedEmploymentContexts ?? [])
+    + describeIdentityConfirmationContext(identityConfirmationContext);
 }
 
 // PI-D1C -- strict, defensive parser for the NEXT_TOPIC routing signal.
@@ -298,6 +356,56 @@ function parseNextProfessionalTopic(
   return { mode: "none" };
 }
 
+// Slice B -- strict, defensive parser for the model's proposed next
+// identity topic. Vocabulary layer only (mirrors
+// parseNextProfessionalTopic's layer-1 exactly): the field must be a
+// real CLASS_A1_FIELDS member -- not_yet_acquired/already-confirmed/
+// ineligible-status fields are NOT filtered here (that requires the
+// LIVE StructuredProfile, an application-side concern,
+// IntakeForm.resolveNextIdentityQuestionContext). Malformed JSON, a
+// missing section, a non-string field, an unknown field, or a JSON
+// array/null root all downgrade to null the same way -- this signal can
+// never fail the overall Coach response.
+function parseIdentityTopicField(rawSection: string | undefined): IdentityTopicField {
+  if (!rawSection) return null;
+  const jsonMatch = rawSection.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return null;
+  const field = (parsed as Record<string, unknown>).field;
+  if (typeof field !== "string") return null;
+  if (!(CLASS_A1_FIELDS as readonly string[]).includes(field)) return null;
+  return field;
+}
+
+// Slice B -- strict, defensive parser for the bounded answer
+// observation. Anything other than the exact literal "affirm"/"correct"
+// downgrades to "other" -- missing section, malformed JSON, an unknown
+// classification value, a JSON array/null root. This is evidence only;
+// IntakeForm.resolveIdentityAnswerOutcome (application authority) is
+// the sole place either value is ever acted upon, and only after
+// independently revalidating the previous question context.
+function parseIdentityAnswerClassification(rawSection: string | undefined): IdentityAnswerClassification {
+  if (!rawSection) return "other";
+  const jsonMatch = rawSection.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) return "other";
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    return "other";
+  }
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return "other";
+  const c = (parsed as Record<string, unknown>).classification;
+  if (c === "affirm" || c === "correct") return c;
+  return "other";
+}
+
 // P7-ALDO-M0-SF1 corrective invariant: internal structured Coach output
 // must never be rendered as beneficiary-facing conversational text.
 // Extracted as a pure function (mirrors this module's own "framework-
@@ -313,23 +421,52 @@ function parseNextProfessionalTopic(
 export function parseCoachResponse(
   raw: string,
   boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
-): { reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic } {
-  const replyMatch = raw.match(/---REPLY---\s*([\s\S]*?)\s*---(?:FACTS|NEXT_TOPIC)---/);
-  const factsMatch = raw.match(/---FACTS---\s*([\s\S]*?)(?=\s*---NEXT_TOPIC---|$)/);
-  const nextTopicMatch = raw.match(/---NEXT_TOPIC---\s*([\s\S]*)$/);
+): {
+  reply: string;
+  fields: CoachFields;
+  nextProfessionalTopic: NextProfessionalTopic;
+  nextIdentityTopicField: IdentityTopicField;
+  identityAnswerClassification: IdentityAnswerClassification;
+} {
+  // Section boundaries require an actual newline (one or more, "\n+")
+  // immediately before the next marker, never the old bare "\s*" (zero-
+  // or-more). "\s*" is satisfied by ZERO whitespace, so it could match
+  // at the exact position of a marker-shaped substring embedded inside
+  // a FACTS JSON string value whose own real newlines were correctly
+  // JSON-escaped to the literal two characters "\n" (backslash+n, not
+  // whitespace) -- causing the non-greedy match to stop early at that
+  // embedded fake marker instead of the real, trailing one. A genuine
+  // raw (unescaped) newline cannot legally appear inside a valid JSON
+  // string value, so requiring a real "\n+" boundary correctly rejects
+  // marker-like text embedded inside a well-formed FACTS value while
+  // still matching the real markers, which the model always places on
+  // their own line per this function's own documented contract.
+  const replyMatch = raw.match(/---REPLY---\s*([\s\S]*?)\n+---(?:FACTS|NEXT_TOPIC|IDENTITY_TOPIC|IDENTITY_ANSWER)---/);
+  const factsMatch = raw.match(/---FACTS---\s*([\s\S]*?)(?=\n+---(?:NEXT_TOPIC|IDENTITY_TOPIC|IDENTITY_ANSWER)---|$)/);
+  const nextTopicMatch = raw.match(/---NEXT_TOPIC---\s*([\s\S]*?)(?=\n+---(?:IDENTITY_TOPIC|IDENTITY_ANSWER)---|$)/);
+  const identityTopicMatch = raw.match(/---IDENTITY_TOPIC---\s*([\s\S]*?)(?=\n+---IDENTITY_ANSWER---|$)/);
+  // identityAnswerMatch has no right-side marker to bound it (it is
+  // always the final section), so unlike the four matches above it
+  // needs its OWN left-side anchor instead of relying on a neighboring
+  // lookahead -- otherwise plain raw.match() returns the leftmost
+  // occurrence of the literal text, which could be an embedded
+  // marker-like substring inside an earlier FACTS value. "(?:^|\n)"
+  // requires the marker to begin the string or follow a real newline,
+  // exactly like the boundary used above.
+  const identityAnswerMatch = raw.match(/(?:^|\n)---IDENTITY_ANSWER---\s*([\s\S]*)$/);
 
   let reply: string;
   if (replyMatch) {
     reply = replyMatch[1].trim();
   } else {
     // Defensive fallback: the model deviated from the exact ---REPLY---
-    // / ---FACTS--- / ---NEXT_TOPIC--- contract. The internal FACTS/
-    // NEXT_TOPIC payloads must still never reach the beneficiary -- strip
-    // everything from the first literal ---FACTS--- or ---NEXT_TOPIC---
-    // marker onward, and any stray ---REPLY--- marker itself, before
-    // falling back to the remaining raw text. No-op when none of the
-    // markers are present (plain free-text reply, unchanged behavior).
-    reply = raw.split(/---FACTS---|---NEXT_TOPIC---/)[0].replace(/---REPLY---/g, "").trim();
+    // / ---FACTS--- / ---NEXT_TOPIC--- / ---IDENTITY_TOPIC--- /
+    // ---IDENTITY_ANSWER--- contract. The internal payloads must still
+    // never reach the beneficiary -- strip everything from the first
+    // literal marker onward, and any stray ---REPLY--- marker itself,
+    // before falling back to the remaining raw text. No-op when none of
+    // the markers are present (plain free-text reply, unchanged behavior).
+    reply = raw.split(/---FACTS---|---NEXT_TOPIC---|---IDENTITY_TOPIC---|---IDENTITY_ANSWER---/)[0].replace(/---REPLY---/g, "").trim();
   }
 
   const fields: CoachFields = {};
@@ -349,8 +486,10 @@ export function parseCoachResponse(
   }
 
   const nextProfessionalTopic = parseNextProfessionalTopic(nextTopicMatch?.[1], boundedEmploymentContexts ?? []);
+  const nextIdentityTopicField = parseIdentityTopicField(identityTopicMatch?.[1]);
+  const identityAnswerClassification = parseIdentityAnswerClassification(identityAnswerMatch?.[1]);
 
-  return { reply, fields, nextProfessionalTopic };
+  return { reply, fields, nextProfessionalTopic, nextIdentityTopicField, identityAnswerClassification };
 }
 
 export async function sendCoachTurn(
@@ -358,8 +497,15 @@ export async function sendCoachTurn(
   message: string,
   apiKey: string,
   profileContext?: CoachProfileContext,
-  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
-): Promise<{ reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic }> {
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[],
+  identityConfirmationContext?: { field: string; expectedValue: string }
+): Promise<{
+  reply: string;
+  fields: CoachFields;
+  nextProfessionalTopic: NextProfessionalTopic;
+  nextIdentityTopicField: IdentityTopicField;
+  identityAnswerClassification: IdentityAnswerClassification;
+}> {
   const messages = [...history, { role: "user" as const, content: message }];
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -372,7 +518,7 @@ export async function sendCoachTurn(
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: buildSystemPrompt(profileContext, boundedEmploymentContexts),
+      system: buildSystemPrompt(profileContext, boundedEmploymentContexts, identityConfirmationContext),
       messages,
     }),
   });

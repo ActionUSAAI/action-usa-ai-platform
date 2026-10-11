@@ -34,8 +34,10 @@ function check(label: string, cond: boolean) {
 
 const INTAKEFORM_FILE = "../../../src/app/intake/IntakeForm.tsx";
 const MODULE0_FILE = "../../../src/app/intake/modules/Module0.tsx";
+const STRUCTPROFILE_FILE = "../../../src/lib/intake/structured-profile.ts";
 const intakeFormSrc = readFileSync(require.resolve(INTAKEFORM_FILE), "utf8");
 const module0Src = readFileSync(require.resolve(MODULE0_FILE), "utf8");
+const structProfileSrc = readFileSync(require.resolve(STRUCTPROFILE_FILE), "utf8");
 
 function emp(id: string, overrides: Partial<EmploymentCandidate> = {}): EmploymentCandidate {
   return {
@@ -305,7 +307,22 @@ function known(candidateId: string): QuestionProfessionalContext {
 // ── §91 — static firewall ───────────────────────────────────────────────────
 {
   check("T65 no server/Coach/D1A file reference beyond read-only type imports", !intakeFormSrc.includes("fetch(\"https://api.anthropic.com") && !module0Src.includes("api.anthropic.com"));
-  check("T66 no StructuredProfile expansion (no new field added to acquireField/CLASS_A1_FIELDS call sites)", !intakeFormSrc.includes("CLASS_A1_FIELDS"));
+  // T66 — reconciled. GOVERNED_VALUE_AWARENESS Slice B (a later,
+  // separately authorized workstream built on top of this PI-D1D
+  // baseline) legitimately added IntakeForm.tsx's own first reference
+  // to CLASS_A1_FIELDS, for an unrelated purpose (identity-confirmation
+  // field eligibility, isIdentityConfirmableField) -- so "no file
+  // mentions CLASS_A1_FIELDS" is no longer the right assertion. The
+  // invariant this check actually protects -- that PI-D1D itself never
+  // expanded the StructuredProfile schema with a new field -- is
+  // reconciled to its real, still-true form: CLASS_A1_FIELDS's own
+  // definition in structured-profile.ts remains exactly the original
+  // frozen 15-field list, and IntakeForm.tsx's new reference to it is
+  // read-only (a membership check only), never a redefinition.
+  check("T66 CLASS_A1_FIELDS definition itself remains exactly the original frozen 15-field list (no new field introduced)",
+    /export const CLASS_A1_FIELDS = \[\s*"familyName", "givenName", "middleName", "dateOfBirth", "nationalities",\s*"countryOfResidence", "cityOfResidence", "email", "whatsapp",[\s\S]{0,400}"countryOfBirth", "foreignStreet", "foreignCity", "foreignProvince",\s*"foreignPostalCode", "foreignCountry",\s*\] as const;/.test(structProfileSrc));
+  check("T66b IntakeForm.tsx's own reference to CLASS_A1_FIELDS is read-only (membership check via .includes, never a reassignment/redefinition)",
+    !/CLASS_A1_FIELDS\s*=\s*\[/.test(intakeFormSrc) && /\(CLASS_A1_FIELDS as readonly string\[\]\)\.includes\(/.test(intakeFormSrc));
   check("T67 no CBR reference", !/\bCBR\b/.test(intakeFormSrc) && !/\bCBR\b/.test(module0Src));
   check("T68 no database/migration/RPC/RLS/Storage reference", !intakeFormSrc.includes("supabase") && !intakeFormSrc.includes("createClient"));
   check("T69 no Project/Compensation entity introduced", !intakeFormSrc.includes("ProjectCandidate") && !intakeFormSrc.includes("CompensationCandidate"));

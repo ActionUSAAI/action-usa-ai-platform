@@ -6,6 +6,8 @@ import {
   type CoachFields,
   type BoundedEmploymentContext,
   type NextProfessionalTopic,
+  type IdentityTopicField,
+  type IdentityAnswerClassification,
 } from "@/lib/intake/coach";
 import {
   extractCoachProfessionalIntelligence,
@@ -90,6 +92,26 @@ function parseProfessionalContext(value: unknown): CoachProfessionalExtractionIn
 // (parseProfessionalContext above; PI-D1B). No candidateId field exists
 // on this type at all, so there is nothing to strip -- the firewall is
 // structural, not a runtime check.
+// Slice B -- route-local validator for the transient, application-owned
+// identity confirmation context (mirrors parseProfessionalContext's own
+// established style exactly: malformed/absent input yields `undefined`,
+// never a 400). Both `field` and `expectedValue` are required non-blank
+// strings -- an empty field could never resolve to a real governed
+// fact, and an empty expectedValue would carry no classification signal
+// for the model. This is transient prompt-construction context only --
+// never persisted, never itself an authority source (IntakeForm's own
+// checkpoint independently re-derives and revalidates both values
+// against the LIVE StructuredProfile before any governed transition,
+// R1 §29).
+function parseIdentityConfirmationContext(value: unknown): { field: string; expectedValue: string } | undefined {
+  if (typeof value !== "object" || value === null) return undefined;
+  const v = value as Record<string, unknown>;
+  const field = typeof v.field === "string" ? v.field.trim() : "";
+  const expectedValue = typeof v.expectedValue === "string" ? v.expectedValue : "";
+  if (!field || !expectedValue) return undefined;
+  return { field, expectedValue };
+}
+
 function parseBoundedEmploymentContexts(value: unknown): BoundedEmploymentContext[] {
   if (!Array.isArray(value)) return [];
   const seenAliases = new Set<string>();
@@ -132,15 +154,25 @@ async function runCoachTurnWithProfessionalExtraction(
   apiKey: string,
   profileContext: CoachProfileContext | undefined,
   professionalContext: CoachProfessionalExtractionInput["activeContext"],
-  boundedEmploymentContexts: readonly BoundedEmploymentContext[]
-): Promise<{ reply: string; fields: CoachFields; nextProfessionalTopic: NextProfessionalTopic; professionalIntelligence?: ProfessionalIntelligenceCoachResult }> {
+  boundedEmploymentContexts: readonly BoundedEmploymentContext[],
+  identityConfirmationContext: { field: string; expectedValue: string } | undefined
+): Promise<{
+  reply: string;
+  fields: CoachFields;
+  nextProfessionalTopic: NextProfessionalTopic;
+  nextIdentityTopicField: IdentityTopicField;
+  identityAnswerClassification: IdentityAnswerClassification;
+  professionalIntelligence?: ProfessionalIntelligenceCoachResult;
+}> {
   // PI-D1C: boundedEmploymentContexts is forwarded ONLY to the normal
   // Coach call (next-conversational-topic guidance) -- it is never part
   // of the D1A extraction input, which remains exactly
   // {currentMessage, activeContext?} (PI-D1C §30/§31, frozen D1A
-  // boundary, unmodified call below).
+  // boundary, unmodified call below). Slice B's identityConfirmationContext
+  // follows the exact same separation -- normal Coach call only, never
+  // sent to the D1A extraction call.
   const [coachResult, professionalResult] = await Promise.allSettled([
-    sendCoachTurn(history, message, apiKey, profileContext, boundedEmploymentContexts),
+    sendCoachTurn(history, message, apiKey, profileContext, boundedEmploymentContexts, identityConfirmationContext),
     extractCoachProfessionalIntelligence(
       { currentMessage: message, ...(professionalContext ? { activeContext: professionalContext } : {}) },
       apiKey
@@ -153,6 +185,8 @@ async function runCoachTurnWithProfessionalExtraction(
     reply: coachResult.value.reply,
     fields: coachResult.value.fields,
     nextProfessionalTopic: coachResult.value.nextProfessionalTopic,
+    nextIdentityTopicField: coachResult.value.nextIdentityTopicField,
+    identityAnswerClassification: coachResult.value.identityAnswerClassification,
   };
   if (professionalResult.status !== "fulfilled") return base;
   return { ...base, professionalIntelligence: professionalResult.value };
@@ -176,6 +210,10 @@ export async function POST(request: NextRequest) {
     // never sent to the D1A extraction call below. Separate purpose from
     // professionalContext above (PI-D1C §5/§33).
     const boundedEmploymentContexts = parseBoundedEmploymentContexts(body.boundedEmploymentContexts);
+    // Slice B: transient, application-owned previous-question context
+    // only -- never persisted, never sent to the D1A extraction call
+    // (see runCoachTurnWithProfessionalExtraction above).
+    const identityConfirmationContext = parseIdentityConfirmationContext(body.identityConfirmationContext);
 
     if (!token) return NextResponse.json({ error: "Falta el token de invitación." }, { status: 401 });
     if (!message) return NextResponse.json({ error: "Falta el mensaje." }, { status: 400 });
@@ -193,7 +231,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invitación inválida o expirada." }, { status: 403 });
     }
 
-    const result = await runCoachTurnWithProfessionalExtraction(history, message, ANTHROPIC_KEY, profileContext, professionalContext, boundedEmploymentContexts);
+    const result = await runCoachTurnWithProfessionalExtraction(history, message, ANTHROPIC_KEY, profileContext, professionalContext, boundedEmploymentContexts, identityConfirmationContext);
     return NextResponse.json(result);
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Error desconocido";

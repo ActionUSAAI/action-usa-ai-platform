@@ -9,7 +9,10 @@ import {
   IDENTITY_FIELDS, hasAnyAcquiredInformation, minimizedProfileContext,
 } from "@/lib/intake/structured-profile";
 import type { ProfessionalIntelligenceCandidates } from "@/lib/intake/professional-intelligence";
-import type { BoundedEmploymentContext, NextProfessionalTopic } from "@/lib/intake/coach";
+import type {
+  BoundedEmploymentContext, NextProfessionalTopic, CoachFields,
+  IdentityTopicField, IdentityAnswerClassification,
+} from "@/lib/intake/coach";
 import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
 
 // Module0 -- CV/résumé source document + integrated Coach discovery
@@ -32,7 +35,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 export function Module0({
   data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, onCoachTurnCheckpoint,
-  professionalContext, boundedEmploymentContexts, sessionId, errors,
+  professionalContext, boundedEmploymentContexts, identityConfirmationContext, sessionId, errors,
 }: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
@@ -47,14 +50,22 @@ export function Module0({
   onProfessionalCandidatesExtracted: (candidates: ProfessionalIntelligenceCandidates) => void;
   // PI-D1D — the frozen R1 unified Coach-turn checkpoint (replaces the
   // old onCheckpoint(...) call inside sendCoachMessage's success branch
-  // only). Module0 owns no Candidate/Enrichment/question-context state
-  // itself -- it only forwards the raw successful-turn fields it
-  // received from the HTTP response; IntakeForm performs every
-  // reconciliation decision.
+  // only). Module0 owns no Candidate/Enrichment/question-context/
+  // identity-confirmation state itself -- it only forwards the raw
+  // successful-turn fields it received from the HTTP response;
+  // IntakeForm performs every reconciliation decision. `facts` (Slice B)
+  // is the RAW, pre-acquireCoachFields CoachFields object -- needed
+  // verbatim because acquireCoachFields' own conflict-preserve-old-value
+  // rule would otherwise discard a beneficiary-supplied replacement
+  // value before IntakeForm's governed-confirmation evaluator ever saw
+  // it (GOVERNED_VALUE_AWARENESS R1 §17).
   onCoachTurnCheckpoint: (turn: {
     nextModule0: Module0Data;
+    facts: CoachFields;
     professionalIntelligence?: ProfessionalIntelligenceCoachResult;
     nextProfessionalTopic: NextProfessionalTopic;
+    nextIdentityTopicField: IdentityTopicField;
+    identityAnswerClassification: IdentityAnswerClassification;
   }) => void;
   // PI-D1D — IntakeForm-derived, read-only. Carries candidateId because
   // D1A's extraction call legitimately needs it server-side -- this is
@@ -67,6 +78,15 @@ export function Module0({
   // Module0 never decides eligibility/pinning/rotation; it only
   // transports whatever bounded snapshot IntakeForm already computed.
   boundedEmploymentContexts: BoundedEmploymentContext[];
+  // GOVERNED_VALUE_AWARENESS Slice B — IntakeForm-derived, read-only.
+  // The exact field + already-governed value IntakeForm's own PREVIOUS
+  // checkpoint committed as the active identity confirmation question
+  // (R1 off-by-one firewall: this governs the CURRENT beneficiary
+  // answer, never the question Coach is about to ask this turn).
+  // Module0 decides nothing about eligibility/staleness -- it only
+  // transports whatever context IntakeForm already computed, exactly
+  // mirroring professionalContext's own established pattern.
+  identityConfirmationContext?: { field: string; expectedValue: string };
   sessionId: string;
   errors: Record<string, string>;
 }) {
@@ -173,24 +193,30 @@ export function Module0({
           profileContext: minimizedProfileContext(data.structuredProfile),
           ...(professionalContext ? { professionalContext } : {}),
           boundedEmploymentContexts,
+          ...(identityConfirmationContext ? { identityConfirmationContext } : {}),
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || "Error");
       const assistantTurn: CoachTurn = { role: "assistant", content: json.reply, at: new Date().toISOString() };
+      const rawFacts = (json.fields ?? {}) as CoachFields;
       // CR-CPS-57 D-03: acquireCoachFields() structurally protects any
       // beneficiary-confirmed Class A1 fact from this automated merge.
-      const profile = acquireCoachFields(data.structuredProfile, (json.fields ?? {}) as Record<string, { value: string; confidence: "high" | "medium" | "low" }>);
+      const profile = acquireCoachFields(data.structuredProfile, rawFacts as Record<string, { value: string; confidence: "high" | "medium" | "low" }>);
       // PI-D1D: replaces the old single onCheckpoint(...) call with the
       // unified Coach-turn checkpoint -- losing it would repeat a
       // billable Coach/Anthropic call. An errored/incomplete turn (catch
       // branch below) does not receive this checkpoint, and therefore
-      // never mutates Candidate/Enrichment/question-context state either.
+      // never mutates Candidate/Enrichment/question-context/identity-
+      // confirmation state either.
       const nextModule0: Module0Data = { ...data, coachConversation: [...data.coachConversation, userTurn, assistantTurn], structuredProfile: profile };
       onCoachTurnCheckpoint({
         nextModule0,
+        facts: rawFacts,
         ...(json.professionalIntelligence ? { professionalIntelligence: json.professionalIntelligence } : {}),
         nextProfessionalTopic: json.nextProfessionalTopic,
+        nextIdentityTopicField: (json.nextIdentityTopicField ?? null) as IdentityTopicField,
+        identityAnswerClassification: (json.identityAnswerClassification ?? "other") as IdentityAnswerClassification,
       });
     } catch {
       const errTurn: CoachTurn = { role: "assistant", content: "No pude procesar tu respuesta. Intenta de nuevo.", at: new Date().toISOString() };
