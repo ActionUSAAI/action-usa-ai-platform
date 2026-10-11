@@ -180,7 +180,21 @@ export function describeProfileContext(profileContext?: CoachProfileContext): st
     return "";
   }
 
-  const fmt = (items: { key: string; value: string }[]) => items.map(i => `- ${i.key} = "${i.value}"`).join("\n");
+  // Serialization hardening (MR correction): the raw governed value is
+  // encoded exactly once via JSON.stringify -- the platform's own
+  // deterministic string serializer -- rather than hand-interpolated
+  // inside manually-added quotes. This guarantees quotes/newlines/
+  // backslashes/control characters inside the value stay encoded
+  // WITHIN that one string literal and can never visually escape the
+  // field-value boundary into independent prompt structure, regardless
+  // of content. This is prompt REPRESENTATION only -- the exact raw
+  // value handed to JSON.stringify is never mutated, trimmed, or
+  // otherwise altered; only its serialized appearance in the prompt
+  // text changes. Field keys are never passed through this encoder --
+  // they come exclusively from the bounded, application-owned
+  // CLASS_A1_FIELDS/CLASS_A2_FIELDS/A0_FIELD_LIST lists, never from a
+  // governed value or model/user input.
+  const fmt = (items: { key: string; value: string }[]) => items.map(i => `- ${i.key} = ${JSON.stringify(i.value)}`).join("\n");
 
   const lines: string[] = [];
   // Value-serialization safety (R1 §14): values below originate from
