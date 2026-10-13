@@ -301,7 +301,26 @@ function known(candidateId: string): QuestionProfessionalContext {
   const piSrc = readFileSync(require.resolve("../../../src/lib/intake/professional-intelligence.ts"), "utf8");
   check("T63 isCandidateEligibleForEnrichmentAnchor unchanged signature (still excludes Coach-only Candidates)",
     /export function isCandidateEligibleForEnrichmentAnchor\(candidate: EmploymentCandidate\): boolean \{\s*return candidate\.status === "proposed" && candidate\.provenance\.some\(p => p\.source === "cv_extraction"\);\s*\}/.test(piSrc));
-  check("T64 appendPreserveExisting unchanged (D1D introduces no new material-field merge logic)", !intakeFormSrc.includes("appendPreserveExisting"));
+  // T64 — reconciled. E2 (PI Employment Enrichment Post-Base-Acceptance
+  // Materialization, a later, separately authorized workstream built on
+  // top of this PI-D1D baseline) legitimately added IntakeForm.tsx's own
+  // first reference to appendPreserveExisting, inside handleAcceptEnrichment's
+  // new post-base Path B branch -- an unrelated purpose (narrative-field
+  // accumulation on an already-materialized Module 6 row), nothing to do
+  // with D1D's own onCoachTurnCheckpoint. "No file mention" is no longer
+  // the right assertion. The invariant this check actually protects --
+  // that PI-D1D's OWN checkpoint never reaches for a material-field merge
+  // helper -- is reconciled to its real, still-true form: scoped to the
+  // onCoachTurnCheckpoint handler body specifically, which contains no
+  // reference to appendPreserveExisting (candidate/enrichment discovery
+  // there remains pure array-append, never a text merge).
+  const onCoachTurnCheckpointBody = intakeFormSrc.slice(
+    intakeFormSrc.indexOf("const onCoachTurnCheckpoint = useCallback"),
+    intakeFormSrc.indexOf("const onCoachTurnCheckpoint = useCallback") +
+      intakeFormSrc.slice(intakeFormSrc.indexOf("const onCoachTurnCheckpoint = useCallback")).indexOf("}, [save]);")
+  );
+  check("T64 appendPreserveExisting unchanged within PI-D1D's own checkpoint (onCoachTurnCheckpoint introduces no new material-field merge logic; E2's separately authorized use elsewhere in the file is out of this check's scope)",
+    !onCoachTurnCheckpointBody.includes("appendPreserveExisting"));
 }
 
 // ── §91 — static firewall ───────────────────────────────────────────────────

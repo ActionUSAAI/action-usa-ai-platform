@@ -194,20 +194,42 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 // ════════════════════════════════════════════════════════════════════════════
 {
   const acceptBody = src.slice(src.indexOf("const handleAcceptEnrichment"), src.indexOf("const handleRejectEnrichment"));
-  const acceptCode = acceptBody.replace(/^\s*\/\/.*$/gm, "");
   check("T36 missing enrichment -> no-op (if (!enrichment) return;)", /if \(!enrichment\) return;/.test(acceptBody));
   check("T37 non-proposed enrichment -> no-op (covers already-accepted and already-rejected)", /if \(enrichment\.status !== "proposed"\) return;/.test(acceptBody));
   check("T38 wrong-domain target -> no-op", /if \(enrichment\.target\.domain !== "employment"\) return;/.test(acceptBody));
-  check("T39 missing target candidate -> no-op", /if \(!targetCandidate \|\| !isCandidateEligibleForEnrichmentAnchor\(targetCandidate\)\) return;/.test(acceptBody));
-  check("T40 ineligible target (covers Coach-only/rejected/accepted_in_module) -> no-op via isCandidateEligibleForEnrichmentAnchor reuse", acceptBody.includes("isCandidateEligibleForEnrichmentAnchor(targetCandidate)"));
-  check("T41 blank-patch validation: at least one nonblank field required, trim()-based, no normalization",
-    /const hasNonblankField = \[enrichment\.patch\.mainFunctions, enrichment\.patch\.importantProjects, enrichment\.patch\.mainAchievements\]\s*\.some\(v => typeof v === "string" && v\.trim\(\) !== ""\);\s*if \(!hasNonblankField\) return;/.test(acceptBody));
+  // T39/T41 updated for E2 (PI Employment Enrichment Post-Base-Acceptance
+  // Materialization): the target-candidate-missing check and the
+  // pre-base eligibility check are no longer one combined expression --
+  // E2's shared top-level flow (gate §7) separates "candidate exists" from
+  // "candidate is eligible for THIS path", since eligibility now differs
+  // by targetCandidate.status (Path A vs Path B). The blank-patch check is
+  // now the E1 shared helper (hasNonBlankEmploymentEnrichmentPatch),
+  // consumed once before the path split rather than an inline duplicate
+  // expression -- this is the authorized "helper extraction" exception to
+  // "do not change existing Path A tests" (E2 gate §8).
+  check("T39 missing target candidate -> no-op (now a standalone check, independent of eligibility)",
+    /if \(!targetCandidate\) return;/.test(acceptBody));
+  check("T40 ineligible target (covers Coach-only/rejected) -> no-op via isCandidateEligibleForEnrichmentAnchor reuse, now scoped inside the Path A branch", acceptBody.includes("isCandidateEligibleForEnrichmentAnchor(targetCandidate)"));
+  check("T41 blank-patch validation now delegates to the E1 shared pure helper (hasNonBlankEmploymentEnrichmentPatch), checked once before the Path A/B split",
+    /if \(!hasNonBlankEmploymentEnrichmentPatch\(enrichment\.patch\)\) return;/.test(acceptBody));
+  check("T41b no independently-maintained inline duplicate of the blank-patch expression remains in the handler", !acceptBody.includes("hasNonblankField"));
   check("T42 valid proposed enrichment -> status becomes \"accepted\" via position-preserving .map()",
     /employment: enrichments\.employment\.map\(e => \(e\.id === enrichmentId \? \{ \.\.\.e, status: "accepted" \} : e\)\)/.test(acceptBody));
-  check("T43 enrichment Accept never references module data (no nextData/dataRef.current mutation)", !acceptCode.includes("nextData") && !acceptCode.includes("dataRef.current ="));
-  check("T44 enrichment Accept calls save() exactly once, with no explicit data argument (module data unchanged)",
-    (acceptCode.match(/\bsave\(\)/g) ?? []).length === 1 && !acceptCode.includes("save(nextData)"));
-  check("T45 enrichment Accept ref assigned before save (ref-then-save ordering)",
+
+  // T43/T44 reconciled for E2: the ORIGINAL protective claim ("enrichment
+  // Accept never touches module data / calls save() with no explicit
+  // argument") is now true of PATH A specifically, not the handler as a
+  // whole -- Path B is a new, separately authorized branch that
+  // intentionally patches module7.employment and calls save(nextData).
+  // Re-scoped to the Path A branch body only so the original guarantee
+  // for the EXISTING, frozen pre-base path is still exactly re-proven.
+  const pathABody = acceptBody.slice(acceptBody.indexOf('if (targetCandidate.status === "proposed")'), acceptBody.indexOf('if (targetCandidate.status === "accepted_in_module")'));
+  const pathACode = pathABody.replace(/^\s*\/\/.*$/gm, "");
+  check("T43 Path A never references module data (no nextData/dataRef.current mutation) -- re-scoped, original guarantee preserved for the unchanged pre-base path",
+    !pathACode.includes("nextData") && !pathACode.includes("dataRef.current"));
+  check("T44 Path A calls save() exactly once, with no explicit data argument (module data unchanged) -- re-scoped, original guarantee preserved",
+    (pathACode.match(/\bsave\(\)/g) ?? []).length === 1 && !pathACode.includes("save(nextData)"));
+  check("T45 Path A ref assigned before save (ref-then-save ordering, unchanged)",
     acceptBody.indexOf("professionalIntelligenceEnrichmentsRef.current = nextEnrichments;") < acceptBody.indexOf("save()"));
   check("T46 no acceptedAt anywhere in the enrichment Accept handler", !acceptBody.includes("acceptedAt"));
 
@@ -217,6 +239,144 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
   check("T49 valid proposed enrichment -> status becomes \"rejected\" via position-preserving .map()",
     /employment: enrichments\.employment\.map\(e => \(e\.id === enrichmentId \? \{ \.\.\.e, status: "rejected" \} : e\)\)/.test(rejectBody));
   check("T50 enrichment Reject calls save() exactly once with no explicit data argument", (rejectBody.replace(/^\s*\/\/.*$/gm, "").match(/\bsave\(\)/g) ?? []).length === 1);
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// E2 — POST-BASE HANDLER BRANCH (PI Employment Enrichment Post-Base-
+// Acceptance Materialization, Exact Design R1). handleAcceptEnrichment is
+// a useCallback closure, not independently importable/invokable without
+// mounting the full component (same constraint pi-d0b's own pre-existing
+// T36-T50 already accepted) -- so, mirroring that exact precedent, Path B
+// behavior is proven structurally against the handler's own exact source
+// text, not via runtime invocation. The pure helpers Path B composes
+// (isCandidateEligibleForPostAcceptanceEnrichmentTarget,
+// hasNonBlankEmploymentEnrichmentPatch, appendPreserveExisting) are
+// already independently, exhaustively unit-tested elsewhere (E1's
+// pi-d0a/pi-c1 suites) -- these tests prove Path B WIRES them correctly,
+// in the correct order, behind the correct fail-closed guards; they do
+// not re-prove the helpers' own input/output behavior.
+// ════════════════════════════════════════════════════════════════════════════
+{
+  const acceptBody = src.slice(src.indexOf("const handleAcceptEnrichment"), src.indexOf("const handleRejectEnrichment"));
+  const pathBBody = acceptBody.slice(
+    acceptBody.indexOf('if (targetCandidate.status === "accepted_in_module")'),
+    acceptBody.lastIndexOf("return;")
+  );
+  const pathBCode = pathBBody.replace(/^\s*\/\/.*$/gm, "");
+
+  // E2-T02 — Path A existing predicate preserved: accepted_in_module
+  // candidates must never enter Path A's branch.
+  check("E2-T02 Path A branch is gated on status === \"proposed\" only (accepted_in_module can never enter it)",
+    /if \(targetCandidate\.status === "proposed"\) \{/.test(acceptBody));
+
+  // E2-T07/post-base eligibility -- CV_EXTRACTION boundary preserved,
+  // Coach-only-discovered candidates excluded even if accepted_in_module.
+  check("E2-T07 Path B requires isCandidateEligibleForPostAcceptanceEnrichmentTarget (Coach-only-discovered accepted candidates fail closed; cv_extraction boundary reused, not broadened)",
+    pathBBody.includes("isCandidateEligibleForPostAcceptanceEnrichmentTarget(targetCandidate)"));
+
+  // E2-T04/E2-T05/E2-T06 — exact row resolution: identity-only match,
+  // zero-match and multi-match both fail closed, no fallback of any kind.
+  check("E2-T04 exact identity resolution: entry.piOriginCandidateId === targetCandidate.id (no company/title/date/index/fuzzy/semantic/LLM match)",
+    /currentEmployment\.filter\(entry => entry\.piOriginCandidateId === targetCandidate\.id\)/.test(pathBBody));
+  check("E2-T05/E2-T06 zero-match and multi-match both fail closed (matches.length !== 1 return;), never \"pick first\"",
+    /if \(matches\.length !== 1\) return;/.test(pathBBody));
+  check("E2 no heuristic/fuzzy/semantic/positional fallback anywhere in Path B (no company/title/date/index comparison, no .find( used for row resolution)",
+    !/matches\[0\]\.company|matches\[0\]\.title|entry\.company ===|entry\.title ===/.test(pathBBody) && !pathBBody.includes("currentEmployment.find("));
+
+  // E2-T08 — blank patch fail closed. Proven once, before the Path A/B
+  // split (T41 above) -- re-confirmed here that Path B's branch body
+  // itself contains no second, independent nonblank check (single source
+  // of truth, never duplicated/weakened per-path).
+  check("E2-T08 blank-patch guard is shared (checked once before the split, re-used by both paths) -- no second/weaker inline check inside Path B",
+    !pathBBody.includes("hasNonblankField") && !/\.some\(v => typeof v === "string"/.test(pathBBody));
+
+  // E2-T10/E2-T11 — patch field boundary + appendPreserveExisting reuse.
+  // Only the three narrative fields are ever touched; every other
+  // EmploymentEntry field survives via the unconditional `...resolvedRow`
+  // spread, so manual identity edits on the live row (E2-T09) are
+  // preserved byte-for-byte by construction, not by a separate explicit
+  // field-by-field copy this test would otherwise have to re-prove.
+  check("E2-T10/E2-T11/E2-T09 patchedRow spreads the full resolved row first, then overwrites ONLY mainFunctions/importantProjects/mainAchievements via the frozen appendPreserveExisting helper (every other field, including any manual edit, survives unconditionally)",
+    /const patchedRow = \{\s*\.\.\.resolvedRow,\s*mainFunctions: appendPreserveExisting\(resolvedRow\.mainFunctions, enrichment\.patch\.mainFunctions \?\? ""\),\s*importantProjects: appendPreserveExisting\(resolvedRow\.importantProjects, enrichment\.patch\.importantProjects \?\? ""\),\s*mainAchievements: appendPreserveExisting\(resolvedRow\.mainAchievements, enrichment\.patch\.mainAchievements \?\? ""\),\s*\};/.test(pathBBody));
+  check("E2 patchedRow never reconstructed from the base candidate / composeEffectiveCandidate / candidateToEmploymentEntry (no fresh EmploymentEntry created)",
+    !pathBBody.includes("composeEffectiveCandidate") && !pathBBody.includes("candidateToEmploymentEntry") && !pathBBody.includes("freshEntryId"));
+  check("E2 identity fields (id, piOriginCandidateId, company, title, dates, etc.) never reassigned in patchedRow (no `id:`/`piOriginCandidateId:`/`company:`/`title:` key present in the patchedRow literal)",
+    !/const patchedRow = \{[^}]*\b(id|piOriginCandidateId|company|title|startDate|endDate|isCurrent)\s*:/.test(pathBBody));
+
+  // E2-T03/E2-T13/E2-T20 — no duplicate EmploymentEntry; same-length
+  // replace-in-place via .map(), never .push/.concat/spread-append;
+  // resolvedRow.id (not targetCandidate.id, not a UI-supplied id) targets
+  // the already-authorized row.
+  check("E2-T13/E2-T03 module7.employment is rebuilt via .map() only (same length before/after; no .push/.concat/array-spread-append anywhere in Path B)",
+    /module7: \{ employment: currentEmployment\.map\(entry => \(entry\.id === resolvedRow\.id \? patchedRow : entry\)\) \}/.test(pathBBody) &&
+    !pathBBody.includes(".push(") && !pathBBody.includes(".concat("));
+  check("E2-T20 the row is targeted by its OWN resolved id (resolvedRow.id), never by targetCandidate.id and never by a UI-supplied id",
+    pathBBody.includes("entry.id === resolvedRow.id") && !/currentEmployment\.map\(entry => \(entry\.id === targetCandidate\.id/.test(pathBBody));
+
+  // E2-T19 — base candidate never mutated. Path B never assigns to
+  // professionalIntelligenceCandidatesRef / setProfessionalIntelligenceCandidates
+  // / targetCandidate's own fields anywhere.
+  check("E2-T19 Path B never mutates the base candidate (no professionalIntelligenceCandidatesRef/setProfessionalIntelligenceCandidates assignment, no targetCandidate.<field> = write)",
+    !pathBBody.includes("professionalIntelligenceCandidatesRef.current =") &&
+    !pathBBody.includes("setProfessionalIntelligenceCandidates(") &&
+    !/targetCandidate\.\w+\s*=(?!=)/.test(pathBBody));
+
+  // E2-T01/E2-T12 — the clicked enrichment's own status transition
+  // (proposed -> accepted) is the SAME shared nextEnrichments expression
+  // used by Path A (T42 above, defined once before the split) -- Path B
+  // never recomputes or duplicates it, so a normalized-duplicate
+  // narrative (E2-T12, where appendPreserveExisting is a content no-op)
+  // still reaches this same unconditional status transition: it is a
+  // valid acceptance, never misclassified as a blank-patch failure
+  // (blank-patch is checked against the PATCH, never against whether it
+  // changes the row's rendered text).
+  check("E2-T01/E2-T12 Path B reuses the single, already-defined nextEnrichments (no second/duplicate status-transition expression inside Path B)",
+    !/employment: enrichments\.employment\.map\(e => \(e\.id === enrichmentId/.test(pathBBody));
+
+  // E2-T15/E2-T16/E2-T17/§14 Application Checkpoint Consistency — the
+  // defining E2 requirement: ref mutated before the single save(nextData)
+  // call (so that one save() serializes BOTH the patched module7 data,
+  // passed explicitly, AND the accepted enrichment state, read from the
+  // just-mutated ref -- re-using save()'s own envelope construction,
+  // already proven by T09 above to read
+  // professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef.current).
+  // setData/setProfessionalIntelligenceEnrichments are called ONLY inside
+  // the persisted-success branch; the failure branch rolls the ref back
+  // to its pre-attempt value and calls neither setter -- so a failed save
+  // leaves rendered state (data/professionalIntelligenceEnrichments)
+  // completely untouched and the enrichment remains "proposed".
+  check("E2-T17 Path B calls save(nextData) exactly once, with the ref already mutated to nextEnrichments beforehand (one checkpoint serializes both halves)",
+    (pathBBody.match(/\bsave\(nextData\)/g) ?? []).length === 1 &&
+    pathBBody.indexOf("professionalIntelligenceEnrichmentsRef.current = nextEnrichments;") < pathBBody.indexOf("save(nextData)"));
+  check("E2-T15 setData/setProfessionalIntelligenceEnrichments are called ONLY inside the `if (persisted)` success branch",
+    /if \(persisted\) \{\s*justCheckpointedRef\.current = true;\s*setData\(nextData\);\s*setProfessionalIntelligenceEnrichments\(nextEnrichments\);\s*\}/.test(pathBBody));
+  check("E2-T16 on failure (else branch) the ref is rolled back to its pre-attempt value and no setter is called outside the success branch",
+    /\} else \{\s*professionalIntelligenceEnrichmentsRef\.current = enrichments;\s*\}/.test(pathBBody) &&
+    (pathBBody.match(/setData\(nextData\)/g) ?? []).length === 1 &&
+    (pathBBody.match(/setProfessionalIntelligenceEnrichments\(nextEnrichments\)/g) ?? []).length === 1);
+  check("E2 PARTIAL_VISIBLE_SUCCESS_ALLOWED:NO -- no setData/setProfessionalIntelligenceEnrichments call exists outside the `if (persisted)` block anywhere in Path B",
+    pathBBody.split("if (persisted) {")[0].indexOf("setData(") === -1 &&
+    (pathBBody.split("if (persisted) {")[1] ?? "").split("} else {")[1]?.indexOf("setData(") !== 0);
+  check("E2 no second save() call introduced anywhere in Path B (exactly one checkpoint, no retry/fallback save)",
+    (pathBCode.match(/\bsave\(/g) ?? []).length === 1);
+  check("E2 no ACID/transaction claim introduced in actual code (no 'transaction'/'rollback'/'commit' as a DB concept, no new persistence API) -- explanatory comments disclaiming DB-transaction atomicity are expected and excluded here",
+    !/\btransaction\b|\.rollback\(|\bBEGIN\b|\bCOMMIT\b/i.test(pathBCode));
+
+  // E2-T14 — sequential enrichments: Path B always re-reads
+  // dataRef.current fresh on every invocation (never a stale/precomputed
+  // snapshot carried across calls), so accepting enrichment A then B
+  // later re-resolves the SAME row from CURRENT state each time --
+  // appendPreserveExisting's own already-proven accumulation semantics
+  // (pi-d0a E1-era tests) then govern the accumulated result
+  // deterministically; no caching/memoization of resolvedRow across calls.
+  check("E2-T14 Path B always reads dataRef.current fresh (never a module-level/outer-scope cached employment snapshot) -- sequential Accept calls each re-resolve from current state",
+    pathBBody.includes("dataRef.current.module7.employment") && !acceptBody.includes("let cachedEmployment") && !acceptBody.includes("let resolvedRow;"));
+
+  // E2 scope firewall -- no new EmploymentEntry fields, no new
+  // post-materialization linkage field, no UI-facing changes in this
+  // handler.
+  check("E2 no new field introduced on EmploymentEntry by this handler (only the frozen E1 piOriginCandidateId is read, never written to a new name)",
+    !pathBBody.includes("acceptedModuleEntryId") && !pathBBody.includes("moduleEntryId") && !pathBBody.includes(".linkedRowId"));
 }
 
 // ════════════════════════════════════════════════════════════════════════════

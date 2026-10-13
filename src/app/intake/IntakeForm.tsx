@@ -20,6 +20,9 @@ import {
   emptyProfessionalIntelligenceEnrichments,
   isValidProfessionalIntelligenceEnrichmentsOverlay,
   isCandidateEligibleForEnrichmentAnchor,
+  isCandidateEligibleForPostAcceptanceEnrichmentTarget,
+  hasNonBlankEmploymentEnrichmentPatch,
+  appendPreserveExisting,
   composeEffectiveCandidate,
   removeOrphanedEnrichments,
   type EmploymentCandidate,
@@ -1239,20 +1242,74 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     if (enrichment.target.domain !== "employment") return;
 
     const targetCandidate = professionalIntelligenceCandidatesRef.current.employment.find(c => c.id === enrichment.target.candidateId);
-    if (!targetCandidate || !isCandidateEligibleForEnrichmentAnchor(targetCandidate)) return;
+    if (!targetCandidate) return;
 
-    const hasNonblankField = [enrichment.patch.mainFunctions, enrichment.patch.importantProjects, enrichment.patch.mainAchievements]
-      .some(v => typeof v === "string" && v.trim() !== "");
-    if (!hasNonblankField) return;
+    if (!hasNonBlankEmploymentEnrichmentPatch(enrichment.patch)) return;
 
     const nextEnrichments: ProfessionalIntelligenceEnrichments = {
       employment: enrichments.employment.map(e => (e.id === enrichmentId ? { ...e, status: "accepted" } : e)),
     };
 
-    professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
-    const persisted = save();
-    if (persisted) { justCheckpointedRef.current = true; }
-    setProfessionalIntelligenceEnrichments(nextEnrichments);
+    // PATH A — pre-base (existing, frozen semantics; unchanged except
+    // consuming the E1 shared nonblank-patch helper above instead of a
+    // second, independently-maintained inline copy of the same check).
+    if (targetCandidate.status === "proposed") {
+      if (!isCandidateEligibleForEnrichmentAnchor(targetCandidate)) return;
+
+      professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+      const persisted = save();
+      if (persisted) { justCheckpointedRef.current = true; }
+      setProfessionalIntelligenceEnrichments(nextEnrichments);
+      return;
+    }
+
+    // PATH B — post-base (E2, PI Employment Enrichment Post-Base-
+    // Acceptance Materialization, Exact Design R1). Identity linkage is
+    // exact-id-only (entry.piOriginCandidateId === targetCandidate.id);
+    // zero or multiple matches both fail closed, never a fallback guess.
+    // The resolved row's OWN id is then used only to target that
+    // already-authorized row for replacement -- never supplied by the
+    // UI, never the candidate's id.
+    if (targetCandidate.status === "accepted_in_module") {
+      if (!isCandidateEligibleForPostAcceptanceEnrichmentTarget(targetCandidate)) return;
+
+      const currentEmployment = dataRef.current.module7.employment;
+      const matches = currentEmployment.filter(entry => entry.piOriginCandidateId === targetCandidate.id);
+      if (matches.length !== 1) return;
+      const resolvedRow = matches[0];
+
+      const patchedRow = {
+        ...resolvedRow,
+        mainFunctions: appendPreserveExisting(resolvedRow.mainFunctions, enrichment.patch.mainFunctions ?? ""),
+        importantProjects: appendPreserveExisting(resolvedRow.importantProjects, enrichment.patch.importantProjects ?? ""),
+        mainAchievements: appendPreserveExisting(resolvedRow.mainAchievements, enrichment.patch.mainAchievements ?? ""),
+      };
+
+      const nextData: IntakeFormData = {
+        ...dataRef.current,
+        module7: { employment: currentEmployment.map(entry => (entry.id === resolvedRow.id ? patchedRow : entry)) },
+      };
+
+      // Application-checkpoint consistency (not DB transaction atomicity):
+      // the ref must hold nextEnrichments for save() to persist it (save()
+      // has no explicit enrichments parameter), but React state is only
+      // ever mirrored after a successful save -- a failed save rolls the
+      // ref back to its pre-attempt value so ref/state never desync, and
+      // neither half of this change reaches rendered state.
+      professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
+      const persisted = save(nextData);
+      if (persisted) {
+        justCheckpointedRef.current = true;
+        setData(nextData);
+        setProfessionalIntelligenceEnrichments(nextEnrichments);
+      } else {
+        professionalIntelligenceEnrichmentsRef.current = enrichments;
+      }
+      return;
+    }
+
+    // Any other base candidate status (e.g. "rejected") is never a valid
+    // enrichment target -- fail closed, silent no-op.
   }, [save]);
 
   // PI-D0B — explicit beneficiary enrichment Reject. No target
