@@ -61,6 +61,12 @@ function freshEntryId(): string {
 export function candidateToEmploymentEntry(candidate: EmploymentCandidate): EmploymentEntry {
   return {
     id: freshEntryId(),
+    // E1 — durable PI-origin linkage (Exact Design R1): the already-
+    // resolved application-owned candidate.id, never anything derived
+    // from company/title/dates/rawText/Coach/LLM/UI input. Independent
+    // of this entry's own freshly-generated `id` above -- the two are
+    // deliberately never the same value and never serve the same role.
+    piOriginCandidateId: candidate.id,
     company: candidate.company,
     country: "",
     city: "",

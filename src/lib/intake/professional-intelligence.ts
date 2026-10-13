@@ -407,6 +407,23 @@ export interface EmploymentEnrichmentPatch {
   mainAchievements?: string;
 }
 
+// E1 (PI Employment Enrichment Post-Base-Acceptance Materialization,
+// Exact Design R1, CR-01) -- a pure extraction of the exact blank-check
+// expression already used inline by the existing acceptance handler, so
+// both the UI (presentation projection) and the handler (authoritative
+// guard) share one definition rather than two independently-maintained
+// copies. Answers exactly one question: does this patch contain at
+// least one of the three authorized narrative fields with real,
+// non-whitespace content? Deliberately scoped to only these three
+// fields -- never company/title/dates/currentEmployment/any other
+// Module 6 field -- and deliberately NOT a semantic-duplicate check
+// (normalizedEquals/appendPreserveExisting own that, separately, at
+// patch-application time, not here).
+export function hasNonBlankEmploymentEnrichmentPatch(patch: EmploymentEnrichmentPatch): boolean {
+  return [patch.mainFunctions, patch.importantProjects, patch.mainAchievements]
+    .some(value => typeof value === "string" && value.trim() !== "");
+}
+
 export interface EmploymentEnrichment {
   id: string;
   target: EnrichmentTarget;
@@ -442,6 +459,23 @@ export function emptyProfessionalIntelligenceEnrichments(): ProfessionalIntellig
 // plain status check alone (REJECTED_A0_AS_ANCHOR: PROHIBITED).
 export function isCandidateEligibleForEnrichmentAnchor(candidate: EmploymentCandidate): boolean {
   return candidate.status === "proposed" && candidate.provenance.some(p => p.source === "cv_extraction");
+}
+
+// E1 (PI Employment Enrichment Post-Base-Acceptance Materialization,
+// Exact Design R1) -- the mirror-opposite status half of the predicate
+// above, answering a DIFFERENT authority question: not "may this
+// candidate anchor a pre-base enrichment proposal" but "may this
+// already-materialized candidate be the target of a post-base
+// enrichment update". Deliberately a separate, narrowly-named predicate
+// rather than a broadened/generalized isCandidateEligibleForEnrichmentAnchor
+// -- generalizing that frozen, tested function to accept either status
+// would silently widen its own existing, narrower meaning for any other
+// caller. The cv_extraction provenance clause is reused verbatim,
+// preserving the exact same CV_EXTRACTION_ANCHOR_BOUNDARY (Coach-only
+// discovered candidates remain ineligible on both paths,
+// DISCOVERY_CANDIDATE_ENRICHMENT_V1: DEFERRED, unchanged).
+export function isCandidateEligibleForPostAcceptanceEnrichmentTarget(candidate: EmploymentCandidate): boolean {
+  return candidate.status === "accepted_in_module" && candidate.provenance.some(p => p.source === "cv_extraction");
 }
 
 // APPEND_PRESERVE_EXISTING (frozen Owner decision D-PI-D-R1-01). Operates

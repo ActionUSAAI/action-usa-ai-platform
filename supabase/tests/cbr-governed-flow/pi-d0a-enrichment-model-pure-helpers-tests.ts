@@ -21,6 +21,8 @@ import {
   emptyProfessionalIntelligenceEnrichments,
   emptyProfessionalIntelligenceCandidates,
   isCandidateEligibleForEnrichmentAnchor,
+  isCandidateEligibleForPostAcceptanceEnrichmentTarget,
+  hasNonBlankEmploymentEnrichmentPatch,
   appendPreserveExisting,
   composeEffectiveCandidate,
   removeOrphanedEnrichments,
@@ -280,6 +282,82 @@ function enrichment(id: string, overrides: Partial<EmploymentEnrichment> = {}): 
   check("T69 no ActiveProfessionalContext type defined (not part of PI-D0A)", !src.includes("ActiveProfessionalContext"));
   check("T70 no acceptedAt field anywhere in the enrichment model", !/EmploymentEnrichment[\s\S]{0,400}acceptedAt/.test(src));
 }
+
+// ════════════════════════════════════════════════════════════════════════════
+// E1 — Identity/Linkage Model + Pure Helpers (PI Employment Enrichment
+// Post-Base-Acceptance Materialization, Exact Design R1)
+// ════════════════════════════════════════════════════════════════════════════
+
+// E1-T04 — post-acceptance eligibility positive.
+{
+  const c = emp("e1-04", { status: "accepted_in_module", provenance: [prov("cv_extraction")] });
+  check("E1-T04 accepted_in_module + cv_extraction provenance -> eligible (post-acceptance)",
+    isCandidateEligibleForPostAcceptanceEnrichmentTarget(c) === true);
+}
+
+// E1-T05 — proposed candidate excluded from the NEW post-acceptance predicate.
+{
+  const c = emp("e1-05", { status: "proposed", provenance: [prov("cv_extraction")] });
+  check("E1-T05 proposed + cv_extraction -> false for post-acceptance predicate (not yet materialized)",
+    isCandidateEligibleForPostAcceptanceEnrichmentTarget(c) === false);
+}
+
+// E1-T06 — rejected candidate excluded.
+{
+  const c = emp("e1-06", { status: "rejected", provenance: [prov("cv_extraction")] });
+  check("E1-T06 rejected + cv_extraction -> false for post-acceptance predicate",
+    isCandidateEligibleForPostAcceptanceEnrichmentTarget(c) === false);
+}
+
+// E1-T07 — Coach-only accepted candidate excluded (CV_EXTRACTION_ANCHOR_BOUNDARY preserved on the new path too).
+{
+  const c = emp("e1-07", { status: "accepted_in_module", provenance: [prov("coach_discovery")] });
+  check("E1-T07 accepted_in_module + coach_discovery-only provenance -> false (Coach-discovered scope not broadened)",
+    isCandidateEligibleForPostAcceptanceEnrichmentTarget(c) === false);
+}
+
+// E1-T08 — existing pre-base predicate unchanged: accepted_in_module remains
+// false for the ORIGINAL, frozen isCandidateEligibleForEnrichmentAnchor.
+{
+  const c = emp("e1-08", { status: "accepted_in_module", provenance: [prov("cv_extraction")] });
+  check("E1-T08 existing isCandidateEligibleForEnrichmentAnchor unchanged: accepted_in_module still false",
+    isCandidateEligibleForEnrichmentAnchor(c) === false);
+  const proposedStillTrue = emp("e1-08b", { status: "proposed", provenance: [prov("cv_extraction")] });
+  check("E1-T08b existing isCandidateEligibleForEnrichmentAnchor unchanged: proposed + cv_extraction still true",
+    isCandidateEligibleForEnrichmentAnchor(proposedStillTrue) === true);
+}
+
+// E1-T09/T10/T11 — nonblank patch, one field at a time.
+check("E1-T09 nonblank mainFunctions alone -> true",
+  hasNonBlankEmploymentEnrichmentPatch({ mainFunctions: "Led the team" }) === true);
+check("E1-T10 nonblank importantProjects alone -> true",
+  hasNonBlankEmploymentEnrichmentPatch({ importantProjects: "Payments rewrite" }) === true);
+check("E1-T11 nonblank mainAchievements alone -> true",
+  hasNonBlankEmploymentEnrichmentPatch({ mainAchievements: "+20% uptime" }) === true);
+
+// E1-T12 — all absent/blank.
+check("E1-T12a all three fields undefined -> false", hasNonBlankEmploymentEnrichmentPatch({}) === false);
+check("E1-T12b all three fields empty string -> false",
+  hasNonBlankEmploymentEnrichmentPatch({ mainFunctions: "", importantProjects: "", mainAchievements: "" }) === false);
+
+// E1-T13 — whitespace-only values.
+check("E1-T13a single space -> false", hasNonBlankEmploymentEnrichmentPatch({ mainFunctions: " " }) === false);
+check("E1-T13b newline-only -> false", hasNonBlankEmploymentEnrichmentPatch({ importantProjects: "\n" }) === false);
+check("E1-T13c tab-only -> false", hasNonBlankEmploymentEnrichmentPatch({ mainAchievements: "\t" }) === false);
+check("E1-T13d mixed whitespace across all three fields -> false",
+  hasNonBlankEmploymentEnrichmentPatch({ mainFunctions: " ", importantProjects: "\n\t", mainAchievements: "   " }) === false);
+
+// E1-T14 — field boundary: the predicate's own TypeScript parameter type
+// (EmploymentEnrichmentPatch) only ever exposes mainFunctions/
+// importantProjects/mainAchievements -- there is no company/title/dates/
+// currentEmployment/any other Module 6 field on this type for the
+// predicate to read, so a test asserting those fields are ignored would
+// require an unsafe cast to construct. Per this gate's own instruction
+// (§12), that type boundary is reported here rather than distorted:
+// EMPLOYMENT_ENRICHMENT_PATCH_HAS_NO_IDENTITY_FIELDS: true (structural
+// proof via source inspection instead of an unsafe-cast runtime test).
+check("E1-T14 EmploymentEnrichmentPatch exposes only the three narrative fields (no identity field exists for the predicate to read)",
+  /export interface EmploymentEnrichmentPatch \{\s*mainFunctions\?: string;\s*importantProjects\?: string;\s*mainAchievements\?: string;\s*\}/.test(src));
 
 console.log(failures === 0 ? "\nALL PI-D0A CHECKS PASS" : `\n${failures} PI-D0A CHECK(S) FAILED`);
 process.exit(failures === 0 ? 0 : 1);

@@ -26,7 +26,7 @@ import type {
   BusinessCandidate, ReferenceCandidate, EvidenceCandidate, StrategicAnswerCandidate,
   CandidateProvenance, EvidenceCandidateCategory,
 } from "../../../src/lib/intake/professional-intelligence";
-import type { Module9, Module10, EvidenceStatus } from "../../../src/app/intake/types";
+import type { Module9, Module10, EvidenceStatus, EmploymentEntry } from "../../../src/app/intake/types";
 
 let failures = 0;
 function check(label: string, cond: boolean) {
@@ -116,6 +116,34 @@ function emptyModule10(): Module10 {
   check("T13 fully blank candidate still translates (no rejection, producer-independent)",
     blankEntry.company === "" && blankEntry.title === "" && typeof blankEntry.id === "string");
   check("T14 two calls on different candidates produce distinct fresh ids", entry.id !== blankEntry.id);
+
+  // E1-T01 — optional field compatibility: an EmploymentEntry manually
+  // constructed WITHOUT piOriginCandidateId (mirroring Module6.tsx's own
+  // emptyJob()-style manual row, never produced by this adapter) remains
+  // type/fixture-compatible and reads back as undefined, never "" or null.
+  const manualEntry: EmploymentEntry = {
+    id: "manual-row-1", company: "", country: "", city: "", title: "",
+    startDate: "", endDate: "", isCurrent: false, mainFunctions: "",
+    importantProjects: "", mainAchievements: "", peopleSupervised: "0",
+    managesBudget: null, budgetAmount: "", whyImportant: "",
+    supervisorName: "", supervisorTitle: "", supervisorEmail: "",
+    supervisorPhone: "", companyWebsite: "", internationalRecognition: "",
+  };
+  check("E1-T01 manual EmploymentEntry without piOriginCandidateId type-checks and reads back undefined",
+    manualEntry.piOriginCandidateId === undefined);
+
+  // E1-T02 — candidate materialization linkage (PI Employment Enrichment
+  // Post-Base-Acceptance Materialization, Exact Design R1).
+  check("E1-T02 entry.piOriginCandidateId === candidate.id", entry.piOriginCandidateId === candidate.id);
+  check("E1-T02b linkage set for the blank/partial candidate too (producer-independent)",
+    blankEntry.piOriginCandidateId === blank.id);
+
+  // E1-T03 — independent entry identity: entry.id is never replaced by
+  // candidate.id, and the two identities never collide for either fixture.
+  check("E1-T03 entry.id independent of piOriginCandidateId (not the same value)",
+    entry.id !== entry.piOriginCandidateId);
+  check("E1-T03b entry.id still freshly generated, never reused as candidate.id (re-proof of existing T10 after E1)",
+    entry.id !== candidate.id && entry.piOriginCandidateId === candidate.id);
 }
 
 // ════════════════════════════════════════════════════════════════════════════

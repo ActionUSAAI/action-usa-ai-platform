@@ -134,6 +134,16 @@ export type EmploymentEntry = {
   whyImportant: string;
   supervisorName: string; supervisorTitle: string; supervisorEmail: string; supervisorPhone: string;
   companyWebsite: string; internationalRecognition: string; // "si"|"no"|"no_se"
+  // E1 — durable PI-origin identity (PI Employment Enrichment Post-Base-
+  // Acceptance Materialization, Exact Design R1). Set exactly once, at
+  // base-candidate materialization time, from the already-resolved
+  // EmploymentCandidate.id — never from CV/Coach/model output, never
+  // rendered, never user-editable. Absent on manual rows and on legacy
+  // rows materialized before this field existed (both cases are
+  // legitimate, permanent `undefined`, not an error). A separate,
+  // independent identity from this entry's own `id` by design -- the two
+  // must never be conflated (see candidateToEmploymentEntry).
+  piOriginCandidateId?: string;
 };
 export type Module6 = { employment: EmploymentEntry[] };
 
