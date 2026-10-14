@@ -29,7 +29,10 @@ import type {
   CandidateProvenance, CandidateConfidence, EvidenceCandidateCategory,
   StrategicAnswerTargetField,
   ProfessionalIntelligenceEnrichments, EmploymentEnrichment,
+  EmploymentEnrichmentAcceptability, EmploymentEnrichmentAcceptabilityReason,
 } from "@/lib/intake/professional-intelligence";
+import { getEmploymentEnrichmentAcceptability } from "@/lib/intake/professional-intelligence";
+import type { EmploymentEntry } from "@/app/intake/types";
 
 export type ProfessionalIntelligenceCandidateDomain = ProfessionalIntelligenceCandidate["domain"];
 
@@ -40,10 +43,29 @@ export type ProfessionalCandidateReviewProps = {
   // professional fact each one targets is resolved from `candidates`
   // by target.candidateId, never duplicated/snapshotted here.
   enrichments: ProfessionalIntelligenceEnrichments;
+  // E3-B -- the minimum current module7 employment state required by the
+  // frozen E3-A helper (getEmploymentEnrichmentAcceptability) to project
+  // Employment enrichment actionability. Read-only here; never mutated,
+  // never a broader IntakeFormData/DraftEnvelope object -- exactly the
+  // EmploymentEntry[] the helper's own signature requires, nothing more.
+  employmentRows: EmploymentEntry[];
   onAccept: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
   onReject: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
   onAcceptEnrichment: (enrichmentId: string) => void;
   onRejectEnrichment: (enrichmentId: string) => void;
+};
+
+// E3-B -- beneficiary-facing Spanish copy for each frozen E3-A blocked
+// reason (Owner-approved, frozen wording). Presentation concern only --
+// the E3-A helper itself remains language-neutral and is never modified
+// here. Record<...> over the exhaustive reason union guarantees every
+// reason has copy at compile time; no raw reason code ever reaches JSX.
+const BLOCKED_ACCEPTANCE_REASON_COPY: Record<EmploymentEnrichmentAcceptabilityReason, string> = {
+  zero_linked_rows: "Esta información no se puede aplicar automáticamente porque no encontramos el registro de experiencia original.",
+  multiple_linked_rows: "Esta información no se puede aplicar automáticamente porque hay más de un registro de experiencia que coincide.",
+  not_eligible: "Esta información no se puede aplicar automáticamente a este registro de experiencia.",
+  blank_patch: "No hay información nueva para aplicar.",
+  candidate_not_actionable: "Esta información ya no se puede aplicar a este registro de experiencia.",
 };
 
 const DOMAIN_LABELS: Record<ProfessionalIntelligenceCandidateDomain, string> = {
@@ -282,10 +304,17 @@ function StrategicAnswerCard({ candidate, onAccept, onReject }: {
 // and only the populated patch fields, each with a clear label. No
 // editing, no per-field action, no module-jump shortcut, no navigation.
 function EnrichmentCard({
-  baseCandidate, enrichment, onAccept, onReject,
+  baseCandidate, enrichment, acceptability, onAccept, onReject,
 }: {
   baseCandidate: EmploymentCandidate;
   enrichment: EmploymentEnrichment;
+  // E3-B -- the frozen E3-A projection, computed once by the parent
+  // (ProfessionalCandidateReview) via getEmploymentEnrichmentAcceptability.
+  // This card never recomputes eligibility/linkage/blank-patch itself --
+  // presentation only. The handler (handleAcceptEnrichment) remains the
+  // sole authoritative, independently fail-closed validator at click
+  // time; this projection is advisory/preventive, never trusted by it.
+  acceptability: EmploymentEnrichmentAcceptability;
   onAccept: () => void;
   onReject: () => void;
 }) {
@@ -307,11 +336,15 @@ function EnrichmentCard({
         <Row label="Proyectos importantes" value={enrichment.patch.importantProjects ?? ""}/>
         <Row label="Logros principales" value={enrichment.patch.mainAchievements ?? ""}/>
       </div>
+      {!acceptability.actionable && (
+        <p className="text-xs text-gray-500">{BLOCKED_ACCEPTANCE_REASON_COPY[acceptability.reason]}</p>
+      )}
       <div className="flex gap-2 pt-1">
         <button
           type="button" onClick={onAccept}
+          disabled={!acceptability.actionable}
           aria-label="Aceptar información adicional de experiencia profesional"
-          className="flex-1 rounded-lg border-2 border-green-500 bg-green-500 py-2 text-sm font-medium text-white transition-all hover:bg-green-600"
+          className="flex-1 rounded-lg border-2 border-green-500 bg-green-500 py-2 text-sm font-medium text-white transition-all hover:bg-green-600 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
         >
           Aceptar
         </button>
@@ -327,7 +360,7 @@ function EnrichmentCard({
   );
 }
 
-export function ProfessionalCandidateReview({ candidates, enrichments, onAccept, onReject, onAcceptEnrichment, onRejectEnrichment }: ProfessionalCandidateReviewProps) {
+export function ProfessionalCandidateReview({ candidates, enrichments, employmentRows, onAccept, onReject, onAcceptEnrichment, onRejectEnrichment }: ProfessionalCandidateReviewProps) {
   const employment     = candidates.employment.filter(c => c.status === "proposed");
   const education       = candidates.education.filter(c => c.status === "proposed");
   const certification   = candidates.certification.filter(c => c.status === "proposed");
@@ -346,7 +379,12 @@ export function ProfessionalCandidateReview({ candidates, enrichments, onAccept,
   const proposedEnrichments = enrichments.employment
     .filter(e => e.status === "proposed")
     .map(e => ({ enrichment: e, base: candidates.employment.find(c => c.id === e.target.candidateId) }))
-    .filter((x): x is { enrichment: EmploymentEnrichment; base: EmploymentCandidate } => x.base !== undefined);
+    .filter((x): x is { enrichment: EmploymentEnrichment; base: EmploymentCandidate } => x.base !== undefined)
+    // E3-B -- actionability is derived exclusively through the frozen E3-A
+    // helper, once per visible card. Visibility above is unchanged by this
+    // projection: a blocked enrichment remains in this list and is still
+    // rendered, only its Accept button's enabled state differs.
+    .map(x => ({ ...x, acceptability: getEmploymentEnrichmentAcceptability(x.base, x.enrichment, employmentRows) }));
 
   const total = employment.length + education.length + certification.length + business.length
     + reference.length + evidence.length + strategicAnswer.length + proposedEnrichments.length;
@@ -451,11 +489,12 @@ export function ProfessionalCandidateReview({ candidates, enrichments, onAccept,
         <div className="space-y-2">
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400">Información adicional sobre experiencia profesional</p>
           <div className="space-y-2">
-            {proposedEnrichments.map(({ enrichment, base }) => (
+            {proposedEnrichments.map(({ enrichment, base, acceptability }) => (
               <EnrichmentCard
                 key={enrichment.id}
                 baseCandidate={base}
                 enrichment={enrichment}
+                acceptability={acceptability}
                 onAccept={() => onAcceptEnrichment(enrichment.id)}
                 onReject={() => onRejectEnrichment(enrichment.id)}
               />

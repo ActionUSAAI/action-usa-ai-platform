@@ -266,7 +266,14 @@ const emp = (id: string, status: "proposed" | "accepted_in_module" | "rejected" 
   check("T82d D1D props now present: onCoachTurnCheckpoint", module0Render.includes("onCoachTurnCheckpoint={onCoachTurnCheckpoint}"));
   check("T82e D1D props now present: professionalContext", module0Render.includes("professionalContext={questionContext.mode === \"known_employment\""));
   check("T82f D1D props now present: boundedEmploymentContexts", module0Render.includes("boundedEmploymentContexts={boundedEmploymentContexts}"));
-  check("T82g ProfessionalCandidateReview still separately rendered at step 0, unchanged", /\{step === 0\s+&& <ProfessionalCandidateReview candidates=\{professionalIntelligenceCandidates\} enrichments=\{professionalIntelligenceEnrichments\} onAccept=\{handleAcceptCandidate\} onReject=\{handleRejectCandidate\} onAcceptEnrichment=\{handleAcceptEnrichment\} onRejectEnrichment=\{handleRejectEnrichment\}\/>\}/.test(src));
+  // T82g reconciled (E3-B): the ORIGINAL exact-literal regex no longer
+  // matches because the Owner-approved UI Eligibility Projection Wiring
+  // gate legitimately added one new prop (employmentRows={data.module7.employment})
+  // to this exact render line. The real invariant -- still separately
+  // rendered, still gated on step === 0, every PRE-EXISTING prop still
+  // present and unchanged -- is reconciled to include that one
+  // authorized addition in its expected position.
+  check("T82g ProfessionalCandidateReview still separately rendered at step 0, unchanged except the E3-B-authorized employmentRows prop", /\{step === 0\s+&& <ProfessionalCandidateReview candidates=\{professionalIntelligenceCandidates\} enrichments=\{professionalIntelligenceEnrichments\} employmentRows=\{data\.module7\.employment\} onAccept=\{handleAcceptCandidate\} onReject=\{handleRejectCandidate\} onAcceptEnrichment=\{handleAcceptEnrichment\} onRejectEnrichment=\{handleRejectEnrichment\}\/>\}/.test(src));
   check("T82h base Candidate Accept/Reject authority remains IntakeForm-owned (handleAcceptCandidate/handleRejectCandidate are defined in this file itself, Module0 is imported only as the presentational component)",
     /const handleAcceptCandidate = useCallback/.test(src) && /const handleRejectCandidate = useCallback/.test(src) && /import \{ Module0 \}\s+from "\.\/modules\/Module0";/.test(src));
 }
