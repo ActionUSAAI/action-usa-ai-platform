@@ -950,6 +950,16 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   const dataRef = useRef(data);
   useEffect(() => { dataRef.current = data; }, [data]);
 
+  // A0 CV METADATA STALE-CLOSURE fix (Exact Design + R1 + R2, approved):
+  // authoritative module0 mirror, synchronously assigned ONLY at the 3
+  // legitimate module0 transition points below (Module0's onChange
+  // receiver, onModule0Checkpoint, onCoachTurnCheckpoint) -- never via
+  // useEffect, never during render. This gives runA0 (inside Module0,
+  // via getCurrentModule0) a deterministic, call-time-fresh Module0
+  // snapshot after its async A0 request, without depending on React
+  // render/effect scheduling or network timing.
+  const module0Ref = useRef<IntakeFormData["module0"]>(data.module0);
+
   // PI-B2A: mirrors dataRef's exact pattern so save() can serialize the
   // latest candidate snapshot without recreating its own stable
   // identity/interval. Set synchronously alongside the hydration
@@ -1082,10 +1092,15 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // Coach result from reaching React state.
   const onModule0Checkpoint = useCallback((nextModule0: IntakeFormData["module0"]) => {
     const nextData: IntakeFormData = { ...dataRef.current, module0: nextModule0 };
+    module0Ref.current = nextModule0;
     const persisted = save(nextData);
     if (persisted) { justCheckpointedRef.current = true; }
     setData(nextData);
   }, [save]);
+
+  // A0 CV METADATA STALE-CLOSURE fix: stable authority getter, backed only
+  // by module0Ref -- no fallback to data.module0/dataRef.current.module0.
+  const getCurrentModule0 = useCallback(() => module0Ref.current, []);
 
   // PI-D1D — the frozen R1 unified Coach-turn checkpoint. Used ONLY by
   // Module0's sendCoachMessage success path (onModule0Checkpoint above
@@ -1238,6 +1253,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     );
 
     const nextData: IntakeFormData = { ...dataRef.current, module0: finalModule0 };
+    module0Ref.current = finalModule0;
 
     professionalIntelligenceCandidatesRef.current = nextCandidates;
     professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
@@ -1843,7 +1859,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => setData(p => ({ ...p, module0:  m }))} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} identityConfirmationContext={identityQuestionContext.mode === "confirm_field" ? { field: identityQuestionContext.field, expectedValue: identityQuestionContext.expectedValue } : undefined} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => { module0Ref.current = m; setData(p => ({ ...p, module0:  m })); }} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} getCurrentModule0={getCurrentModule0} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} identityConfirmationContext={identityQuestionContext.mode === "confirm_field" ? { field: identityQuestionContext.field, expectedValue: identityQuestionContext.expectedValue } : undefined} sessionId={sessionId} errors={errors}/>}
             {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} enrichments={professionalIntelligenceEnrichments} employmentRows={data.module7.employment} strategicAnswerModule={data.module11} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate} onAcceptEnrichment={handleAcceptEnrichment} onRejectEnrichment={handleRejectEnrichment}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}

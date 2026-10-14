@@ -5,9 +5,10 @@ import { Paperclip, X, Send, CheckCircle2, AlertTriangle } from "lucide-react";
 import { IntakeTokenContext } from "../primitives";
 import type { Module0 as Module0Data, CoachTurn } from "../types";
 import {
-  acquireField, acquireCoachFields, confirmField, ALL_STRUCTURED_PROFILE_FIELDS,
+  acquireCoachFields, confirmField, ALL_STRUCTURED_PROFILE_FIELDS,
   IDENTITY_FIELDS, hasAnyAcquiredInformation, minimizedProfileContext,
 } from "@/lib/intake/structured-profile";
+import { composeA0Checkpoint } from "@/lib/intake/a0-checkpoint";
 import type { ProfessionalIntelligenceCandidates } from "@/lib/intake/professional-intelligence";
 import type {
   BoundedEmploymentContext, NextProfessionalTopic, CoachFields,
@@ -34,11 +35,18 @@ const FIELD_LABELS: Record<string, string> = {
 };
 
 export function Module0({
-  data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, onCoachTurnCheckpoint,
+  data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, onCoachTurnCheckpoint, getCurrentModule0,
   professionalContext, boundedEmploymentContexts, identityConfirmationContext, sessionId, errors,
 }: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
+  // A0 CV METADATA STALE-CLOSURE fix (Exact Design + R1 + R2, approved):
+  // IntakeForm-owned authority getter, backed by a ref synchronously
+  // assigned only at IntakeForm's 3 legitimate module0 transition points.
+  // runA0 calls this exactly once, after its async A0 response resolves,
+  // instead of composing its checkpoint from this component's own
+  // (potentially stale) `data` prop.
+  getCurrentModule0: () => Module0Data;
   // P7-R4 (CR-CPS-60): deterministic checkpoint for the two remaining
   // meaningful events (A0 completion, Confirmar) whose loss would repeat
   // billable work or lose an explicit beneficiary decision. A complete
@@ -121,13 +129,17 @@ export function Module0({
         setUploadError(json.error || "No se pudo extraer información del documento. Puedes continuar y completar la información manualmente.");
         return;
       }
-      let profile = data.structuredProfile;
-      for (const [key, f] of Object.entries(json.fields as Record<string, { value: string; confidence: "high" | "medium" | "low" }>)) {
-        profile = { ...profile, [key]: acquireField(profile[key], { value: f.value, source: "cv_extraction", confidence: f.confidence }) };
-      }
       // CP-01 (P7-R4, CR-CPS-60): deterministic checkpoint of the exact
       // post-merge state -- losing it would repeat billable A0 extraction.
-      onCheckpoint({ ...data, structuredProfile: profile });
+      // A0 CV METADATA STALE-CLOSURE fix: composeA0Checkpoint retrieves
+      // the CURRENT authoritative Module0 (via getCurrentModule0, exactly
+      // once) rather than this component's own `data` prop, which may be
+      // stale by the time this async response arrives.
+      const nextModule0 = composeA0Checkpoint(
+        getCurrentModule0,
+        json.fields as Record<string, { value: string; confidence: "high" | "medium" | "low" }>,
+      );
+      onCheckpoint(nextModule0);
       // PI-B2B: optional sibling from the SAME response/request -- never
       // a second fetch. Omitted (not null/empty) whenever the server-side
       // professional extraction failed; present only on fulfillment.

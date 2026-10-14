@@ -262,7 +262,14 @@ const emp = (id: string, status: "proposed" | "accepted_in_module" | "rejected" 
   check("T82a exactly one Module0 render line", module0RenderLines.length === 1);
   const module0Render = module0RenderLines[0] ?? "";
   check("T82b Module0 render gated at step === 0", module0Render.startsWith("{step === 0"));
-  check("T82c pre-D1D required props all still present", ["data={data.module0}", "onChange={m => setData(p => ({ ...p, module0:  m }))}", "onCheckpoint={onModule0Checkpoint}", "onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted}", "sessionId={sessionId}", "errors={errors}"].every(p => module0Render.includes(p)));
+  // T82c reconciled (A0 CV METADATA STALE-CLOSURE fix, Owner MR
+  // PASS_WITH_STALE_TEST_RECONCILIATION): the ORIGINAL exact-literal
+  // onChange substring no longer matches because the authorized fix
+  // legitimately wraps it to also synchronously assign module0Ref.current
+  // (the new authority mirror) before setData -- the real invariant
+  // (every pre-D1D prop still present and unchanged in substance) is
+  // reconciled to the new, still-equivalent literal form.
+  check("T82c pre-D1D required props all still present", ["data={data.module0}", "onChange={m => { module0Ref.current = m; setData(p => ({ ...p, module0:  m })); }}", "onCheckpoint={onModule0Checkpoint}", "onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted}", "sessionId={sessionId}", "errors={errors}"].every(p => module0Render.includes(p)));
   check("T82d D1D props now present: onCoachTurnCheckpoint", module0Render.includes("onCoachTurnCheckpoint={onCoachTurnCheckpoint}"));
   check("T82e D1D props now present: professionalContext", module0Render.includes("professionalContext={questionContext.mode === \"known_employment\""));
   check("T82f D1D props now present: boundedEmploymentContexts", module0Render.includes("boundedEmploymentContexts={boundedEmploymentContexts}"));
