@@ -740,3 +740,64 @@ export function buildPostBaseEmploymentEnrichmentTransition(
     },
   };
 }
+
+// ── E3-A -- UI Eligibility Projection Helper ────────────────────────────────
+// Post-Base-Acceptance Employment Enrichment, UI Eligibility Projection
+// (approved E3 Exact Design). Pure, read-only, side-effect-free: answers
+// "would the real handler currently accept this click" WITHOUT performing
+// any mutation, persistence, or network call -- advisory/preventive only.
+// The handler (handleAcceptEnrichment, IntakeForm.tsx) remains the sole
+// authoritative, independently fail-closed validator; this helper never
+// replaces its guards and is never trusted by the handler itself. Reuses
+// every frozen E1/E2/R2A predicate verbatim (isCandidateEligibleForEnrichmentAnchor,
+// isCandidateEligibleForPostAcceptanceEnrichmentTarget,
+// hasNonBlankEmploymentEnrichmentPatch) and the exact same
+// entry.piOriginCandidateId === candidate.id linkage rule as R2A -- zero
+// fuzzy/semantic/positional/company/title/date/LLM matching, zero new
+// eligibility rule, zero duplicated implementation.
+export type EmploymentEnrichmentAcceptabilityReason =
+  | "not_eligible" | "blank_patch" | "zero_linked_rows" | "multiple_linked_rows" | "candidate_not_actionable";
+
+export type EmploymentEnrichmentAcceptability =
+  | { actionable: true; path: "pre_base" | "post_base" }
+  | { actionable: false; path: "pre_base" | "post_base" | null; reason: EmploymentEnrichmentAcceptabilityReason };
+
+export function getEmploymentEnrichmentAcceptability(
+  candidate: EmploymentCandidate,
+  enrichment: EmploymentEnrichment,
+  employmentRows: EmploymentEntry[],
+): EmploymentEnrichmentAcceptability {
+  if (!hasNonBlankEmploymentEnrichmentPatch(enrichment.patch)) {
+    // Path is classified from candidate.status alone -- never by running
+    // eligibility/linkage logic, which this early return deliberately
+    // skips entirely. "proposed"/"accepted_in_module" map to their own
+    // path; any other status (e.g. "rejected") has no path classification
+    // and reports null -- but the reason is always "blank_patch" here,
+    // never "candidate_not_actionable", because this check runs
+    // unconditionally before the status branch below ever executes.
+    const path = candidate.status === "proposed" ? "pre_base" : candidate.status === "accepted_in_module" ? "post_base" : null;
+    return { actionable: false, path, reason: "blank_patch" };
+  }
+
+  if (candidate.status === "proposed") {
+    if (!isCandidateEligibleForEnrichmentAnchor(candidate)) {
+      return { actionable: false, path: "pre_base", reason: "not_eligible" };
+    }
+    return { actionable: true, path: "pre_base" };
+  }
+
+  if (candidate.status === "accepted_in_module") {
+    if (!isCandidateEligibleForPostAcceptanceEnrichmentTarget(candidate)) {
+      return { actionable: false, path: "post_base", reason: "not_eligible" };
+    }
+    const matches = employmentRows.filter(entry => entry.piOriginCandidateId === candidate.id);
+    if (matches.length === 0) return { actionable: false, path: "post_base", reason: "zero_linked_rows" };
+    if (matches.length > 1) return { actionable: false, path: "post_base", reason: "multiple_linked_rows" };
+    return { actionable: true, path: "post_base" };
+  }
+
+  // Any other candidate status (e.g. "rejected") is never a valid
+  // enrichment target -- mirrors handleAcceptEnrichment's own final
+  // silent-no-op fallthrough exactly.
+  return { actionable: false, path: null, reason: "candidate_not_actionable" };
+}
