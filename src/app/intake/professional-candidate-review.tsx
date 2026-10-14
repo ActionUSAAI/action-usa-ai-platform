@@ -30,9 +30,10 @@ import type {
   StrategicAnswerTargetField,
   ProfessionalIntelligenceEnrichments, EmploymentEnrichment,
   EmploymentEnrichmentAcceptability, EmploymentEnrichmentAcceptabilityReason,
+  StrategicAnswerAcceptability, StrategicAnswerAcceptabilityReason,
 } from "@/lib/intake/professional-intelligence";
-import { getEmploymentEnrichmentAcceptability } from "@/lib/intake/professional-intelligence";
-import type { EmploymentEntry } from "@/app/intake/types";
+import { getEmploymentEnrichmentAcceptability, getStrategicAnswerAcceptability } from "@/lib/intake/professional-intelligence";
+import type { EmploymentEntry, Module10 } from "@/app/intake/types";
 
 export type ProfessionalIntelligenceCandidateDomain = ProfessionalIntelligenceCandidate["domain"];
 
@@ -49,6 +50,12 @@ export type ProfessionalCandidateReviewProps = {
   // never a broader IntakeFormData/DraftEnvelope object -- exactly the
   // EmploymentEntry[] the helper's own signature requires, nothing more.
   employmentRows: EmploymentEntry[];
+  // E4 -- the minimum current canonical Module10 (legacy module11) state
+  // required to project StrategicAnswer acceptability. Read-only; never
+  // mutated, never a broader IntakeFormData/DraftEnvelope object -- the
+  // exact object shape getStrategicAnswerAcceptability's caller needs to
+  // resolve the current answer via candidate.targetField.
+  strategicAnswerModule: Module10;
   onAccept: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
   onReject: (domain: ProfessionalIntelligenceCandidateDomain, candidateId: string) => void;
   onAcceptEnrichment: (enrichmentId: string) => void;
@@ -66,6 +73,15 @@ const BLOCKED_ACCEPTANCE_REASON_COPY: Record<EmploymentEnrichmentAcceptabilityRe
   not_eligible: "Esta información no se puede aplicar automáticamente a este registro de experiencia.",
   blank_patch: "No hay información nueva para aplicar.",
   candidate_not_actionable: "Esta información ya no se puede aplicar a este registro de experiencia.",
+};
+
+// E4 -- the one frozen Owner-approved Spanish blocked-state copy for
+// StrategicAnswer. Scoped locally (not merged into the Employment map
+// above) since this is a different domain's own bounded reason
+// vocabulary -- a single frozen reason today. The internal reason code
+// itself never reaches JSX.
+const STRATEGIC_ANSWER_BLOCKED_COPY: Record<StrategicAnswerAcceptabilityReason, string> = {
+  already_answered: "Este campo ya contiene una respuesta. Puedes descartar esta propuesta si no deseas conservarla.",
 };
 
 const DOMAIN_LABELS: Record<ProfessionalIntelligenceCandidateDomain, string> = {
@@ -155,7 +171,7 @@ function Meta({ provenance }: { provenance: readonly CandidateProvenance[] }) {
 }
 
 function ProposalCard({
-  domain, title, children, provenance, onAccept, onReject,
+  domain, title, children, provenance, onAccept, onReject, disabled, blockedExplanation,
 }: {
   domain: ProfessionalIntelligenceCandidateDomain;
   title: string;
@@ -163,6 +179,16 @@ function ProposalCard({
   provenance: readonly CandidateProvenance[];
   onAccept: () => void;
   onReject: () => void;
+  // E4 -- optional, default-safe presentation capability. Omitted by
+  // every existing caller (Education/Certification/Business/Reference/
+  // Evidence/base Employment) -- those domains' behavior is therefore
+  // byte-unchanged (disabled={undefined} on a native button is simply
+  // "not disabled"). Only StrategicAnswerCard currently supplies these.
+  // ProposalCard never computes this itself -- the parent review layer
+  // (ProfessionalCandidateReview) computes actionability via the
+  // relevant pure helper and passes the result down.
+  disabled?: boolean;
+  blockedExplanation?: string;
 }) {
   return (
     <div className="space-y-3 rounded-xl border border-gray-200 bg-gray-50 p-4">
@@ -171,11 +197,15 @@ function ProposalCard({
         <Meta provenance={provenance}/>
       </div>
       <div className="space-y-2">{children}</div>
+      {blockedExplanation && (
+        <p className="text-xs text-gray-500">{blockedExplanation}</p>
+      )}
       <div className="flex gap-2 pt-1">
         <button
           type="button" onClick={onAccept}
+          disabled={disabled}
           aria-label={`Aceptar propuesta de ${DOMAIN_LABELS[domain].toLowerCase()}`}
-          className="flex-1 rounded-lg border-2 border-green-500 bg-green-500 py-2 text-sm font-medium text-white transition-all hover:bg-green-600"
+          className="flex-1 rounded-lg border-2 border-green-500 bg-green-500 py-2 text-sm font-medium text-white transition-all hover:bg-green-600 disabled:cursor-not-allowed disabled:border-gray-300 disabled:bg-gray-300 disabled:text-gray-500 disabled:hover:bg-gray-300"
         >
           Aceptar
         </button>
@@ -281,13 +311,24 @@ function EvidenceCard({ candidate, onAccept, onReject }: {
   );
 }
 
-function StrategicAnswerCard({ candidate, onAccept, onReject }: {
-  candidate: StrategicAnswerCandidate; onAccept: () => void; onReject: () => void;
+function StrategicAnswerCard({ candidate, acceptability, onAccept, onReject }: {
+  candidate: StrategicAnswerCandidate;
+  // E4 -- the frozen projection, computed once by the parent
+  // (ProfessionalCandidateReview) via getStrategicAnswerAcceptability.
+  // This card never recomputes it -- presentation only. The handler
+  // (handleAcceptCandidate's "strategicAnswer" case) remains the sole
+  // authoritative, independently fail-closed validator; this projection
+  // is advisory/preventive, never trusted by it.
+  acceptability: StrategicAnswerAcceptability;
+  onAccept: () => void;
+  onReject: () => void;
 }) {
   const label = STRATEGIC_FIELD_LABELS[candidate.targetField];
   return (
     <ProposalCard domain="strategicAnswer" title={label}
-      provenance={candidate.provenance} onAccept={onAccept} onReject={onReject}>
+      provenance={candidate.provenance} onAccept={onAccept} onReject={onReject}
+      disabled={!acceptability.actionable}
+      blockedExplanation={acceptability.actionable ? undefined : STRATEGIC_ANSWER_BLOCKED_COPY[acceptability.reason]}>
       <Row label={label} value={candidate.answer}/>
     </ProposalCard>
   );
@@ -360,7 +401,7 @@ function EnrichmentCard({
   );
 }
 
-export function ProfessionalCandidateReview({ candidates, enrichments, employmentRows, onAccept, onReject, onAcceptEnrichment, onRejectEnrichment }: ProfessionalCandidateReviewProps) {
+export function ProfessionalCandidateReview({ candidates, enrichments, employmentRows, strategicAnswerModule, onAccept, onReject, onAcceptEnrichment, onRejectEnrichment }: ProfessionalCandidateReviewProps) {
   const employment     = candidates.employment.filter(c => c.status === "proposed");
   const education       = candidates.education.filter(c => c.status === "proposed");
   const certification   = candidates.certification.filter(c => c.status === "proposed");
@@ -476,7 +517,17 @@ export function ProfessionalCandidateReview({ candidates, enrichments, employmen
           <p className="text-xs font-bold uppercase tracking-wider text-gray-400">{DOMAIN_LABELS.strategicAnswer}</p>
           <div className="space-y-2">
             {strategicAnswer.map(c => (
-              <StrategicAnswerCard key={c.id} candidate={c} onAccept={() => onAccept("strategicAnswer", c.id)} onReject={() => onReject("strategicAnswer", c.id)}/>
+              <StrategicAnswerCard
+                key={c.id}
+                candidate={c}
+                // E4 -- actionability derived exclusively through the
+                // frozen helper, once per visible card, reading the
+                // current answer by the exact deterministic key
+                // c.targetField -- no fuzzy/label/text-similarity lookup.
+                acceptability={getStrategicAnswerAcceptability(c, strategicAnswerModule[c.targetField].answer)}
+                onAccept={() => onAccept("strategicAnswer", c.id)}
+                onReject={() => onReject("strategicAnswer", c.id)}
+              />
             ))}
           </div>
         </div>

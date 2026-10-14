@@ -801,3 +801,36 @@ export function getEmploymentEnrichmentAcceptability(
   // silent-no-op fallthrough exactly.
   return { actionable: false, path: null, reason: "candidate_not_actionable" };
 }
+
+// ── E4 -- StrategicAnswer Blocked-Acceptance Projection ─────────────────────
+// Post-E3, PI Professional Intelligence (approved E4 Exact Design). Pure,
+// read-only, side-effect-free: mirrors the EXACT authoritative no-op guard
+// handleAcceptCandidate's own "strategicAnswer" case already enforces
+// (D-PI-C3-02) -- a proposed StrategicAnswerCandidate whose target
+// Module10 field already holds a non-blank answer is today a silent,
+// invisible dead end on Accept. This helper projects that SAME truth for
+// the UI, advisory-only; the handler's own guard remains the sole
+// authoritative validator and is never replaced, weakened, or duplicated
+// by this function. Deterministic identity is exactly
+// candidate.targetField -- the caller resolves the current answer via
+// that exact key (never a fuzzy/semantic/label match); this function
+// itself takes the already-resolved answer string, never the whole
+// Module10 object, keeping it free of any types.ts dependency. Bounded to
+// the existing rendering contract (only status==="proposed" candidates
+// ever reach this function, per the review surface's own visibility
+// filter) -- deliberately NOT a broader candidate-status state machine.
+export type StrategicAnswerAcceptabilityReason = "already_answered";
+
+export type StrategicAnswerAcceptability =
+  | { actionable: true; reason?: never }
+  | { actionable: false; reason: StrategicAnswerAcceptabilityReason };
+
+export function getStrategicAnswerAcceptability(
+  candidate: StrategicAnswerCandidate,
+  currentModuleAnswer: string,
+): StrategicAnswerAcceptability {
+  if (currentModuleAnswer.trim() !== "") {
+    return { actionable: false, reason: "already_answered" };
+  }
+  return { actionable: true };
+}

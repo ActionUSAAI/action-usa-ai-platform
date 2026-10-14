@@ -159,19 +159,24 @@ check("T22 no 'exact quote'/'verbatim CV text' labeling", !/cita exacta|texto ex
 {
   check("T23 exact three confidence labels present", src.includes('"Confianza alta"') && src.includes('"Confianza media"') && src.includes('"Confianza baja"'));
   check("T24 no numeric percentage confidence display", !src.includes("%"));
-  // T25 reconciled (E3-B, UI Eligibility Projection Wiring): the ORIGINAL
-  // claim ("no `disabled` anywhere in the file") is no longer true by
-  // design -- the Owner-approved Employment enrichment Accept button now
-  // legitimately uses the native `disabled` attribute, gated on the
-  // frozen E3-A acceptability projection. The real invariant this check
-  // protects -- that CONFIDENCE specifically never disables/gates any
-  // button -- is reconciled to its real, still-enforced form: the one
-  // `disabled` usage in the file is driven by `acceptability.actionable`,
-  // never by confidence/CONFIDENCE_LABELS/CONFIDENCE_RANK.
-  check("T25 confidence never disables/gates a button (the file's one `disabled={...}` attribute is driven by E3-A acceptability, never by confidence)",
-    (src.match(/disabled=\{[^}]*\}/g) ?? []).length === 1 &&
-    /disabled=\{!acceptability\.actionable\}/.test(src) &&
-    !/disabled=\{[^}]*confidence/i.test(src));
+  // T25 reconciled (E3-B, then E4): the ORIGINAL claim ("no `disabled`
+  // anywhere in the file") is no longer true by design -- the Employment
+  // enrichment Accept button (E3-A/E3-B) and the shared ProposalCard's
+  // Accept button (E4, driving StrategicAnswer) both now legitimately
+  // use the native `disabled` attribute, each gated on its own frozen
+  // acceptability projection. The real invariant -- that CONFIDENCE
+  // specifically never disables/gates any button -- is reconciled to its
+  // real, still-enforced form: both `disabled` usages are driven by
+  // their respective acceptability projections, never by
+  // confidence/CONFIDENCE_LABELS/CONFIDENCE_RANK.
+  check("T25 confidence never disables/gates a button (both `disabled={...}` attributes are driven by acceptability projections, never by confidence)",
+    // Comment-stripped (`code`, not `src`) so an explanatory comment
+    // mentioning "disabled={undefined}" as prose is never miscounted as
+    // a third real usage.
+    (code.match(/disabled=\{[^}]*\}/g) ?? []).length === 3 &&
+    /disabled=\{!acceptability\.actionable\}/.test(code) &&
+    /disabled=\{disabled\}/.test(code) &&
+    !/disabled=\{[^}]*confidence/i.test(code));
   check("T26 deterministic highest-confidence-among-provenance rule present", /CONFIDENCE_RANK\[p\.confidence\] > CONFIDENCE_RANK\[best\]/.test(src));
 }
 
@@ -280,19 +285,21 @@ check("T22 no 'exact quote'/'verbatim CV text' labeling", !/cita exacta|texto ex
   for (const f of forbidden) check(`T56 no "${f}" reference in executable code (comments excluded)`, !code.includes(f));
   check("T57 does not import from IntakeForm.tsx or Module0.tsx (no import-path reference)",
     !/from\s+["'].*IntakeForm["']/.test(src) && !/from\s+["'].*Module0["']/.test(src));
-  // T58 reconciled (E3-B): the ORIGINAL claim ("exactly 2 import
+  // T58 reconciled (E3-B, then E4): the ORIGINAL claim ("exactly 2 import
   // statements, from exactly these 2 sources") is no longer true by
-  // design -- the Owner-approved wiring legitimately adds a value import
-  // of getEmploymentEnrichmentAcceptability (same, already-imported-from
-  // module) and a NEW type-only import of EmploymentEntry from
-  // @/app/intake/types (the one Owner-authorized exception this exact
-  // gate introduces). The real invariant -- no OTHER import source, no
-  // runtime (non-type-only) dependency on types.ts, no React/IntakeForm/
-  // Module0 import -- is reconciled to its real, still-enforced form.
+  // design -- E3-B legitimately added a value import of
+  // getEmploymentEnrichmentAcceptability (same, already-imported-from
+  // module) and a type-only import of EmploymentEntry from
+  // @/app/intake/types; E4 legitimately extends the SAME two statements
+  // with getStrategicAnswerAcceptability and Module10 respectively --
+  // still zero NEW import statements, still zero NEW import sources. The
+  // real invariant -- no OTHER import source, no runtime (non-type-only)
+  // dependency on types.ts, no React/IntakeForm/Module0 import -- is
+  // reconciled to its real, still-enforced form.
   check("T58 imports only from ./primitives, @/lib/intake/professional-intelligence, and (type-only) @/app/intake/types -- no other source",
     /from "\.\/primitives"/.test(src) &&
     /from "@\/lib\/intake\/professional-intelligence"/.test(src) &&
-    /import type \{ EmploymentEntry \} from "@\/app\/intake\/types";/.test(src) &&
+    /import type \{ EmploymentEntry, Module10 \} from "@\/app\/intake\/types";/.test(src) &&
     (src.match(/^import /gm) ?? []).length === 4 &&
     !/from\s+["'].*IntakeForm["']/.test(src) && !/from\s+["'].*Module0["']/.test(src) && !/from\s+["']react["']/.test(src));
 }
