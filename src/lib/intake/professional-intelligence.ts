@@ -12,6 +12,16 @@
 // Project/Contribution/Compensation/JudgeEvaluator entity, no
 // generalized Fact abstraction -- all explicitly deferred/prohibited by
 // the governing Exact Architecture and PI-A Reconciliation gates.
+//
+// E2-R2A (PI Employment Enrichment Post-Base-Acceptance Materialization,
+// approved minimal executable seam design): this file's first-ever type
+// import, added solely so buildPostBaseEmploymentEnrichmentTransition
+// below can express EmploymentEntry[] (module7.employment rows) in its
+// own signature. Type-only; types.ts imports nothing from this file, so
+// no cycle is introduced. Precedented by professional-intelligence-
+// adapters.ts, which already imports this exact type from this exact
+// path for the same reason.
+import type { EmploymentEntry } from "@/app/intake/types";
 
 export type CandidateSource = "cv_extraction" | "coach_discovery";
 export type CandidateConfidence = "high" | "medium" | "low";
@@ -657,5 +667,76 @@ export function applyEmploymentCompletion(
     endDate: nextEndDate,
     ...(nextCurrentEmployment !== undefined ? { currentEmployment: nextCurrentEmployment } : {}),
     provenance: [...candidate.provenance, provenance],
+  };
+}
+
+// ── E2-R2A -- Authoritative Transition Seam (Layer 1) ───────────────────────
+// PI Employment Enrichment Post-Base-Acceptance Materialization, approved
+// minimal executable seam design (E2-R2/E2-R2-R1). Pure, deterministic,
+// Path-B-only: decides whether an already-accepted (accepted_in_module)
+// Employment candidate's proposed enrichment may update its already-
+// materialized module7.employment row, and if so, computes the exact next
+// employment array and next enrichment overlay -- never calling save(),
+// never touching a ref, never touching React, never generating an id or a
+// timestamp. The future checkpoint orchestrator (E2-R2B, NOT implemented
+// here) is the only authorized caller of this function in production; the
+// UI continues to supply only enrichmentId to IntakeForm, which continues
+// to resolve `enrichment`/`targetCandidate` itself before any call here --
+// this function never receives raw ids, never regains UI/model authority.
+export type PostBaseEmploymentEnrichmentFailReason =
+  | "not_eligible"
+  | "blank_patch"
+  | "zero_linked_rows"
+  | "multiple_linked_rows";
+
+export type PostBaseEmploymentEnrichmentTransitionResult =
+  | { outcome: "fail_closed"; reason: PostBaseEmploymentEnrichmentFailReason }
+  | { outcome: "ready_to_checkpoint"; nextEmployment: EmploymentEntry[]; nextEnrichments: ProfessionalIntelligenceEnrichments };
+
+// Target resolution is exact-id-only (entry.piOriginCandidateId ===
+// targetCandidate.id) -- zero and multiple matches both fail closed; no
+// company/title/date/position/fuzzy/semantic/LLM fallback of any kind.
+// Eligibility and blank-patch checks reuse the existing frozen predicates
+// verbatim (isCandidateEligibleForPostAcceptanceEnrichmentTarget,
+// hasNonBlankEmploymentEnrichmentPatch) -- never duplicated. The patched
+// row only ever overwrites mainFunctions/importantProjects/mainAchievements,
+// each via the existing frozen appendPreserveExisting helper -- every other
+// EmploymentEntry field survives via the unconditional `...resolvedRow`
+// spread. A normalized-duplicate narrative (appendPreserveExisting's own
+// no-op case) still reaches "ready_to_checkpoint" with the enrichment
+// accepted -- acceptance validity depends on a nonblank PATCH and an exact
+// target, never on whether the rendered text actually changes (frozen,
+// intentional -- D-PI-D-R1 precedent, restated for E2's Path B).
+export function buildPostBaseEmploymentEnrichmentTransition(
+  targetCandidate: EmploymentCandidate,
+  enrichment: EmploymentEnrichment,
+  currentEmployment: EmploymentEntry[],
+  currentEnrichments: ProfessionalIntelligenceEnrichments,
+): PostBaseEmploymentEnrichmentTransitionResult {
+  if (!isCandidateEligibleForPostAcceptanceEnrichmentTarget(targetCandidate)) {
+    return { outcome: "fail_closed", reason: "not_eligible" };
+  }
+  if (!hasNonBlankEmploymentEnrichmentPatch(enrichment.patch)) {
+    return { outcome: "fail_closed", reason: "blank_patch" };
+  }
+
+  const matches = currentEmployment.filter(entry => entry.piOriginCandidateId === targetCandidate.id);
+  if (matches.length === 0) return { outcome: "fail_closed", reason: "zero_linked_rows" };
+  if (matches.length > 1) return { outcome: "fail_closed", reason: "multiple_linked_rows" };
+  const resolvedRow = matches[0];
+
+  const patchedRow: EmploymentEntry = {
+    ...resolvedRow,
+    mainFunctions: appendPreserveExisting(resolvedRow.mainFunctions, enrichment.patch.mainFunctions ?? ""),
+    importantProjects: appendPreserveExisting(resolvedRow.importantProjects, enrichment.patch.importantProjects ?? ""),
+    mainAchievements: appendPreserveExisting(resolvedRow.mainAchievements, enrichment.patch.mainAchievements ?? ""),
+  };
+
+  return {
+    outcome: "ready_to_checkpoint",
+    nextEmployment: currentEmployment.map(entry => (entry.id === resolvedRow.id ? patchedRow : entry)),
+    nextEnrichments: {
+      employment: currentEnrichments.employment.map(e => (e.id === enrichment.id ? { ...e, status: "accepted" } : e)),
+    },
   };
 }

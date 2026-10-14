@@ -175,12 +175,30 @@ check("T39 same targetField + different answer = same identity but material equa
   strategicAnswerSameIdentity(strat(), strat({ answer: "totally different claim" })) && !strategicAnswerMaterialEquals(strat(), strat({ answer: "totally different claim" })));
 
 // ── Structural decoupling (import-based, not prose-grep) ────────────────────
+// T40 reconciled (E2-R2A, PI Employment Enrichment Post-Base-Acceptance
+// Materialization, approved minimal executable seam design): the ORIGINAL
+// claim ("this file has zero imports at all") is no longer true by design
+// -- the Owner-approved Layer 1 seam (buildPostBaseEmploymentEnrichmentTransition)
+// requires exactly one, type-only import of EmploymentEntry from
+// @/app/intake/types, so Layer 1's own signature can express
+// EmploymentEntry[] (module7.employment rows). This is not a reopening of
+// PI-A's decoupling invariant -- it is the one, explicitly authorized
+// exception to it. The real invariant this check protects (no dependency
+// on IntakeFormData/Module0/StructuredProfile/DraftEnvelope/IntakeForm.tsx/
+// module-numbering/CBR/Supabase/API routes/agents, and no RUNTIME/React
+// dependency of any kind) is reconciled to its true, still-enforced form:
+// zero forbidden-substring imports, and the one surviving import is
+// verified to be exactly the approved type-only EmploymentEntry import
+// (erased at compile time -- zero runtime footprint).
 {
   const src = readFileSync(require.resolve(PROD_FILE), "utf8");
   const importLines = src.split("\n").filter(l => /^\s*import\b/.test(l));
   const forbidden = ["IntakeFormData", "Module0", "StructuredProfile", "DraftEnvelope", "IntakeForm.tsx", "module-numbering", "cbr", "supabase", "@/app/api", "agents"];
   const violation = importLines.find(l => forbidden.some(f => l.toLowerCase().includes(f.toLowerCase())));
-  check("T40 professional-intelligence.ts imports nothing from IntakeFormData/Module0/StructuredProfile/DraftEnvelope/IntakeForm.tsx/module-numbering/CBR/Supabase/API routes/agents", importLines.length === 0 && violation === undefined);
+  check("T40 professional-intelligence.ts imports nothing from IntakeFormData/Module0/StructuredProfile/DraftEnvelope/IntakeForm.tsx/module-numbering/CBR/Supabase/API routes/agents (E2-R2A's one approved type-only EmploymentEntry import is the sole, explicitly authorized exception)",
+    violation === undefined &&
+    importLines.length === 1 &&
+    /^\s*import type \{ EmploymentEntry \} from "@\/app\/intake\/types";\s*$/.test(importLines[0]));
 }
 
 // ── Project/Contribution/Compensation/JudgeEvaluator/generalized-Fact prohibition ──
