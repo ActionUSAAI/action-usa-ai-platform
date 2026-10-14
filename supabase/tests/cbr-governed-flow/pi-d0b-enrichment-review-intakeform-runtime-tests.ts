@@ -85,8 +85,17 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
   check("T07 malformed enrichment sibling resets only the enrichment overlay (to empty)", malformedResult.professionalIntelligenceEnrichments.employment.length === 0);
   check("T08 malformed enrichment sibling does not affect IntakeFormData hydration", (malformedResult.saved as { module1?: { fullName?: string } }).module1?.fullName === "OK");
 
-  check("T09 save() envelope construction includes professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef.current",
-    /professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef\.current,/.test(src));
+  // T09 reconciled (E2-R2B): save()'s envelope construction was
+  // extracted, behavior-preserving, into buildDraftEnvelope -- the
+  // literal key:value object-literal form this regex originally matched
+  // no longer exists (save() now passes professionalIntelligenceEnrichmentsRef.current
+  // as a positional argument to buildDraftEnvelope, which itself assigns
+  // it to the professionalIntelligenceEnrichments field). The real
+  // invariant -- save()'s envelope still includes the live enrichments
+  // ref value -- is reconciled to its real, still-enforced call-site form.
+  check("T09 save() passes professionalIntelligenceEnrichmentsRef.current into the authoritative buildDraftEnvelope call (which assigns it to the envelope's professionalIntelligenceEnrichments field)",
+    /buildDraftEnvelope\(\s*[\s\S]*?professionalIntelligenceEnrichmentsRef\.current,?\s*\)/.test(src) &&
+    /professionalIntelligenceEnrichments:\s*enrichments,/.test(src));
 
   const submitBody = src.match(/async function submit\(\)[\s\S]*?\n  \}/)?.[0] ?? "";
   check("T10 final submission (submit()) still has zero reference to professionalIntelligenceEnrichments", !!submitBody && !submitBody.includes("professionalIntelligenceEnrichments"));
@@ -243,18 +252,35 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 
 // ════════════════════════════════════════════════════════════════════════════
 // E2 — POST-BASE HANDLER BRANCH (PI Employment Enrichment Post-Base-
-// Acceptance Materialization, Exact Design R1). handleAcceptEnrichment is
-// a useCallback closure, not independently importable/invokable without
-// mounting the full component (same constraint pi-d0b's own pre-existing
-// T36-T50 already accepted) -- so, mirroring that exact precedent, Path B
-// behavior is proven structurally against the handler's own exact source
-// text, not via runtime invocation. The pure helpers Path B composes
-// (isCandidateEligibleForPostAcceptanceEnrichmentTarget,
-// hasNonBlankEmploymentEnrichmentPatch, appendPreserveExisting) are
-// already independently, exhaustively unit-tested elsewhere (E1's
-// pi-d0a/pi-c1 suites) -- these tests prove Path B WIRES them correctly,
-// in the correct order, behind the correct fail-closed guards; they do
-// not re-prove the helpers' own input/output behavior.
+// Acceptance Materialization). handleAcceptEnrichment is a useCallback
+// closure, not independently importable/invokable without mounting the
+// full component (same constraint pi-d0b's own pre-existing T36-T50
+// already accepted) -- so, mirroring that exact precedent, Path B's
+// WIRING is proven structurally against the handler's own exact source
+// text, not via runtime invocation.
+//
+// RECONCILED (E2-R2B, approved checkpoint/envelope/persistence seam
+// design): the original E2-era assertions below (E2-T01 through E2-T20)
+// tested Path B's OLD inline transition/checkpoint body text directly.
+// That body no longer exists by design -- it was extracted, behavior-
+// preserving, into two authoritative, independently-executable production
+// seams: buildPostBaseEmploymentEnrichmentTransition (R2A, Layer 1 --
+// exact-id resolution, zero/multi-match fail-closed, patch boundary, row
+// targeting, enrichment status transition, candidate immutability, fresh-
+// read sequential-call safety) and runPostBaseEmploymentEnrichmentCheckpoint
+// (R2B, Layer 2 -- ref-mutate-before-persist, single persist call, ref
+// rollback on failure, no React setter inside the orchestrator itself).
+// Every one of those invariants is now proven by REAL EXECUTION, not
+// regex, in supabase/tests/cbr-governed-flow/pi-e2-r2a-post-base-
+// transition-tests.ts and pi-e2-r2b-checkpoint-persistence-tests.ts
+// respectively -- re-deriving them here as source-text assertions against
+// a different file's internals would be duplicative, not protective. This
+// file's remaining, narrower job is to prove the WIRING: that Path B
+// actually calls the real orchestrator with the real production
+// dependencies, and that the visible-state commit (setData/
+// setProfessionalIntelligenceEnrichments/justCheckpointedRef) happens only
+// on a "persisted" outcome -- never weaker coverage, just relocated to the
+// layer that now owns each concern.
 // ════════════════════════════════════════════════════════════════════════════
 {
   const acceptBody = src.slice(src.indexOf("const handleAcceptEnrichment"), src.indexOf("const handleRejectEnrichment"));
@@ -262,121 +288,60 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
     acceptBody.indexOf('if (targetCandidate.status === "accepted_in_module")'),
     acceptBody.lastIndexOf("return;")
   );
-  const pathBCode = pathBBody.replace(/^\s*\/\/.*$/gm, "");
 
   // E2-T02 — Path A existing predicate preserved: accepted_in_module
   // candidates must never enter Path A's branch.
   check("E2-T02 Path A branch is gated on status === \"proposed\" only (accepted_in_module can never enter it)",
     /if \(targetCandidate\.status === "proposed"\) \{/.test(acceptBody));
 
-  // E2-T07/post-base eligibility -- CV_EXTRACTION boundary preserved,
-  // Coach-only-discovered candidates excluded even if accepted_in_module.
-  check("E2-T07 Path B requires isCandidateEligibleForPostAcceptanceEnrichmentTarget (Coach-only-discovered accepted candidates fail closed; cv_extraction boundary reused, not broadened)",
-    pathBBody.includes("isCandidateEligibleForPostAcceptanceEnrichmentTarget(targetCandidate)"));
+  // E2-R2B-T01 — Path B is now exactly one call into the real,
+  // independently-tested orchestrator, with the real production
+  // dependencies (not a UI/model-supplied row id, not a fabricated ref).
+  check("E2-R2B-T01 Path B calls runPostBaseEmploymentEnrichmentCheckpoint exactly once with (targetCandidate, enrichment, deps)",
+    (pathBBody.match(/runPostBaseEmploymentEnrichmentCheckpoint\(/g) ?? []).length === 1);
+  check("E2-R2B-T02 deps.currentData is dataRef.current (authoritative current module state, never a stale/cached snapshot)",
+    /currentData:\s*dataRef\.current,/.test(pathBBody));
+  check("E2-R2B-T03 deps.currentEnrichments is the already-resolved `enrichments` overlay captured at the top of the handler",
+    /currentEnrichments:\s*enrichments,/.test(pathBBody));
+  check("E2-R2B-T04 deps.enrichmentsRef is the REAL professionalIntelligenceEnrichmentsRef (never a copy/clone)",
+    /enrichmentsRef:\s*professionalIntelligenceEnrichmentsRef,/.test(pathBBody));
+  check("E2-R2B-T05 deps.persist is the REAL save callback (never a UI-supplied/fabricated persistence function)",
+    /persist:\s*save,/.test(pathBBody));
 
-  // E2-T04/E2-T05/E2-T06 — exact row resolution: identity-only match,
-  // zero-match and multi-match both fail closed, no fallback of any kind.
-  check("E2-T04 exact identity resolution: entry.piOriginCandidateId === targetCandidate.id (no company/title/date/index/fuzzy/semantic/LLM match)",
-    /currentEmployment\.filter\(entry => entry\.piOriginCandidateId === targetCandidate\.id\)/.test(pathBBody));
-  check("E2-T05/E2-T06 zero-match and multi-match both fail closed (matches.length !== 1 return;), never \"pick first\"",
-    /if \(matches\.length !== 1\) return;/.test(pathBBody));
-  check("E2 no heuristic/fuzzy/semantic/positional fallback anywhere in Path B (no company/title/date/index comparison, no .find( used for row resolution)",
-    !/matches\[0\]\.company|matches\[0\]\.title|entry\.company ===|entry\.title ===/.test(pathBBody) && !pathBBody.includes("currentEmployment.find("));
+  // E2-R2B-T06/T07/§17 — visible-state commit (setData/
+  // setProfessionalIntelligenceEnrichments/justCheckpointedRef) happens
+  // ONLY on outcome.outcome === "persisted"; no setter call exists
+  // anywhere else in Path B's body.
+  check("E2-R2B-T06 setData/setProfessionalIntelligenceEnrichments/justCheckpointedRef are gated on outcome.outcome === \"persisted\" exclusively",
+    /if \(outcome\.outcome === "persisted"\) \{\s*justCheckpointedRef\.current = true;\s*setData\(outcome\.nextData\);\s*setProfessionalIntelligenceEnrichments\(outcome\.nextEnrichments\);\s*\}/.test(pathBBody));
+  check("E2-R2B-T07 PARTIAL_VISIBLE_SUCCESS_ALLOWED:NO -- no setData/setProfessionalIntelligenceEnrichments/justCheckpointedRef call exists anywhere in Path B outside that one gated block",
+    (pathBBody.match(/setData\(/g) ?? []).length === 1 &&
+    (pathBBody.match(/setProfessionalIntelligenceEnrichments\(/g) ?? []).length === 1 &&
+    (pathBBody.match(/justCheckpointedRef\.current = true/g) ?? []).length === 1);
+  check("E2-R2B-T08 Path B never calls save()/persistDraftEnvelope/localStorage directly (all persistence routed through the orchestrator's injected persist dependency)",
+    !pathBBody.includes("save(") && !pathBBody.includes("persistDraftEnvelope(") && !pathBBody.includes("localStorage"));
 
-  // E2-T08 — blank patch fail closed. Proven once, before the Path A/B
-  // split (T41 above) -- re-confirmed here that Path B's branch body
-  // itself contains no second, independent nonblank check (single source
-  // of truth, never duplicated/weakened per-path).
-  check("E2-T08 blank-patch guard is shared (checked once before the split, re-used by both paths) -- no second/weaker inline check inside Path B",
-    !pathBBody.includes("hasNonblankField") && !/\.some\(v => typeof v === "string"/.test(pathBBody));
-
-  // E2-T10/E2-T11 — patch field boundary + appendPreserveExisting reuse.
-  // Only the three narrative fields are ever touched; every other
-  // EmploymentEntry field survives via the unconditional `...resolvedRow`
-  // spread, so manual identity edits on the live row (E2-T09) are
-  // preserved byte-for-byte by construction, not by a separate explicit
-  // field-by-field copy this test would otherwise have to re-prove.
-  check("E2-T10/E2-T11/E2-T09 patchedRow spreads the full resolved row first, then overwrites ONLY mainFunctions/importantProjects/mainAchievements via the frozen appendPreserveExisting helper (every other field, including any manual edit, survives unconditionally)",
-    /const patchedRow = \{\s*\.\.\.resolvedRow,\s*mainFunctions: appendPreserveExisting\(resolvedRow\.mainFunctions, enrichment\.patch\.mainFunctions \?\? ""\),\s*importantProjects: appendPreserveExisting\(resolvedRow\.importantProjects, enrichment\.patch\.importantProjects \?\? ""\),\s*mainAchievements: appendPreserveExisting\(resolvedRow\.mainAchievements, enrichment\.patch\.mainAchievements \?\? ""\),\s*\};/.test(pathBBody));
-  check("E2 patchedRow never reconstructed from the base candidate / composeEffectiveCandidate / candidateToEmploymentEntry (no fresh EmploymentEntry created)",
-    !pathBBody.includes("composeEffectiveCandidate") && !pathBBody.includes("candidateToEmploymentEntry") && !pathBBody.includes("freshEntryId"));
-  check("E2 identity fields (id, piOriginCandidateId, company, title, dates, etc.) never reassigned in patchedRow (no `id:`/`piOriginCandidateId:`/`company:`/`title:` key present in the patchedRow literal)",
-    !/const patchedRow = \{[^}]*\b(id|piOriginCandidateId|company|title|startDate|endDate|isCurrent)\s*:/.test(pathBBody));
-
-  // E2-T03/E2-T13/E2-T20 — no duplicate EmploymentEntry; same-length
-  // replace-in-place via .map(), never .push/.concat/spread-append;
-  // resolvedRow.id (not targetCandidate.id, not a UI-supplied id) targets
-  // the already-authorized row.
-  check("E2-T13/E2-T03 module7.employment is rebuilt via .map() only (same length before/after; no .push/.concat/array-spread-append anywhere in Path B)",
-    /module7: \{ employment: currentEmployment\.map\(entry => \(entry\.id === resolvedRow\.id \? patchedRow : entry\)\) \}/.test(pathBBody) &&
-    !pathBBody.includes(".push(") && !pathBBody.includes(".concat("));
-  check("E2-T20 the row is targeted by its OWN resolved id (resolvedRow.id), never by targetCandidate.id and never by a UI-supplied id",
-    pathBBody.includes("entry.id === resolvedRow.id") && !/currentEmployment\.map\(entry => \(entry\.id === targetCandidate\.id/.test(pathBBody));
-
-  // E2-T19 — base candidate never mutated. Path B never assigns to
-  // professionalIntelligenceCandidatesRef / setProfessionalIntelligenceCandidates
-  // / targetCandidate's own fields anywhere.
-  check("E2-T19 Path B never mutates the base candidate (no professionalIntelligenceCandidatesRef/setProfessionalIntelligenceCandidates assignment, no targetCandidate.<field> = write)",
+  // E2-T19 (re-confirmed at the new, much narrower call site) -- base
+  // candidate never mutated by the handler's own Path B wiring.
+  check("E2-T19 Path B wiring never mutates the base candidate (no professionalIntelligenceCandidatesRef/setProfessionalIntelligenceCandidates assignment, no targetCandidate.<field> = write)",
     !pathBBody.includes("professionalIntelligenceCandidatesRef.current =") &&
     !pathBBody.includes("setProfessionalIntelligenceCandidates(") &&
     !/targetCandidate\.\w+\s*=(?!=)/.test(pathBBody));
-
-  // E2-T01/E2-T12 — the clicked enrichment's own status transition
-  // (proposed -> accepted) is the SAME shared nextEnrichments expression
-  // used by Path A (T42 above, defined once before the split) -- Path B
-  // never recomputes or duplicates it, so a normalized-duplicate
-  // narrative (E2-T12, where appendPreserveExisting is a content no-op)
-  // still reaches this same unconditional status transition: it is a
-  // valid acceptance, never misclassified as a blank-patch failure
-  // (blank-patch is checked against the PATCH, never against whether it
-  // changes the row's rendered text).
-  check("E2-T01/E2-T12 Path B reuses the single, already-defined nextEnrichments (no second/duplicate status-transition expression inside Path B)",
-    !/employment: enrichments\.employment\.map\(e => \(e\.id === enrichmentId/.test(pathBBody));
-
-  // E2-T15/E2-T16/E2-T17/§14 Application Checkpoint Consistency — the
-  // defining E2 requirement: ref mutated before the single save(nextData)
-  // call (so that one save() serializes BOTH the patched module7 data,
-  // passed explicitly, AND the accepted enrichment state, read from the
-  // just-mutated ref -- re-using save()'s own envelope construction,
-  // already proven by T09 above to read
-  // professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef.current).
-  // setData/setProfessionalIntelligenceEnrichments are called ONLY inside
-  // the persisted-success branch; the failure branch rolls the ref back
-  // to its pre-attempt value and calls neither setter -- so a failed save
-  // leaves rendered state (data/professionalIntelligenceEnrichments)
-  // completely untouched and the enrichment remains "proposed".
-  check("E2-T17 Path B calls save(nextData) exactly once, with the ref already mutated to nextEnrichments beforehand (one checkpoint serializes both halves)",
-    (pathBBody.match(/\bsave\(nextData\)/g) ?? []).length === 1 &&
-    pathBBody.indexOf("professionalIntelligenceEnrichmentsRef.current = nextEnrichments;") < pathBBody.indexOf("save(nextData)"));
-  check("E2-T15 setData/setProfessionalIntelligenceEnrichments are called ONLY inside the `if (persisted)` success branch",
-    /if \(persisted\) \{\s*justCheckpointedRef\.current = true;\s*setData\(nextData\);\s*setProfessionalIntelligenceEnrichments\(nextEnrichments\);\s*\}/.test(pathBBody));
-  check("E2-T16 on failure (else branch) the ref is rolled back to its pre-attempt value and no setter is called outside the success branch",
-    /\} else \{\s*professionalIntelligenceEnrichmentsRef\.current = enrichments;\s*\}/.test(pathBBody) &&
-    (pathBBody.match(/setData\(nextData\)/g) ?? []).length === 1 &&
-    (pathBBody.match(/setProfessionalIntelligenceEnrichments\(nextEnrichments\)/g) ?? []).length === 1);
-  check("E2 PARTIAL_VISIBLE_SUCCESS_ALLOWED:NO -- no setData/setProfessionalIntelligenceEnrichments call exists outside the `if (persisted)` block anywhere in Path B",
-    pathBBody.split("if (persisted) {")[0].indexOf("setData(") === -1 &&
-    (pathBBody.split("if (persisted) {")[1] ?? "").split("} else {")[1]?.indexOf("setData(") !== 0);
-  check("E2 no second save() call introduced anywhere in Path B (exactly one checkpoint, no retry/fallback save)",
-    (pathBCode.match(/\bsave\(/g) ?? []).length === 1);
-  check("E2 no ACID/transaction claim introduced in actual code (no 'transaction'/'rollback'/'commit' as a DB concept, no new persistence API) -- explanatory comments disclaiming DB-transaction atomicity are expected and excluded here",
-    !/\btransaction\b|\.rollback\(|\bBEGIN\b|\bCOMMIT\b/i.test(pathBCode));
-
-  // E2-T14 — sequential enrichments: Path B always re-reads
-  // dataRef.current fresh on every invocation (never a stale/precomputed
-  // snapshot carried across calls), so accepting enrichment A then B
-  // later re-resolves the SAME row from CURRENT state each time --
-  // appendPreserveExisting's own already-proven accumulation semantics
-  // (pi-d0a E1-era tests) then govern the accumulated result
-  // deterministically; no caching/memoization of resolvedRow across calls.
-  check("E2-T14 Path B always reads dataRef.current fresh (never a module-level/outer-scope cached employment snapshot) -- sequential Accept calls each re-resolve from current state",
-    pathBBody.includes("dataRef.current.module7.employment") && !acceptBody.includes("let cachedEmployment") && !acceptBody.includes("let resolvedRow;"));
 
   // E2 scope firewall -- no new EmploymentEntry fields, no new
   // post-materialization linkage field, no UI-facing changes in this
   // handler.
   check("E2 no new field introduced on EmploymentEntry by this handler (only the frozen E1 piOriginCandidateId is read, never written to a new name)",
     !pathBBody.includes("acceptedModuleEntryId") && !pathBBody.includes("moduleEntryId") && !pathBBody.includes(".linkedRowId"));
+
+  // Re-confirmed, out-of-this-file invariants (now owned and executably
+  // proven by R2A/R2B's own suites): exact-id resolution, zero/multi-
+  // match fail-closed, three-field patch boundary, appendPreserveExisting
+  // reuse, no row append/delete/reorder, enrichment status transition,
+  // normalized-duplicate acceptance, single persist call, ref rollback on
+  // failure, sequential fresh-read safety. See
+  // pi-e2-r2a-post-base-transition-tests.ts (R2A-T01..R2A-T10) and
+  // pi-e2-r2b-checkpoint-persistence-tests.ts (R2B-T01..R2B-T07).
 }
 
 // ════════════════════════════════════════════════════════════════════════════

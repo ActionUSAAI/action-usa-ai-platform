@@ -20,12 +20,13 @@ import {
   emptyProfessionalIntelligenceEnrichments,
   isValidProfessionalIntelligenceEnrichmentsOverlay,
   isCandidateEligibleForEnrichmentAnchor,
-  isCandidateEligibleForPostAcceptanceEnrichmentTarget,
   hasNonBlankEmploymentEnrichmentPatch,
-  appendPreserveExisting,
   composeEffectiveCandidate,
   removeOrphanedEnrichments,
   type EmploymentCandidate,
+  type EmploymentEnrichment,
+  type PostBaseEmploymentEnrichmentFailReason,
+  buildPostBaseEmploymentEnrichmentTransition,
   isCoachDiscoveryOnly,
   applyEmploymentCompletion,
 } from "@/lib/intake/professional-intelligence";
@@ -87,6 +88,105 @@ export type DraftEnvelope = {
   professionalIntelligenceCandidates?: ProfessionalIntelligenceCandidates;
   professionalIntelligenceEnrichments?: ProfessionalIntelligenceEnrichments;
 };
+
+// E2-R2B (PI Employment Enrichment Post-Base-Acceptance Materialization,
+// approved minimal executable seam design) -- the authoritative,
+// behavior-preserving extraction of save()'s own inline envelope
+// construction (previously an anonymous object literal inside save()'s
+// try block). Pure; no React, no storage, no side effect. `savedAt`
+// defaults to a fresh timestamp exactly as save() always produced
+// inline -- the optional parameter exists solely so executable tests can
+// supply a deterministic value; production never passes it explicitly.
+export function buildDraftEnvelope(
+  data: IntakeFormData,
+  step: number,
+  candidates: ProfessionalIntelligenceCandidates,
+  enrichments: ProfessionalIntelligenceEnrichments,
+  savedAt: string = new Date().toISOString(),
+): DraftEnvelope {
+  return {
+    data,
+    step,
+    savedAt,
+    professionalIntelligenceCandidates: candidates,
+    professionalIntelligenceEnrichments: enrichments,
+  };
+}
+
+// E2-R2B -- the minimum structural interface save()'s one localStorage
+// call actually needs. No getItem/removeItem/clear/key()/length -- none
+// of those are ever called by save(). `localStorage` itself structurally
+// satisfies this narrower interface with zero adapter; a test supplies a
+// plain object implementing only this one method.
+export interface DraftStorageWriter {
+  setItem(key: string, value: string): void;
+}
+
+// E2-R2B -- the authoritative, behavior-preserving extraction of save()'s
+// own inline JSON.stringify + localStorage.setItem + try/catch-to-boolean
+// conversion. Owns the ONE implementation of DraftEnvelope -> serialized
+// write -> success/failure boolean; save() and any future test call this
+// exact function, never a second copy of this algorithm. Both
+// JSON.stringify and the write remain inside the same try/catch,
+// preserving save()'s existing combined exception boundary exactly.
+export function persistDraftEnvelope(
+  storageWriter: DraftStorageWriter,
+  storageKey: string,
+  envelope: DraftEnvelope,
+): boolean {
+  try {
+    storageWriter.setItem(storageKey, JSON.stringify(envelope));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// E2-R2B -- Layer 2, the authoritative post-base checkpoint orchestrator
+// (PI Employment Enrichment Post-Base-Acceptance Materialization). Plain,
+// React-independent: receives persistence and the mutable enrichment ref
+// as injected dependencies rather than reading any hook/React state
+// itself, so the exact same function is callable from IntakeForm
+// (production, real ref + real save) and from tests (synthetic ref +
+// synthetic persist). Owns ONLY sequencing (call R2A once, stage the ref,
+// persist once, commit or roll back) -- R2A
+// (buildPostBaseEmploymentEnrichmentTransition) remains the sole
+// authoritative transition/target-resolution/patch implementation; this
+// function never duplicates any of that logic. Never calls a React
+// setter -- justCheckpointedRef/setData/setProfessionalIntelligenceEnrichments
+// remain exclusively IntakeForm's own responsibility, triggered by
+// inspecting this function's returned outcome.
+export interface PostBaseEmploymentEnrichmentCheckpointDeps {
+  currentData: IntakeFormData;
+  currentEnrichments: ProfessionalIntelligenceEnrichments;
+  enrichmentsRef: { current: ProfessionalIntelligenceEnrichments };
+  persist: (nextData: IntakeFormData) => boolean;
+}
+
+export type PostBaseEmploymentEnrichmentCheckpointOutcome =
+  | { outcome: "fail_closed"; reason: PostBaseEmploymentEnrichmentFailReason }
+  | { outcome: "persisted"; nextData: IntakeFormData; nextEnrichments: ProfessionalIntelligenceEnrichments }
+  | { outcome: "persistence_failed" };
+
+export function runPostBaseEmploymentEnrichmentCheckpoint(
+  targetCandidate: EmploymentCandidate,
+  enrichment: EmploymentEnrichment,
+  deps: PostBaseEmploymentEnrichmentCheckpointDeps,
+): PostBaseEmploymentEnrichmentCheckpointOutcome {
+  const transition = buildPostBaseEmploymentEnrichmentTransition(
+    targetCandidate, enrichment, deps.currentData.module7.employment, deps.currentEnrichments
+  );
+  if (transition.outcome === "fail_closed") return transition;
+
+  const nextData: IntakeFormData = { ...deps.currentData, module7: { employment: transition.nextEmployment } };
+
+  deps.enrichmentsRef.current = transition.nextEnrichments;
+  if (!deps.persist(nextData)) {
+    deps.enrichmentsRef.current = deps.currentEnrichments;
+    return { outcome: "persistence_failed" };
+  }
+  return { outcome: "persisted", nextData, nextEnrichments: transition.nextEnrichments };
+}
 
 // PI-D1D — supersedes PI-D0B's ActiveProfessionalContext (manual/global
 // beneficiary-selected target) with the PI-D1-R2/R3 Coach-led,
@@ -960,20 +1060,15 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // checkpoint wiring) can react; callers that don't (autosave, manual
   // button, Siguiente/Anterior) may ignore the result.
   const save = useCallback((explicitData?: IntakeFormData, explicitStep?: number): boolean => {
-    try {
-      const envelope: DraftEnvelope = {
-        data: explicitData ?? dataRef.current,
-        step: explicitStep ?? stepRef.current,
-        savedAt: new Date().toISOString(),
-        professionalIntelligenceCandidates: professionalIntelligenceCandidatesRef.current,
-        professionalIntelligenceEnrichments: professionalIntelligenceEnrichmentsRef.current,
-      };
-      localStorage.setItem(storageKey, JSON.stringify(envelope));
-      setSavedAt(new Date());
-      return true;
-    } catch {
-      return false;
-    }
+    const envelope = buildDraftEnvelope(
+      explicitData ?? dataRef.current,
+      explicitStep ?? stepRef.current,
+      professionalIntelligenceCandidatesRef.current,
+      professionalIntelligenceEnrichmentsRef.current,
+    );
+    const persisted = persistDraftEnvelope(localStorage, storageKey, envelope);
+    if (persisted) { setSavedAt(new Date()); }
+    return persisted;
   }, [storageKey]);
 
   // ── CP-01/02/03 canonical checkpoint wiring (P7-R4, CR-CPS-60): Module0
@@ -1271,39 +1366,16 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     // already-authorized row for replacement -- never supplied by the
     // UI, never the candidate's id.
     if (targetCandidate.status === "accepted_in_module") {
-      if (!isCandidateEligibleForPostAcceptanceEnrichmentTarget(targetCandidate)) return;
-
-      const currentEmployment = dataRef.current.module7.employment;
-      const matches = currentEmployment.filter(entry => entry.piOriginCandidateId === targetCandidate.id);
-      if (matches.length !== 1) return;
-      const resolvedRow = matches[0];
-
-      const patchedRow = {
-        ...resolvedRow,
-        mainFunctions: appendPreserveExisting(resolvedRow.mainFunctions, enrichment.patch.mainFunctions ?? ""),
-        importantProjects: appendPreserveExisting(resolvedRow.importantProjects, enrichment.patch.importantProjects ?? ""),
-        mainAchievements: appendPreserveExisting(resolvedRow.mainAchievements, enrichment.patch.mainAchievements ?? ""),
-      };
-
-      const nextData: IntakeFormData = {
-        ...dataRef.current,
-        module7: { employment: currentEmployment.map(entry => (entry.id === resolvedRow.id ? patchedRow : entry)) },
-      };
-
-      // Application-checkpoint consistency (not DB transaction atomicity):
-      // the ref must hold nextEnrichments for save() to persist it (save()
-      // has no explicit enrichments parameter), but React state is only
-      // ever mirrored after a successful save -- a failed save rolls the
-      // ref back to its pre-attempt value so ref/state never desync, and
-      // neither half of this change reaches rendered state.
-      professionalIntelligenceEnrichmentsRef.current = nextEnrichments;
-      const persisted = save(nextData);
-      if (persisted) {
+      const outcome = runPostBaseEmploymentEnrichmentCheckpoint(targetCandidate, enrichment, {
+        currentData: dataRef.current,
+        currentEnrichments: enrichments,
+        enrichmentsRef: professionalIntelligenceEnrichmentsRef,
+        persist: save,
+      });
+      if (outcome.outcome === "persisted") {
         justCheckpointedRef.current = true;
-        setData(nextData);
-        setProfessionalIntelligenceEnrichments(nextEnrichments);
-      } else {
-        professionalIntelligenceEnrichmentsRef.current = enrichments;
+        setData(outcome.nextData);
+        setProfessionalIntelligenceEnrichments(outcome.nextEnrichments);
       }
       return;
     }

@@ -347,13 +347,32 @@ function known(candidateId: string): QuestionProfessionalContext {
   check("T69 no Project/Compensation entity introduced", !intakeFormSrc.includes("ProjectCandidate") && !intakeFormSrc.includes("CompensationCandidate"));
   check("T70 no automatic acceptance vocabulary", !intakeFormSrc.includes("autoAccept") && !module0Src.includes("autoAccept"));
   check("T71 no semantic/fuzzy reanchor helper", !/function\s+(fuzzyMatch|semanticMatch|reanchor)/i.test(intakeFormSrc));
-  // Two localStorage.setItem call sites legitimately exist pre-D1D:
-  // save()'s own draft-envelope write, and the unrelated session-id
-  // bookkeeping in the init effect. Neither is D1D's addition -- the
-  // real invariant is that questionContext/rotation never appear
-  // anywhere near either literal write site.
-  const setItemSites = intakeFormSrc.match(/localStorage\.setItem\([^)]*\)/g) ?? [];
-  check("T72 question context / rotation never appear in any localStorage.setItem call", setItemSites.length === 2 && setItemSites.every(s => !s.includes("questionContext") && !s.includes("rotation")));
+  // T72 reconciled (E2-R2B, approved checkpoint/envelope/persistence seam
+  // design): save()'s own draft-envelope write is no longer a literal
+  // `localStorage.setItem(...)` call site -- it was extracted, behavior-
+  // preserving, into persistDraftEnvelope's `storageWriter.setItem(...)`
+  // call (production wires storageWriter=localStorage via save()'s call
+  // to persistDraftEnvelope, but the literal write expression itself now
+  // reads `storageWriter`, not `localStorage`). Exactly one literal
+  // `localStorage.setItem(...)` call site remains in the whole file (the
+  // unrelated session-id bookkeeping in the init effect) -- not D1D's
+  // addition either. The real invariant -- questionContext/rotation never
+  // reach ANY persistence write, literal or delegated -- is reconciled to
+  // its real, now MORE strongly enforced form: checked against both the
+  // one remaining literal localStorage.setItem site AND the one
+  // storageWriter.setItem site inside persistDraftEnvelope, plus a direct
+  // re-proof that buildDraftEnvelope's own parameter list/return object
+  // (which is all persistDraftEnvelope ever serializes) contains no
+  // questionContext/rotation reference at all.
+  const setItemSites = [
+    ...(intakeFormSrc.match(/localStorage\.setItem\([^)]*\)/g) ?? []),
+    ...(intakeFormSrc.match(/storageWriter\.setItem\([^)]*\)/g) ?? []),
+  ];
+  const buildDraftEnvelopeBody = intakeFormSrc.match(/export function buildDraftEnvelope\([\s\S]*?\n\}/)?.[0] ?? "";
+  check("T72 question context / rotation never appear in any localStorage.setItem/storageWriter.setItem call, nor in buildDraftEnvelope's own construction",
+    setItemSites.length === 2 &&
+    setItemSites.every(s => !s.includes("questionContext") && !s.includes("rotation")) &&
+    !buildDraftEnvelopeBody.includes("questionContext") && !buildDraftEnvelopeBody.includes("rotation"));
 }
 
 // ── §35 — mixed turn (discoveries + enrichment) supported in same checkpoint ──

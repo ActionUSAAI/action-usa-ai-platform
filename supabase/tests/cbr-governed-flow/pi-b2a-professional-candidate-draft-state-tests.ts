@@ -140,10 +140,29 @@ function cert(id: string, source: "cv_extraction" | "coach_discovery"): Certific
 }
 
 // ── §44 — save serialization ──────────────────────────────────────────────────
+// T21/T22 reconciled (E2-R2B, PI Employment Enrichment Post-Base-
+// Acceptance Materialization, approved checkpoint/envelope/persistence
+// seam design): save()'s own inline envelope-construction/localStorage.
+// setItem/try-catch was extracted, behavior-preserving, into two
+// authoritative, directly-testable production functions --
+// buildDraftEnvelope and persistDraftEnvelope -- that save() itself now
+// calls. The literal strings this check originally grepped for inside
+// save()'s own body text ("localStorage.setItem", "professionalIntelligenceCandidates:
+// professionalIntelligenceCandidatesRef.current") no longer live there by
+// design; they now live inside persistDraftEnvelope and buildDraftEnvelope
+// respectively, with save() as their sole production caller. The real
+// invariants this check protects -- "save() ultimately performs exactly
+// one storage write" and "save()'s envelope includes the candidates
+// sibling" -- remain exactly true, reconciled to their real, still-
+// enforced form below.
 {
   const saveBody = intakeFormSrc.match(/const save = useCallback\([\s\S]*?\n  \}, \[storageKey\]\);/)?.[0] ?? "";
-  check("T21 save() performs exactly one localStorage.setItem call", (saveBody.match(/localStorage\.setItem/g) ?? []).length === 1);
-  check("T22 save()'s envelope includes the professionalIntelligenceCandidates sibling", /professionalIntelligenceCandidates:\s*professionalIntelligenceCandidatesRef\.current/.test(saveBody));
+  const persistDraftEnvelopeBody = intakeFormSrc.match(/export function persistDraftEnvelope\([\s\S]*?\n\}/)?.[0] ?? "";
+  check("T21 save() delegates its one storage write to the authoritative persistDraftEnvelope (which itself performs exactly one localStorage.setItem call)",
+    (saveBody.match(/\bpersistDraftEnvelope\(/g) ?? []).length === 1 &&
+    (persistDraftEnvelopeBody.match(/\.setItem\(/g) ?? []).length === 1);
+  check("T22 save()'s envelope includes the professionalIntelligenceCandidates sibling via the authoritative buildDraftEnvelope call",
+    /buildDraftEnvelope\(\s*[\s\S]*?professionalIntelligenceCandidatesRef\.current,/.test(saveBody));
   check("T23 no second/new storage key introduced for candidates", !/aucis_professional_candidates/.test(intakeFormSrc));
 }
 
