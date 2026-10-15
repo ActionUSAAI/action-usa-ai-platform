@@ -113,6 +113,9 @@ export function acquireField(
     if (current.value === incoming.value) return current;
     return { ...current, status: "conflicting" };
   }
+  if (current.status === "conflicting") {
+    return current;
+  }
   if (current.status === "acquired_unconfirmed" && current.value && current.value !== incoming.value) {
     return { ...current, status: "conflicting" };
   }
