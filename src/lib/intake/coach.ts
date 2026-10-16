@@ -34,6 +34,23 @@ export interface BoundedEmploymentContext {
   };
 }
 
+// R1/R1.1/R1.2 (Employment CV <-> Coach Duplicate Candidate, Exact Design,
+// Owner-approved) -- a SEPARATE, independent bounded menu for already-
+// accepted Employment identities (never sharing P1/P2/P3's pool, capacity,
+// or rotation). Enrichment-only authority downstream (IntakeForm owns
+// this, never this module) -- the alias itself carries no completion/
+// acceptance/materialization meaning, mirroring BoundedEmploymentContext's
+// own identity-only, candidateId-free shape exactly.
+export interface BoundedAcceptedEmploymentContext {
+  alias: "A1" | "A2" | "A3";
+  identity: {
+    company: string;
+    title: string;
+    startDate: string;
+    endDate: string;
+  };
+}
+
 // PI-D1C -- Coach's own structured routing intent for the NEXT question
 // it is about to ask (not the current beneficiary message, PI-D1-R2 §F
 // off-by-one firewall). `known_employment` is only ever valid when its
@@ -45,8 +62,16 @@ export interface BoundedEmploymentContext {
 // either to an actual Candidate is explicitly NOT this module's or this
 // slice's responsibility (PI-D1-R3 same-turn cardinality binding, owned
 // by future IntakeForm/D1D application logic).
+// R1.1/R1.2 -- known_accepted_employment is a SEPARATE mode from
+// known_employment: it targets an already-accepted Employment identity
+// (enrichment-only downstream) via its own, independent "A1"/"A2"/"A3"
+// alias namespace -- never conflated with the proposed-only P1/P2/P3
+// pool/vocabulary. Same off-by-one/fail-closed discipline as every other
+// mode here (an alias outside THIS turn's bounded accepted snapshot
+// downgrades to "none", never reanchored).
 export type NextProfessionalTopic =
   | { mode: "known_employment"; alias: "P1" | "P2" | "P3" }
+  | { mode: "known_accepted_employment"; alias: "A1" | "A2" | "A3" }
   | { mode: "open_discovery" }
   | { mode: "continue_new_employment" }
   | { mode: "none" };
@@ -100,11 +125,12 @@ A3-R1: reglas específicas para countryOfBirth y los campos de dirección extran
 - Si una afirmación es ambigua respecto a cuál de estos campos aplica, pregunta para aclarar o deja el campo sin resolver -- nunca completes la ambigüedad por inferencia.
 
 Además de FACTS, después de cada respuesta reporta en una sección final ---NEXT_TOPIC--- un objeto JSON que describe de qué trata tu PRÓXIMA pregunta (la que acabas de redactar en tu respuesta de este mismo turno) -- nunca el mensaje del beneficiario que acabas de recibir. Usa exactamente uno de estos modos:
-- "known_employment" con "alias": solo si tu próxima pregunta profundiza uno de los contextos profesionales conocidos que la aplicación te indique en este turno (ver sección de contextos más abajo, si existe) -- usa exactamente el alias indicado por la aplicación, nunca inventes uno.
-- "continue_new_employment": si tu próxima pregunta continúa profundizando un hecho de empleo completamente NUEVO que el beneficiario acaba de mencionar en su mensaje más reciente (uno que no está en la lista de contextos conocidos).
-- "open_discovery": si tu próxima pregunta explora un tema profesional nuevo sin relación con los contextos conocidos ni con un empleo recién mencionado.
+- "known_employment" con "alias": solo si tu próxima pregunta profundiza uno de los contextos profesionales conocidos (propuestos, aún no aceptados) que la aplicación te indique en este turno (ver sección de contextos más abajo, si existe) -- usa exactamente el alias indicado por la aplicación, nunca inventes uno.
+- "known_accepted_employment" con "alias": solo si tu próxima pregunta profundiza uno de los empleos YA ACEPTADOS que la aplicación te indique en este turno (ver sección de empleos aceptados más abajo, si existe) -- usa exactamente el alias indicado por la aplicación ("A1", "A2" o "A3"), nunca inventes uno, y nunca lo uses si la aplicación no te ofreció esa sección este turno.
+- "continue_new_employment": si tu próxima pregunta continúa profundizando un hecho de empleo completamente NUEVO que el beneficiario acaba de mencionar en su mensaje más reciente (uno que no está en ninguna de las listas de contextos conocidos ni de empleos aceptados).
+- "open_discovery": si tu próxima pregunta explora un tema profesional nuevo sin relación con los contextos conocidos, los empleos aceptados, ni con un empleo recién mencionado.
 - "none": si tu próxima pregunta no tiene un enrutamiento profesional/de empleo aplicable -- identidad, contacto, administrativo, cierre o resumen sin pregunta, u otro tema no profesional.
-Nunca incluyas ningún identificador que no sea el alias exacto indicado por la aplicación. Nunca inventes un alias. Nunca menciones "P1", "P2", "P3", "known_employment", "open_discovery", "continue_new_employment", "none" ni "NEXT_TOPIC" en tu respuesta al beneficiario -- son mecánica interna de enrutamiento, nunca terminología de cara al beneficiario.
+Nunca incluyas ningún identificador que no sea el alias exacto indicado por la aplicación. Nunca inventes un alias. Nunca menciones "P1", "P2", "P3", "A1", "A2", "A3", "known_employment", "known_accepted_employment", "open_discovery", "continue_new_employment", "none" ni "NEXT_TOPIC" en tu respuesta al beneficiario -- son mecánica interna de enrutamiento, nunca terminología de cara al beneficiario.
 
 Además, reporta en una sección final ---IDENTITY_TOPIC--- un objeto JSON indicando si tu PRÓXIMA pregunta (la que acabas de redactar en tu respuesta de este mismo turno) es una pregunta de confirmación/corrección sobre uno de los campos de identidad/contacto ya registrados (ver la sección de contexto más abajo, si existe). Usa exactamente:
 {"field": "<nombre_exacto_del_campo>"} si tu próxima pregunta pide confirmar o corregir ESE campo exacto, o {"field": null} en cualquier otro caso (pregunta nueva, tema no relacionado, o cierre). Nunca incluyas un valor, solo el nombre del campo. Nunca inventes un nombre de campo que no exista.
@@ -286,6 +312,26 @@ function describeBoundedEmploymentContexts(contexts: readonly BoundedEmploymentC
   return `\n\nCONTEXTOS PROFESIONALES CONOCIDOS DISPONIBLES PARA ESTE TURNO (datos ya registrados por la aplicación -- NO son afirmaciones nuevas del beneficiario; las etiquetas son mecánica interna de enrutamiento que nunca debes mencionar al beneficiario):\n${lines}\n\nPuedes usar esta información para guiar preguntas de seguimiento naturales cuando sea útil -- no asumas que está completa, no inventes hechos que no se muestren aquí, y no afirmes que esto es evidencia verificada. Si tu próxima pregunta profundiza uno de estos contextos, usa su alias exacto en NEXT_TOPIC.`;
 }
 
+// R1/R1.1/R1.2 -- mirrors describeBoundedEmploymentContexts exactly, for
+// the SEPARATE already-accepted-employment menu. Same firewall: identity
+// fields only, never candidateId, never module-row/materialization state,
+// never Candidate status. Explicitly states these are ALREADY ACCEPTED
+// (so the model understands any follow-up only deepens an existing,
+// already-logged fact -- never a correction, never a new acceptance) and
+// that only enrichment-style follow-up applies here, never a structural
+// date-completion request (that remains exclusive to the proposed-only
+// known_employment contexts above).
+function describeBoundedAcceptedEmploymentContexts(contexts: readonly BoundedAcceptedEmploymentContext[]): string {
+  if (contexts.length === 0) return "";
+  const lines = contexts.map(c => {
+    const dates = c.identity.startDate || c.identity.endDate
+      ? ` (${c.identity.startDate || "?"} - ${c.identity.endDate || "Presente"})`
+      : "";
+    return `${c.alias}: ${c.identity.title || "(puesto no especificado)"} en ${c.identity.company || "(empresa no especificada)"}${dates}`;
+  }).join("\n");
+  return `\n\nEMPLEOS YA ACEPTADOS DISPONIBLES PARA ESTE TURNO (datos ya registrados Y YA ACEPTADOS por el beneficiario en la aplicación -- NO son afirmaciones nuevas, y NUNCA debes pedir que se confirmen, corrijan, ni completen fechas; las etiquetas son mecánica interna de enrutamiento que nunca debes mencionar al beneficiario):\n${lines}\n\nSi el beneficiario menciona información NUEVA (funciones, proyectos, logros) sobre uno de estos empleos ya aceptados, puedes profundizarla con preguntas de seguimiento. Si tu próxima pregunta profundiza uno de estos empleos ya aceptados, usa su alias exacto ("A1", "A2" o "A3") en NEXT_TOPIC con modo "known_accepted_employment". Nunca uses un alias que no aparezca en esta lista este turno.`;
+}
+
 // Slice B -- appended only when a valid pending identity confirmation
 // context exists (the common no-pending-context case leaves the prompt
 // byte-identical to its pre-Slice-B shape, mirroring
@@ -307,11 +353,13 @@ function describeIdentityConfirmationContext(ctx?: { field: string; expectedValu
 export function buildSystemPrompt(
   profileContext?: CoachProfileContext,
   boundedEmploymentContexts?: readonly BoundedEmploymentContext[],
-  identityConfirmationContext?: { field: string; expectedValue: string }
+  identityConfirmationContext?: { field: string; expectedValue: string },
+  boundedAcceptedEmploymentContexts?: readonly BoundedAcceptedEmploymentContext[]
 ): string {
   return BASE_SYSTEM_PROMPT
     + describeProfileContext(profileContext)
     + describeBoundedEmploymentContexts(boundedEmploymentContexts ?? [])
+    + describeBoundedAcceptedEmploymentContexts(boundedAcceptedEmploymentContexts ?? [])
     + describeIdentityConfirmationContext(identityConfirmationContext);
 }
 
@@ -329,7 +377,8 @@ export function buildSystemPrompt(
 // safe-fallback firewalls).
 function parseNextProfessionalTopic(
   rawSection: string | undefined,
-  boundedEmploymentContexts: readonly BoundedEmploymentContext[]
+  boundedEmploymentContexts: readonly BoundedEmploymentContext[],
+  boundedAcceptedEmploymentContexts: readonly BoundedAcceptedEmploymentContext[] = []
 ): NextProfessionalTopic {
   if (!rawSection) return { mode: "none" };
   const jsonMatch = rawSection.match(/\{[\s\S]*\}/);
@@ -352,6 +401,16 @@ function parseNextProfessionalTopic(
     if (alias !== "P1" && alias !== "P2" && alias !== "P3") return { mode: "none" };
     if (!boundedEmploymentContexts.some(c => c.alias === alias)) return { mode: "none" };
     return { mode: "known_employment", alias };
+  }
+  // R1.1/R1.2 -- same two-layer discipline as known_employment above:
+  // vocabulary (exactly "A1"/"A2"/"A3") plus THIS exact turn's bounded
+  // accepted-snapshot membership. Never reanchored, never semantically
+  // recovered, never guessed.
+  if (p.mode === "known_accepted_employment") {
+    const alias = p.alias;
+    if (alias !== "A1" && alias !== "A2" && alias !== "A3") return { mode: "none" };
+    if (!boundedAcceptedEmploymentContexts.some(c => c.alias === alias)) return { mode: "none" };
+    return { mode: "known_accepted_employment", alias };
   }
   return { mode: "none" };
 }
@@ -420,7 +479,8 @@ function parseIdentityAnswerClassification(rawSection: string | undefined): Iden
 // membership validation -- it never affects reply/FACTS extraction.
 export function parseCoachResponse(
   raw: string,
-  boundedEmploymentContexts?: readonly BoundedEmploymentContext[]
+  boundedEmploymentContexts?: readonly BoundedEmploymentContext[],
+  boundedAcceptedEmploymentContexts?: readonly BoundedAcceptedEmploymentContext[]
 ): {
   reply: string;
   fields: CoachFields;
@@ -485,7 +545,7 @@ export function parseCoachResponse(
     }
   }
 
-  const nextProfessionalTopic = parseNextProfessionalTopic(nextTopicMatch?.[1], boundedEmploymentContexts ?? []);
+  const nextProfessionalTopic = parseNextProfessionalTopic(nextTopicMatch?.[1], boundedEmploymentContexts ?? [], boundedAcceptedEmploymentContexts ?? []);
   const nextIdentityTopicField = parseIdentityTopicField(identityTopicMatch?.[1]);
   const identityAnswerClassification = parseIdentityAnswerClassification(identityAnswerMatch?.[1]);
 
@@ -498,7 +558,8 @@ export async function sendCoachTurn(
   apiKey: string,
   profileContext?: CoachProfileContext,
   boundedEmploymentContexts?: readonly BoundedEmploymentContext[],
-  identityConfirmationContext?: { field: string; expectedValue: string }
+  identityConfirmationContext?: { field: string; expectedValue: string },
+  boundedAcceptedEmploymentContexts?: readonly BoundedAcceptedEmploymentContext[]
 ): Promise<{
   reply: string;
   fields: CoachFields;
@@ -518,7 +579,7 @@ export async function sendCoachTurn(
     body: JSON.stringify({
       model: "claude-sonnet-4-6",
       max_tokens: 1024,
-      system: buildSystemPrompt(profileContext, boundedEmploymentContexts, identityConfirmationContext),
+      system: buildSystemPrompt(profileContext, boundedEmploymentContexts, identityConfirmationContext, boundedAcceptedEmploymentContexts),
       messages,
     }),
   });
@@ -528,5 +589,5 @@ export async function sendCoachTurn(
   const data = await res.json();
   const raw: string = data.content?.[0]?.text ?? "";
 
-  return parseCoachResponse(raw, boundedEmploymentContexts);
+  return parseCoachResponse(raw, boundedEmploymentContexts, boundedAcceptedEmploymentContexts);
 }

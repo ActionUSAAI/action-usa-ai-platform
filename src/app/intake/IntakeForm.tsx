@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, CheckCircle, Save } from "lucide-react";
 
-import type { IntakeForm as IntakeFormData, ModuleStatus } from "./types";
+import type { IntakeForm as IntakeFormData, ModuleStatus, EmploymentEntry } from "./types";
 import { IntakeTokenProvider } from "./primitives";
 import {
   emptyStructuredProfile, emptyField, acquireField, confirmField,
@@ -29,9 +29,10 @@ import {
   buildPostBaseEmploymentEnrichmentTransition,
   isCoachDiscoveryOnly,
   applyEmploymentCompletion,
+  isCandidateEligibleForAcceptedCoachReanchor,
 } from "@/lib/intake/professional-intelligence";
 import type {
-  BoundedEmploymentContext, NextProfessionalTopic, CoachFields,
+  BoundedEmploymentContext, BoundedAcceptedEmploymentContext, NextProfessionalTopic, CoachFields,
   IdentityTopicField, IdentityAnswerClassification,
 } from "@/lib/intake/coach";
 import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
@@ -197,9 +198,22 @@ export function runPostBaseEmploymentEnrichmentCheckpoint(
 // intelligence.ts has zero awareness of it). No alias field -- an alias
 // is request-snapshot-local only and is resolved to a candidateId before
 // this context is ever constructed (PI-D1-R2 §9/§23).
+// R1/R1.1/R1.2 -- a SEPARATE mode from known_employment: targets an
+// already-accepted (accepted_in_module) Employment candidate, authorizing
+// ONLY a new EmploymentEnrichment proposal going forward -- never D2
+// completion, never a second base candidate, never module mutation by
+// itself (unchanged downstream mechanics). Reached either by immediate,
+// app-owned continuation at acceptance time (zero model involvement) or
+// by a bounded, model-selected "A1"/"A2"/"A3" fallback alias (model
+// chooses topic only; candidateId is never sent to or seen by the model).
 export type QuestionProfessionalContext =
   | {
       mode: "known_employment";
+      candidateId: string;
+      identity: { company: string; title: string; startDate: string; endDate: string };
+    }
+  | {
+      mode: "known_accepted_employment";
       candidateId: string;
       identity: { company: string; title: string; startDate: string; endDate: string };
     }
@@ -227,6 +241,34 @@ export interface BoundedProfessionalSnapshotEntry {
 export interface BoundedProfessionalSnapshot {
   entries: BoundedProfessionalSnapshotEntry[];
   proposedNextRotationState: RotationPointer;
+}
+
+// R1 (Employment CV <-> Coach Duplicate Candidate, Exact Design,
+// Owner-approved) -- redundant discoveries.employment suppression
+// authority. Exact, non-fuzzy, non-semantic comparison (trim+lowercase+
+// collapse-whitespace only -- mirrors professional-intelligence.ts's own
+// private normalize()/normalizedEquals(), duplicated locally per this
+// codebase's own established per-file-duplication convention rather than
+// broadening that file's export surface, same reasoning as
+// coach-professional-extraction.ts's own header comment) against the
+// ONE employment identity deterministically bound to the CURRENT turn
+// (known_employment or known_accepted_employment) -- NEVER a scan across
+// all candidates or all module7 rows. A genuinely different company/title
+// never matches and is never suppressed (R1 §K same-turn new-employer
+// safety).
+function normalizeEmploymentIdentityText(value: string): string {
+  return value.trim().toLowerCase().replace(/\s+/g, " ");
+}
+
+export function matchesBoundEmploymentIdentity(
+  item: { company: string; title: string },
+  boundContext: QuestionProfessionalContext
+): boolean {
+  if (boundContext.mode !== "known_employment" && boundContext.mode !== "known_accepted_employment") return false;
+  return (
+    normalizeEmploymentIdentityText(item.company) === normalizeEmploymentIdentityText(boundContext.identity.company) &&
+    normalizeEmploymentIdentityText(item.title) === normalizeEmploymentIdentityText(boundContext.identity.title)
+  );
 }
 
 // Exported pure helper -- the single, narrow revalidation predicate used
@@ -331,6 +373,41 @@ export function buildBoundedProfessionalSnapshot(
   return { entries, proposedNextRotationState: newNextId };
 }
 
+// R1/R1.1/R1.2 (Employment CV <-> Coach Duplicate Candidate, Exact Design
+// + R1.1 + R1.2, Owner-approved) -- the SEPARATE, independent accepted-
+// employment fallback menu. Deliberately simpler than
+// BoundedProfessionalSnapshot above: no rotation pointer, no persistent
+// state at all (R1.2 §5/§6/§9, closed) -- rebuilt fresh every time from
+// already-persisted candidate/module state, bounded to 3, ordered by the
+// candidates array's own existing stable (creation/discovery) order,
+// never by any timestamp (none exists on any candidate -- see
+// professional-intelligence.ts's own "NO timestamp fields" comment),
+// never by content/company/title. `excludeCandidateId` lets a caller omit
+// the one candidate already active via immediate continuation this turn
+// (R1.2 §10), so the same identity is never offered through two different
+// selection paths in the same turn.
+//
+export interface BoundedAcceptedEmploymentSnapshotEntry {
+  alias: "A1" | "A2" | "A3";
+  candidateId: string;
+  identity: { company: string; title: string; startDate: string; endDate: string };
+}
+
+export function buildBoundedAcceptedEmploymentSnapshot(
+  candidates: ProfessionalIntelligenceCandidates,
+  employmentRows: readonly EmploymentEntry[],
+  excludeCandidateId: string | null
+): BoundedAcceptedEmploymentSnapshotEntry[] {
+  const eligible = candidates.employment.filter(
+    c => c.id !== excludeCandidateId && isCandidateEligibleForAcceptedCoachReanchor(c, employmentRows)
+  );
+  return eligible.slice(0, 3).map((c, i) => ({
+    alias: (`A${i + 1}` as "A1" | "A2" | "A3"),
+    candidateId: c.id,
+    identity: { company: c.company, title: c.title, startDate: c.startDate, endDate: c.endDate },
+  }));
+}
+
 // Exported pure helper -- resolves Coach's raw next-topic signal into
 // the authoritative QuestionProfessionalContext for the NEXT beneficiary
 // message, per PI-D1-R2 (alias/open_discovery/none) and PI-D1-R3
@@ -345,7 +422,9 @@ export function resolveNextQuestionContext(
   rawTopic: NextProfessionalTopic,
   snapshot: BoundedProfessionalSnapshot,
   candidatesForValidation: ProfessionalIntelligenceCandidates,
-  newEmploymentDiscoveries: readonly EmploymentCandidate[]
+  newEmploymentDiscoveries: readonly EmploymentCandidate[],
+  acceptedSnapshot: readonly BoundedAcceptedEmploymentSnapshotEntry[] = [],
+  employmentRowsForValidation: readonly EmploymentEntry[] = []
 ): QuestionProfessionalContext {
   if (rawTopic.mode === "known_employment") {
     const entry = snapshot.entries.find(e => e.alias === rawTopic.alias);
@@ -353,6 +432,20 @@ export function resolveNextQuestionContext(
     const candidate = candidatesForValidation.employment.find(c => c.id === entry.candidateId);
     if (!isContextAuthorizedTarget(candidate, entry.candidateId)) return { mode: "none" };
     return { mode: "known_employment", candidateId: entry.candidateId, identity: entry.identity };
+  }
+  // R1.1/R1.2 -- same two-layer discipline as known_employment above
+  // (snapshot membership, then full eligibility re-validation at THIS
+  // exact resolution moment -- never trusting mere snapshot presence).
+  // acceptedSnapshot is read from the SAME request-exact ref
+  // (acceptedBoundedSnapshotRef.current) whose wire-safe projection
+  // Module0 transmitted for this exact turn -- never recomputed between
+  // send and checkpoint.
+  if (rawTopic.mode === "known_accepted_employment") {
+    const entry = acceptedSnapshot.find(e => e.alias === rawTopic.alias);
+    if (!entry) return { mode: "none" };
+    const candidate = candidatesForValidation.employment.find(c => c.id === entry.candidateId);
+    if (!candidate || !isCandidateEligibleForAcceptedCoachReanchor(candidate, employmentRowsForValidation)) return { mode: "none" };
+    return { mode: "known_accepted_employment", candidateId: entry.candidateId, identity: entry.identity };
   }
   if (rawTopic.mode === "continue_new_employment") {
     // PI-D1-R3 §26/§27: cardinality-safe, zero-agreement binding --
@@ -1024,6 +1117,22 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
   // plain prop -- Module0 never sees boundedSnapshotRef itself.
   const [boundedEmploymentContexts, setBoundedEmploymentContexts] = useState<BoundedEmploymentContext[]>([]);
 
+  // R1/R1.1/R1.2 -- the SEPARATE accepted-employment fallback snapshot,
+  // mirroring boundedSnapshotRef's own "request-exact snapshot" discipline
+  // exactly (built fresh here, read unchanged at checkpoint/resolution
+  // time).
+  const acceptedBoundedSnapshotRef = useRef<BoundedAcceptedEmploymentSnapshotEntry[]>([]);
+  // Wire-safe mirror (candidateId stripped) handed to Module0 as a plain
+  // prop -- Module0 never sees acceptedBoundedSnapshotRef itself. Derived
+  // from the SAME computed snapshot as the ref below, in the same effect
+  // pass, never independently rebuilt -- this is what makes the request-
+  // exact invariant hold all the way to the wire: the mapping Module0
+  // transmits (A1/A2/A3 -> identity) and the mapping
+  // resolveNextQuestionContext later resolves against
+  // (acceptedBoundedSnapshotRef.current, read unchanged at checkpoint
+  // time) are guaranteed to originate from one identical computation.
+  const [boundedAcceptedEmploymentContexts, setBoundedAcceptedEmploymentContexts] = useState<BoundedAcceptedEmploymentContext[]>([]);
+
   useEffect(() => {
     const snapshot = buildBoundedProfessionalSnapshot(
       questionContext,
@@ -1032,7 +1141,15 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     );
     boundedSnapshotRef.current = snapshot;
     setBoundedEmploymentContexts(snapshot.entries.map(e => ({ alias: e.alias, identity: e.identity })));
-  }, [questionContext, professionalIntelligenceCandidates]);
+
+    const acceptedSnapshot = buildBoundedAcceptedEmploymentSnapshot(
+      professionalIntelligenceCandidatesRef.current,
+      dataRef.current.module7.employment,
+      questionContext.mode === "known_accepted_employment" ? questionContext.candidateId : null
+    );
+    acceptedBoundedSnapshotRef.current = acceptedSnapshot;
+    setBoundedAcceptedEmploymentContexts(acceptedSnapshot.map(e => ({ alias: e.alias, identity: e.identity })));
+  }, [questionContext, professionalIntelligenceCandidates, data.module7.employment]);
 
   // Latest navigation position, mirroring dataRef so the stable-interval
   // autosave (and manual "Guardar borrador") can serialize the current
@@ -1192,10 +1309,21 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
     if (turn.professionalIntelligence) {
       const { enrichments: incomingEnrichments, discoveries, completion } = turn.professionalIntelligence;
-      newEmploymentDiscoveries = discoveries.employment;
+      // R1 §J/§11 (Owner-approved) -- redundant-discovery governance.
+      // boundContext is THIS turn's own already-bound employment identity
+      // (whatever was actually sent as professionalContext for the
+      // request that produced this response) -- captured before any
+      // mutation below. A discoveries.employment item matching that ONE
+      // identity never becomes a second candidate; a genuinely different
+      // identity is never suppressed. No global candidate/module scan.
+      const boundContext = questionContextRef.current;
+      const filteredEmploymentDiscoveries = discoveries.employment.filter(
+        item => !matchesBoundEmploymentIdentity(item, boundContext)
+      );
+      newEmploymentDiscoveries = filteredEmploymentDiscoveries;
 
       nextCandidates = {
-        employment: [...currentCandidates.employment, ...discoveries.employment],
+        employment: [...currentCandidates.employment, ...filteredEmploymentDiscoveries],
         education: [...currentCandidates.education, ...discoveries.education],
         certification: [...currentCandidates.certification, ...discoveries.certification],
         business: [...currentCandidates.business, ...discoveries.business],
@@ -1228,9 +1356,17 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
         }
       }
 
+      // R1/R1.1 §Q (Owner-approved) -- extended to accept EITHER the
+      // original proposed-only authority (isContextAuthorizedTarget,
+      // unchanged) OR the new accepted-reanchor authority
+      // (isCandidateEligibleForAcceptedCoachReanchor), depending on the
+      // target candidate's actual current status. Never both paths
+      // required simultaneously; never a third, broader condition.
       const validEnrichments = incomingEnrichments.employment.filter(e => {
         const candidate = currentCandidates.employment.find(c => c.id === e.target.candidateId);
-        return isContextAuthorizedTarget(candidate, e.target.candidateId);
+        if (!candidate) return false;
+        if (isContextAuthorizedTarget(candidate, e.target.candidateId)) return true;
+        return isCandidateEligibleForAcceptedCoachReanchor(candidate, dataRef.current.module7.employment);
       });
       nextEnrichments = { employment: [...currentEnrichments.employment, ...validEnrichments] };
     }
@@ -1239,7 +1375,9 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
       turn.nextProfessionalTopic,
       boundedSnapshotRef.current,
       nextCandidates,
-      newEmploymentDiscoveries
+      newEmploymentDiscoveries,
+      acceptedBoundedSnapshotRef.current,
+      dataRef.current.module7.employment
     );
     // Slice B -- next context derived from the FINAL (post-FACTS-merge,
     // post-Slice-B-transition) live profile, so a field confirmed/
@@ -1329,6 +1467,17 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     if (current.mode === "known_employment") {
       const candidate = nextCandidates.employment.find(c => c.id === current.candidateId);
       if (!isContextAuthorizedTarget(candidate, current.candidateId)) {
+        questionContextRef.current = { mode: "none" };
+        setQuestionContext({ mode: "none" });
+      }
+    }
+    // R1/R1.1 -- same defensive consistency check, extended to the new
+    // accepted-reanchor mode: if CV re-extraction removes/invalidates the
+    // candidate an active known_accepted_employment pin targets, the pin
+    // is cleared the same way the proposed-pin branch above already does.
+    if (current.mode === "known_accepted_employment") {
+      const candidate = nextCandidates.employment.find(c => c.id === current.candidateId);
+      if (!candidate || !isCandidateEligibleForAcceptedCoachReanchor(candidate, dataRef.current.module7.employment)) {
         questionContextRef.current = { mode: "none" };
         setQuestionContext({ mode: "none" });
       }
@@ -1521,10 +1670,38 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
     // transition always violates) -- IntakeForm already owns both, so
     // this happens synchronously in this same handler, not via a
     // separate effect.
-    const nextQuestionContext: QuestionProfessionalContext =
-      domain === "employment" && questionContextRef.current.mode === "known_employment" && questionContextRef.current.candidateId === candidateId
-        ? { mode: "none" }
-        : questionContextRef.current;
+    //
+    // R1.1 §H (Immediate Continuation, Owner-approved): rather than
+    // unconditionally discarding the pin, promote it to
+    // known_accepted_employment when the just-accepted candidate also
+    // satisfies isCandidateEligibleForAcceptedCoachReanchor (exactly one
+    // piOriginCandidateId-linked row, same frozen cv_extraction-provenance
+    // boundary as E2's own Path B target predicate). Zero model
+    // involvement, zero new persistent state -- this is a plain,
+    // synchronous, app-owned re-derivation using data this same call
+    // already produced (nextCandidates/nextData). Any other acceptance
+    // (non-employment domain, or an employment candidate that was not the
+    // live pin) falls through to the original, unmodified fail-closed
+    // behavior.
+    const nextQuestionContext: QuestionProfessionalContext = (() => {
+      if (domain !== "employment" || questionContextRef.current.mode !== "known_employment" || questionContextRef.current.candidateId !== candidateId) {
+        return questionContextRef.current;
+      }
+      const acceptedCandidate = nextCandidates.employment.find(c => c.id === candidateId);
+      if (acceptedCandidate && isCandidateEligibleForAcceptedCoachReanchor(acceptedCandidate, nextData.module7.employment)) {
+        return {
+          mode: "known_accepted_employment",
+          candidateId: acceptedCandidate.id,
+          identity: {
+            company: acceptedCandidate.company,
+            title: acceptedCandidate.title,
+            startDate: acceptedCandidate.startDate,
+            endDate: acceptedCandidate.endDate,
+          },
+        };
+      }
+      return { mode: "none" };
+    })();
 
     professionalIntelligenceCandidatesRef.current = nextCandidates;
     questionContextRef.current = nextQuestionContext;
@@ -1859,7 +2036,7 @@ export function IntakeForm({ token, caseId, clientId, invitationEmail }: IntakeF
 
           {/* Module content */}
           <div className="px-6 py-6 sm:px-8">
-            {step === 0  && <Module0  data={data.module0}  onChange={m => { module0Ref.current = m; setData(p => ({ ...p, module0:  m })); }} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} getCurrentModule0={getCurrentModule0} professionalContext={questionContext.mode === "known_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} identityConfirmationContext={identityQuestionContext.mode === "confirm_field" ? { field: identityQuestionContext.field, expectedValue: identityQuestionContext.expectedValue } : undefined} sessionId={sessionId} errors={errors}/>}
+            {step === 0  && <Module0  data={data.module0}  onChange={m => { module0Ref.current = m; setData(p => ({ ...p, module0:  m })); }} onCheckpoint={onModule0Checkpoint} onProfessionalCandidatesExtracted={handleProfessionalCandidatesExtracted} onCoachTurnCheckpoint={onCoachTurnCheckpoint} getCurrentModule0={getCurrentModule0} professionalContext={questionContext.mode === "known_employment" || questionContext.mode === "known_accepted_employment" ? { domain: "employment", candidateId: questionContext.candidateId, identity: questionContext.identity } : undefined} boundedEmploymentContexts={boundedEmploymentContexts} boundedAcceptedEmploymentContexts={boundedAcceptedEmploymentContexts} identityConfirmationContext={identityQuestionContext.mode === "confirm_field" ? { field: identityQuestionContext.field, expectedValue: identityQuestionContext.expectedValue } : undefined} sessionId={sessionId} errors={errors}/>}
             {step === 0  && <ProfessionalCandidateReview candidates={professionalIntelligenceCandidates} enrichments={professionalIntelligenceEnrichments} employmentRows={data.module7.employment} strategicAnswerModule={data.module11} onAccept={handleAcceptCandidate} onReject={handleRejectCandidate} onAcceptEnrichment={handleAcceptEnrichment} onRejectEnrichment={handleRejectEnrichment}/>}
             {step === 1  && <Module1  data={data.module1}  onChange={m => setData(p => ({ ...p, module1:  m }))} errors={errors}/>}
             {step === 2  && <Module2  data={data.module2}  onChange={m => setData(p => ({ ...p, module2:  m }))} sessionId={sessionId}/>}

@@ -11,7 +11,7 @@ import {
 import { composeA0Checkpoint } from "@/lib/intake/a0-checkpoint";
 import type { ProfessionalIntelligenceCandidates } from "@/lib/intake/professional-intelligence";
 import type {
-  BoundedEmploymentContext, NextProfessionalTopic, CoachFields,
+  BoundedEmploymentContext, BoundedAcceptedEmploymentContext, NextProfessionalTopic, CoachFields,
   IdentityTopicField, IdentityAnswerClassification,
 } from "@/lib/intake/coach";
 import type { ProfessionalIntelligenceCoachResult } from "@/lib/intake/coach-professional-extraction";
@@ -36,7 +36,7 @@ const FIELD_LABELS: Record<string, string> = {
 
 export function Module0({
   data, onChange, onCheckpoint, onProfessionalCandidatesExtracted, onCoachTurnCheckpoint, getCurrentModule0,
-  professionalContext, boundedEmploymentContexts, identityConfirmationContext, sessionId, errors,
+  professionalContext, boundedEmploymentContexts, boundedAcceptedEmploymentContexts, identityConfirmationContext, sessionId, errors,
 }: {
   data: Module0Data;
   onChange: (d: Module0Data) => void;
@@ -86,6 +86,16 @@ export function Module0({
   // Module0 never decides eligibility/pinning/rotation; it only
   // transports whatever bounded snapshot IntakeForm already computed.
   boundedEmploymentContexts: BoundedEmploymentContext[];
+  // R1/R1.1/R1.2 (Owner-approved accepted-reanchor design) --
+  // IntakeForm-derived, read-only, wire-safe (no candidateId by
+  // construction -- BoundedAcceptedEmploymentContext has no such field
+  // at all, mirroring boundedEmploymentContexts's own established
+  // pattern exactly). A SEPARATE namespace from boundedEmploymentContexts
+  // above (P1/P2/P3 proposed vs. A1/A2/A3 accepted) -- never merged into
+  // it. Module0 never decides eligibility/exclusion/ordering; it only
+  // transports whatever accepted-bounded snapshot IntakeForm already
+  // computed.
+  boundedAcceptedEmploymentContexts: BoundedAcceptedEmploymentContext[];
   // GOVERNED_VALUE_AWARENESS Slice B — IntakeForm-derived, read-only.
   // The exact field + already-governed value IntakeForm's own PREVIOUS
   // checkpoint committed as the active identity confirmation question
@@ -205,6 +215,7 @@ export function Module0({
           profileContext: minimizedProfileContext(data.structuredProfile),
           ...(professionalContext ? { professionalContext } : {}),
           boundedEmploymentContexts,
+          boundedAcceptedEmploymentContexts,
           ...(identityConfirmationContext ? { identityConfirmationContext } : {}),
         }),
       });

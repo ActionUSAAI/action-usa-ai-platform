@@ -488,6 +488,30 @@ export function isCandidateEligibleForPostAcceptanceEnrichmentTarget(candidate: 
   return candidate.status === "accepted_in_module" && candidate.provenance.some(p => p.source === "cv_extraction");
 }
 
+// R1/R1.1/R1.2 (Employment CV <-> Coach Duplicate Candidate, Exact Design
+// + R1.1 + R1.2, Owner-approved) -- answers a THIRD, still-different
+// authority question from both predicates above: not "may this candidate
+// anchor a pre-base enrichment proposal" and not "may an already-PROPOSED
+// enrichment be accepted post-base", but "may this already-accepted
+// candidate become the subject of a NEW Coach re-anchor (continuation or
+// fallback alias), authorizing a NEW enrichment PROPOSAL going forward".
+// Reuses isCandidateEligibleForPostAcceptanceEnrichmentTarget verbatim
+// (same frozen status + cv_extraction-provenance boundary --
+// DISCOVERY_CANDIDATE_ENRICHMENT_V1: DEFERRED applies identically here,
+// excluding pure Coach-origin accepted candidates, unchanged), adding
+// only the exact-id linked-row cardinality check (mirrors
+// buildPostBaseEmploymentEnrichmentTransition's own zero/multiple-match
+// fail-closed logic, duplicated rather than refactoring that frozen
+// function -- no company/title/date/fuzzy/semantic matching of any kind).
+export function isCandidateEligibleForAcceptedCoachReanchor(
+  candidate: EmploymentCandidate,
+  employmentRows: readonly EmploymentEntry[]
+): boolean {
+  if (!isCandidateEligibleForPostAcceptanceEnrichmentTarget(candidate)) return false;
+  const matches = employmentRows.filter(e => e.piOriginCandidateId === candidate.id);
+  return matches.length === 1;
+}
+
 // APPEND_PRESERVE_EXISTING (frozen Owner decision D-PI-D-R1-01). Operates
 // on raw text only -- normalizedEquals (trim+lowercase+collapse-
 // whitespace) governs ONLY the exact-duplicate comparison, never the

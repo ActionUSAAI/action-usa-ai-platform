@@ -126,7 +126,17 @@ function known(candidateId: string): QuestionProfessionalContext {
     /const rotationNextCandidateIdRef = useRef<RotationPointer>\(null\);/.test(intakeFormSrc));
   // The build-time snapshot computation never assigns rotationNextCandidateIdRef.current -- only
   // onCoachTurnCheckpoint does, after save(). Verify by slicing the snapshot-building effect body.
-  const effectBody = intakeFormSrc.slice(intakeFormSrc.indexOf("useEffect(() => {\n    const snapshot = buildBoundedProfessionalSnapshot"), intakeFormSrc.indexOf("}, [questionContext, professionalIntelligenceCandidates]);"));
+  // T26 reconciled (R1/R1.1/R1.2): the end boundary is now located
+  // structurally -- the effect's own closing "}, [" dependency-array
+  // marker -- rather than a literal, full dependency-array string. The
+  // literal-string anchor broke when R1.2 authorizedly extended this
+  // effect's dependency array to include data.module7.employment (needed
+  // so the new accepted-snapshot ref/state rebuild when module7
+  // employment rows change); the structural boundary below is immune to
+  // that kind of change and still verifies the exact same invariant.
+  const effectStart = intakeFormSrc.indexOf("useEffect(() => {\n    const snapshot = buildBoundedProfessionalSnapshot");
+  const effectCloseOffset = intakeFormSrc.slice(effectStart).indexOf("\n  }, [");
+  const effectBody = intakeFormSrc.slice(effectStart, effectStart + effectCloseOffset);
   check("T26 snapshot-build effect never assigns rotationNextCandidateIdRef.current (build != commit)", !effectBody.includes("rotationNextCandidateIdRef.current ="));
   const checkpointBody = intakeFormSrc.slice(intakeFormSrc.indexOf("const onCoachTurnCheckpoint = useCallback"), intakeFormSrc.indexOf("rotationNextCandidateIdRef.current = boundedSnapshotRef.current.proposedNextRotationState;") + 100);
   check("T27 rotation commit happens only inside onCoachTurnCheckpoint, after save()", /const persisted = save\(nextData\);[\s\S]*rotationNextCandidateIdRef\.current = boundedSnapshotRef\.current\.proposedNextRotationState;/.test(checkpointBody));
@@ -262,8 +272,17 @@ function known(candidateId: string): QuestionProfessionalContext {
 // ── §79 — accept clears context ─────────────────────────────────────────────
 {
   const acceptBody = intakeFormSrc.slice(intakeFormSrc.indexOf("const handleAcceptCandidate = useCallback"), intakeFormSrc.indexOf("const handleRejectCandidate = useCallback"));
-  check("T54 handleAcceptCandidate clears questionContext when it targets the accepted candidate",
-    /questionContextRef\.current\.mode === "known_employment" && questionContextRef\.current\.candidateId === candidateId\s*\?\s*\{ mode: "none" \}/.test(acceptBody));
+  // T54 reconciled (R1/R1.1/R1.2, Owner-approved accepted-reanchor
+  // design): the obsolete assumption "handleAcceptCandidate always
+  // clears questionContext when it targets the accepted candidate" is
+  // superseded by Immediate Continuation -- an eligible target is
+  // PROMOTED to known_accepted_employment instead of cleared; a
+  // non-eligible/non-matching target still clears to {mode:"none"}
+  // (fail-closed preserved). See pi-d0b T28/T28b for the identical
+  // reconciliation against the same production code.
+  check("T54 handleAcceptCandidate promotes to known_accepted_employment when the accepted candidate is eligible for accepted-reanchor, otherwise still clears to {mode:\"none\"}",
+    /isCandidateEligibleForAcceptedCoachReanchor\(acceptedCandidate, nextData\.module7\.employment\)\s*\)\s*\{\s*return \{\s*mode: "known_accepted_employment"/.test(acceptBody)
+    && /return \{ mode: "none" \};\s*\}\)\(\);/.test(acceptBody));
   check("T55 effective-candidate composition via composeEffectiveCandidate still feeds the unmodified candidateToEmploymentEntry (D0B/C1 unchanged)",
     /composeEffectiveCandidate\(candidate, enrichments\.employment\)/.test(acceptBody) && /candidateToEmploymentEntry\(effectiveCandidate\)/.test(acceptBody));
 }

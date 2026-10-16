@@ -178,8 +178,20 @@ function candidatesWith(employment: EmploymentCandidate[]): ProfessionalIntellig
 
   const acceptBody = src.slice(src.indexOf("const handleAcceptCandidate"), src.indexOf("const handleRejectCandidate"));
   const rejectBody = src.slice(src.indexOf("const handleRejectCandidate ="), src.indexOf("// ── Init session ID"));
-  check("T28 base Accept clears matching question context (checks questionContextRef.current.candidateId === candidateId, mode known_employment)",
-    /questionContextRef\.current\.mode === "known_employment" && questionContextRef\.current\.candidateId === candidateId\s*\?\s*\{ mode: "none" \}/.test(acceptBody));
+  // T28 reconciled (R1/R1.1/R1.2, Owner-approved accepted-reanchor
+  // design): the obsolete assumption "base Accept always clears matching
+  // question context to {mode:'none'}" is superseded by Immediate
+  // Continuation -- when the just-accepted candidate is eligible for
+  // accepted-reanchor (isCandidateEligibleForAcceptedCoachReanchor), the
+  // pin is PROMOTED to known_accepted_employment instead of cleared.
+  // Non-eligible/non-matching cases still fail closed to {mode:"none"},
+  // so the general "never leave a stale/invalid pin active" invariant
+  // this test originally protected still holds -- only the single new,
+  // Owner-approved eligible case differs.
+  check("T28 base Accept promotes to known_accepted_employment when the just-accepted candidate is eligible for accepted-reanchor",
+    /isCandidateEligibleForAcceptedCoachReanchor\(acceptedCandidate, nextData\.module7\.employment\)\s*\)\s*\{\s*return \{\s*mode: "known_accepted_employment"/.test(acceptBody));
+  check("T28b non-eligible/non-matching Accept still clears to {mode:\"none\"} (fail-closed preserved)",
+    /return \{ mode: "none" \};\s*\}\)\(\);/.test(acceptBody));
   check("T29 base Reject clears matching question context (same pattern)",
     /questionContextRef\.current\.mode === "known_employment" && questionContextRef\.current\.candidateId === candidateId\s*\?\s*\{ mode: "none" \}/.test(rejectBody));
   check("T30 CV re-extraction clears question context when target no longer resolves to a context-authorized candidate",
